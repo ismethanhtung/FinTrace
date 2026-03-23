@@ -38,7 +38,19 @@ const PERIOD_KLINE_MAP: Record<string, { interval: string; limit: number }> = {
   '1d':  { interval: '1h',  limit: 24  },
 };
 
-const MAX_AGG_PAGES = 12; // Sample ~12,000 recent trades for ratio calculation
+const MAX_AGG_PAGES = 6; // Sample up to ~6,000 recent trades (faster UI)
+
+type AggRatios = {
+  largeBuyRatio: number;
+  largeSellRatio: number;
+  midBuyRatio: number;
+  midSellRatio: number;
+  smallBuyRatio: number;
+  smallSellRatio: number;
+};
+
+const AGG_RATIO_TTL_MS = 60_000; // cache aggTrades ratio per symbol for 60s
+const aggRatioCache = new Map<string, { expiresAt: number; value: AggRatios | null }>();
 
 async function fetchJSON(url: string): Promise<any> {
   const res = await fetch(url, { cache: 'no-store' });
@@ -143,6 +155,11 @@ export async function GET(req: NextRequest) {
  * We return ratios (not absolute) so they can be applied to any time window's volume.
  */
 async function fetchAggTradesSample(symbol: string, startTime: number, endTime: number) {
+  const cacheKey = `${symbol}:aggRatio:${Math.floor(endTime / 60_000)}`;
+  const now = Date.now();
+  const cached = aggRatioCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) return cached.value;
+
   let largeBuy = 0, largeSell = 0;
   let midBuy = 0,   midSell = 0;
   let smallBuy = 0, smallSell = 0;
@@ -182,18 +199,24 @@ async function fetchAggTradesSample(symbol: string, startTime: number, endTime: 
   const totalBuy  = largeBuy + midBuy + smallBuy;
   const totalSell = largeSell + midSell + smallSell;
 
-  if (totalBuy === 0 && totalSell === 0) return null;
+  let result: AggRatios | null = null;
+  if (totalBuy === 0 && totalSell === 0) {
+    result = null;
+  } else {
+    // Convert to ratios (0–1) so they scale correctly to any volume
+    const safeDivBuy  = (n: number) => totalBuy  > 0 ? n / totalBuy  : 0;
+    const safeDivSell = (n: number) => totalSell > 0 ? n / totalSell : 0;
 
-  // Convert to ratios (0–1) so they scale correctly to any volume
-  const safeDivBuy  = (n: number) => totalBuy  > 0 ? n / totalBuy  : 0;
-  const safeDivSell = (n: number) => totalSell > 0 ? n / totalSell : 0;
+    result = {
+      largeBuyRatio:  safeDivBuy(largeBuy),
+      largeSellRatio: safeDivSell(largeSell),
+      midBuyRatio:    safeDivBuy(midBuy),
+      midSellRatio:   safeDivSell(midSell),
+      smallBuyRatio:  safeDivBuy(smallBuy),
+      smallSellRatio: safeDivSell(smallSell),
+    };
+  }
 
-  return {
-    largeBuyRatio:  safeDivBuy(largeBuy),
-    largeSellRatio: safeDivSell(largeSell),
-    midBuyRatio:    safeDivBuy(midBuy),
-    midSellRatio:   safeDivSell(midSell),
-    smallBuyRatio:  safeDivBuy(smallBuy),
-    smallSellRatio: safeDivSell(smallSell),
-  };
+  aggRatioCache.set(cacheKey, { expiresAt: now + AGG_RATIO_TTL_MS, value: result });
+  return result;
 }
