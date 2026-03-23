@@ -44,6 +44,16 @@ export type FuturesPremiumIndex = {
   time: number;
 };
 
+/** Raw recent trade format from Binance Spot/Futures */
+export type BinanceRecentTrade = {
+  id: number;
+  price: string;
+  qty: string;
+  quoteQty?: string;
+  time: number;
+  isBuyerMaker: boolean;
+};
+
 export type Asset = {
   id: string;
   symbol: string;
@@ -146,6 +156,13 @@ export const binanceService = {
     return response.json();
   },
 
+  /** Get latest public spot trades for a symbol (max 1000). */
+  async getRecentTrades(symbol: string, limit: number = 80): Promise<BinanceRecentTrade[]> {
+    const response = await fetch(`${BINANCE_BASE_URL}/trades?symbol=${symbol}&limit=${limit}`);
+    if (!response.ok) throw new Error(`Binance trades error: ${response.status}`);
+    return response.json() as Promise<BinanceRecentTrade[]>;
+  },
+
   // ─── Futures (USD-M Perpetual) API ───────────────────────────────────────────
 
   /** Get 24hr ticker data for all USD-M futures perpetual symbols */
@@ -189,6 +206,13 @@ export const binanceService = {
     const response = await fetch(`${FAPI_BASE_URL}/depth?symbol=${symbol}&limit=${limit}`);
     if (!response.ok) throw new Error(`Futures depth error: ${response.status}`);
     return response.json();
+  },
+
+  /** Get latest public futures trades for a symbol (max 1000). */
+  async getFuturesRecentTrades(symbol: string, limit: number = 80): Promise<BinanceRecentTrade[]> {
+    const response = await fetch(`${FAPI_BASE_URL}/trades?symbol=${symbol}&limit=${limit}`);
+    if (!response.ok) throw new Error(`Futures trades error: ${response.status}`);
+    return response.json() as Promise<BinanceRecentTrade[]>;
   },
 
   // ─── Shared transforms ───────────────────────────────────────────────────────

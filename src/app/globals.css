@@ -1,126 +1,140 @@
 /* ─── Google Fonts ──────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --color-accent: #007AFF;
+    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+    --color-accent: #007aff;
 }
 
 /* ─── Light Theme ──────────────────────────────────────────────────────────── */
 :root {
-  --bg-main: #FFFFFF;
-  --bg-secondary: #F5F7F9;
-  --border-color: #EDEDED;
-  --text-main: #171717;
-  --text-muted: #737373;
+    --bg-main: #ffffff;
+    --bg-secondary: #f5f7f9;
+    --border-color: #ededed;
+    --text-main: #171717;
+    --text-muted: #737373;
 }
 
 /* ─── Dark 1: Classic Charcoal (Warm neutral dark — refined & professional) ── */
 [data-theme="dark1"] {
-  --bg-main: #1C1C1F;
-  --bg-secondary: #252528;
-  --border-color: #3A3A3F;
-  --text-main: #F0EFEC;
-  --text-muted: #9A9A9A;
+    --bg-main: #1c1c1f;
+    --bg-secondary: #252528;
+    --border-color: #3a3a3f;
+    --text-main: #f0efec;
+    --text-muted: #9a9a9a;
 }
 
 /* ─── Dark 2: Deep Ocean (Cool blue-black — Bloomberg terminal vibes) ───────── */
 [data-theme="dark2"] {
-  --bg-main: #0E1520;
-  --bg-secondary: #16202E;
-  --border-color: #243045;
-  --text-main: #CDD6E8;
-  --text-muted: #6B7D97;
+    --bg-main: #0e1520;
+    --bg-secondary: #16202e;
+    --border-color: #243045;
+    --text-main: #cdd6e8;
+    --text-muted: #6b7d97;
 }
 
 /* ─── Dark 3: Graphite Purple (Subtle violet tint — modern fintech) ─────────── */
 [data-theme="dark3"] {
-  --bg-main: #13111C;
-  --bg-secondary: #1C1928;
-  --border-color: #2E2A40;
-  --text-main: #E8E4F5;
-  --text-muted: #8B7FAB;
+    --bg-main: #13111c;
+    --bg-secondary: #1c1928;
+    --border-color: #2e2a40;
+    --text-main: #e8e4f5;
+    --text-muted: #8b7fab;
 }
 
 /* ─── Dark 4: Midnight Green (Dark teal — sophisticated wealth management) ──── */
 [data-theme="dark4"] {
-  --bg-main: #0D1714;
-  --bg-secondary: #142119;
-  --border-color: #1E3328;
-  --text-main: #D4EDE1;
-  --text-muted: #5E8A72;
+    --bg-main: #0d1714;
+    --bg-secondary: #142119;
+    --border-color: #1e3328;
+    --text-main: #d4ede1;
+    --text-muted: #5e8a72;
 }
 
 /* ─── Dark 5: Obsidian (Pure near-black — OLED-friendly, ultra-clean) ───────── */
 [data-theme="dark5"] {
-  --bg-main: #090909;
-  --bg-secondary: #131313;
-  --border-color: #222222;
-  --text-main: #E8E8E8;
-  --text-muted: #666666;
+    --bg-main: #090909;
+    --bg-secondary: #131313;
+    --border-color: #222222;
+    --text-main: #e8e8e8;
+    --text-muted: #666666;
 }
 
 /* ─── Base Layer ─────────────────────────────────────────────────────────────── */
 @layer base {
-  body {
-    @apply font-sans antialiased transition-colors duration-200;
-    background-color: var(--bg-main);
-    color: var(--text-main);
-  }
+    body {
+        @apply font-sans antialiased transition-colors duration-200;
+        background-color: var(--bg-main);
+        color: var(--text-main);
+    }
 }
 
 /* ─── Utility classes mapping to variables ──────────────────────────────────── */
-.bg-main      { background-color: var(--bg-main); }
-.bg-secondary { background-color: var(--bg-secondary); }
-.border-main  { border-color: var(--border-color); }
-.text-main    { color: var(--text-main); }
-.text-muted   { color: var(--text-muted); }
+.bg-main {
+    background-color: var(--bg-main);
+}
+.bg-secondary {
+    background-color: var(--bg-secondary);
+}
+.border-main {
+    border-color: var(--border-color);
+}
+.text-main {
+    color: var(--text-main);
+}
+.text-muted {
+    color: var(--text-muted);
+}
 
 /* ─── Custom scrollbar ────────────────────────────────────────────────────────── */
 .thin-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+    width: 4px;
+    height: 4px;
 }
 
 .thin-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+    background: transparent;
 }
 
 .thin-scrollbar::-webkit-scrollbar-thumb {
-  background-color: var(--border-color);
-  border-radius: 9999px;
+    background-color: var(--border-color);
+    border-radius: 9999px;
 }
 
 .pane-border {
-  border-color: var(--border-color);
+    border-color: var(--border-color);
 }
 
 .glass-panel {
-  background-color: var(--bg-main);
-  backdrop-filter: blur(12px);
-  opacity: 0.95;
+    background-color: var(--bg-main);
+    backdrop-filter: blur(12px);
+    opacity: 0.95;
 }
 
 /* ─── Ticker scrolling animation ─────────────────────────────────────────────── */
 @keyframes ticker-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
 }
 
 .ticker-track {
-  display: flex;
-  width: max-content;
-  animation: ticker-scroll 120s linear infinite;
-  will-change: transform;
+    display: flex;
+    width: max-content;
+    animation: ticker-scroll 120s linear infinite;
+    will-change: transform;
 }
 
 .ticker-wrapper:hover .ticker-track {
-  animation-play-state: paused;
+    animation-play-state: paused;
 }
 
 /* ─── Chart pan/drag cursor ──────────────────────────────────────────────────── */
 .chart-panning {
-  cursor: grabbing !important;
+    cursor: grabbing !important;
 }
