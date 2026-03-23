@@ -74,13 +74,19 @@ export const OrderBook = () => {
 
   // Smart default grouping based on price
   const [grouping, setGrouping] = useState<Grouping>(1);
+  const [isUserGrouping, setIsUserGrouping] = useState(false);
 
   // Update default grouping when price changes
   useEffect(() => {
-    if (currentAsset?.price) {
+    if (!isUserGrouping && currentAsset?.price) {
       setGrouping(suggestGrouping(currentAsset.price));
     }
-  }, [currentAsset?.price]);
+  }, [currentAsset?.price, isUserGrouping]);
+
+  // When switching symbols, allow auto-suggest again
+  useEffect(() => {
+    setIsUserGrouping(false);
+  }, [selectedSymbol]);
 
   const { data, isLoading } = useOrderBook(selectedSymbol, grouping);
   const [activeTab, setActiveTab] = useState<'book' | 'trades'>('book');
@@ -112,7 +118,10 @@ export const OrderBook = () => {
             {GROUPING_OPTIONS.map(g => (
               <button
                 key={g}
-                onClick={() => setGrouping(g)}
+                onClick={() => {
+                  setIsUserGrouping(true);
+                  setGrouping(g);
+                }}
                 className={cn(
                   'px-1.5 py-0.5 text-[9px] font-mono font-semibold rounded transition-all',
                   grouping === g

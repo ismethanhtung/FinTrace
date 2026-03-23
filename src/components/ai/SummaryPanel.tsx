@@ -7,6 +7,7 @@ import { useMarket } from '../../context/MarketContext';
 import { useAppSettings } from '../../context/AppSettingsContext';
 import { useCoinNews } from '../../hooks/useCoinNews';
 import ReactMarkdown from 'react-markdown';
+import { openrouterService } from '../../services/openrouterService';
 
 export const SummaryPanel = () => {
   const { selectedSymbol, assets } = useMarket();
@@ -36,10 +37,6 @@ export const SummaryPanel = () => {
   const distToLow = currentAsset.low24h ? ((currentAsset.price - currentAsset.low24h) / currentAsset.low24h) * 100 : 0;
 
   const handleGenerateReport = async () => {
-    if (!openrouterApiKey) {
-      setError('Vui lòng thêm API Key trong Cài đặt');
-      return;
-    }
     setIsGenerating(true);
     setError(null);
     try {
@@ -55,21 +52,10 @@ VWAP (Ước tính): $${vwapEst.toFixed(4)}
 Tin tức nổi bật: ${news.map(n => n.title).join('; ')}
 `;
 
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openrouterApiKey}`,
-          'HTTP-Referer': 'https://fintrace.app',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: selectedModel || 'google/gemini-2.5-flash',
-          messages: [{ role: 'user', content: systemContext }]
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      setAiReport(data.choices[0].message.content);
+      const report = await openrouterService.chat(openrouterApiKey, selectedModel, [
+        { role: 'user', content: systemContext },
+      ]);
+      setAiReport(report);
     } catch (err: any) {
       setError(err.message || "Lỗi tạo báo cáo");
     } finally {

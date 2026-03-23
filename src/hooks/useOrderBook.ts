@@ -25,22 +25,31 @@ function groupEntries(
   raw: string[][],
   grouping: number,
   side: 'bid' | 'ask',
-  limit = 50,
+  limitBuckets = 1000,
 ): { price: number; quantity: number }[] {
+  const decimals = grouping < 1 ? (grouping.toString().split('.')[1]?.length ?? 0) : 0;
+
+  const roundToDecimals = (value: number, d: number) => {
+    const factor = 10 ** d;
+    return Math.round(value * factor) / factor;
+  };
+
   const map = new Map<number, number>();
   for (const [priceStr, qtyStr] of raw) {
     const price = parseFloat(priceStr);
     const qty = parseFloat(qtyStr);
-    const key =
+    const keyRaw =
       side === 'bid'
         ? Math.floor(price / grouping) * grouping
         : Math.ceil(price / grouping) * grouping;
+
+    const key = roundToDecimals(keyRaw, decimals);
     map.set(key, (map.get(key) ?? 0) + qty);
   }
   return [...map.entries()]
     .map(([price, quantity]) => ({ price, quantity }))
     .sort((a, b) => (side === 'bid' ? b.price - a.price : a.price - b.price))
-    .slice(0, limit);
+    .slice(0, limitBuckets);
 }
 
 export const GROUPING_OPTIONS = [0.01, 0.1, 1, 10, 50, 100, 1000] as const;
@@ -68,7 +77,7 @@ export const useOrderBook = (symbol: string, grouping: Grouping) => {
 
   const fetchDepth = useCallback(async () => {
     try {
-      const raw = await binanceService.getDepth(symbol, 500);
+      const raw = await binanceService.getDepth(symbol, 1000);
 
       const rawBids = groupEntries(raw.bids, grouping, 'bid');
       const rawAsks = groupEntries(raw.asks, grouping, 'ask');

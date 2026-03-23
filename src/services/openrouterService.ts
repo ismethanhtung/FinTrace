@@ -1,9 +1,9 @@
-const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
+const OPENROUTER_PROXY_BASE = '/api/openrouter';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type ORModel = {
   id: string;
-  name: string;
+  name?: string;
   description?: string;
   context_length?: number;
   pricing?: {
@@ -24,19 +24,26 @@ export const openrouterService = {
    * Returns a filtered, sorted list of chat-capable models.
    */
   async getModels(apiKey: string): Promise<ORModel[]> {
-    const res = await fetch(`${OPENROUTER_BASE}/models`, {
+    const headers: Record<string, string> = {};
+    if (apiKey && apiKey.trim()) headers['x-openrouter-api-key'] = apiKey.trim();
+
+    const res = await fetch(`${OPENROUTER_PROXY_BASE}/models`, {
       headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        ...headers,
       },
     });
     if (!res.ok) throw new Error(`OpenRouter models error: ${res.status}`);
-    const json = await res.json();
-    const models: ORModel[] = json.data ?? [];
-    // Filter to text/chat-capable only and sort by name
-    return models
-      .filter(m => m.id && !m.id.includes(':free') === false || m.id)
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const json: unknown = await res.json();
+    const rawData = (json as { data?: unknown }).data;
+    const modelsRaw = Array.isArray(rawData) ? rawData : [];
+
+    // Sort by name (fallback to id)
+    const safeModels = modelsRaw.filter((m: unknown): m is ORModel => {
+      const rec = m as { id?: unknown; name?: unknown };
+      return typeof rec?.id === 'string' && rec.id.trim().length > 0;
+    });
+
+    return safeModels.sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id));
   },
 
   /**
@@ -48,14 +55,12 @@ export const openrouterService = {
     messages: ChatMessage[],
     signal?: AbortSignal,
   ): Promise<string> {
-    const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (apiKey && apiKey.trim()) headers['x-openrouter-api-key'] = apiKey.trim();
+
+    const res = await fetch(`${OPENROUTER_PROXY_BASE}/chat/completions`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://fintrace.app',
-        'X-Title': 'FinTrace AI',
-      },
+      headers,
       body: JSON.stringify({
         model,
         messages,
@@ -83,14 +88,12 @@ export const openrouterService = {
     onChunk: (text: string) => void,
     signal?: AbortSignal,
   ): Promise<string> {
-    const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (apiKey && apiKey.trim()) headers['x-openrouter-api-key'] = apiKey.trim();
+
+    const res = await fetch(`${OPENROUTER_PROXY_BASE}/chat/completions`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://fintrace.app',
-        'X-Title': 'FinTrace AI',
-      },
+      headers,
       body: JSON.stringify({
         model,
         messages,

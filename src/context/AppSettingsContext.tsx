@@ -34,7 +34,7 @@ Your role:
 
 You do NOT give financial advice or buy/sell recommendations. Always state that decisions are the user's own.`;
 
-export const DEFAULT_MODEL = 'anthropic/claude-3.5-haiku';
+export const DEFAULT_MODEL = 'arcee-ai/trinity-large-preview:free';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 interface AppSettingsValue {

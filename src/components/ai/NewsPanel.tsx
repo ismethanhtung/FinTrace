@@ -7,6 +7,7 @@ import { useCoinNews } from '../../hooks/useCoinNews';
 import { useAppSettings } from '../../context/AppSettingsContext';
 import { NewsItem } from '../../services/newsService';
 import { cn } from '../../lib/utils';
+import { openrouterService } from '../../services/openrouterService';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
@@ -19,42 +20,24 @@ const NewsItemCard = ({ item }: { item: NewsItem }) => {
   const handleSummarize = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    if (!openrouterApiKey) {
-      setError('Vui lòng thêm API Key trong Cài đặt');
-      return;
-    }
-    
+
     setIsSummarizing(true);
     setError(null);
     
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openrouterApiKey}`,
-          'HTTP-Referer': 'https://fintrace.app',
-          'X-Title': 'FinTrace',
-          'Content-Type': 'application/json'
+      const summaryText = await openrouterService.chat(openrouterApiKey, selectedModel, [
+        {
+          role: 'system',
+          content:
+            'Bạn là chuyên gia phân tích tài chính AI. Nhiệm vụ của bạn là đọc tin tức, sau đó trả về chuẩn xác theo định dạng Markdown tiếng Việt thật ngắn gọn:\n1. 2-3 gạch đầu dòng tóm tắt ý chính.\n2. Cuối cùng, bắt buộc kết luận bằng dòng chữ:\n\n**Đánh giá:** [Tích cực / Tiêu cực / Bình thường / Không liên quan / Giật tít rẻ tiền] - (1 câu giải thích ngắn).',
         },
-        body: JSON.stringify({
-          model: selectedModel || 'google/gemini-2.5-flash',
-          messages: [
-            {
-              role: 'system',
-              content: 'Bạn là chuyên gia phân tích tài chính AI. Nhiệm vụ của bạn là đọc tin tức, sau đó trả về chuẩn xác theo định dạng Markdown tiếng Việt thật ngắn gọn:\n1. 2-3 gạch đầu dòng tóm tắt ý chính.\n2. Cuối cùng, bắt buộc kết luận bằng dòng chữ:\n\n**Đánh giá:** [Tích cực / Tiêu cực / Bình thường / Không liên quan / Giật tít rẻ tiền] - (1 câu giải thích ngắn).'
-            },
-            {
-              role: 'user',
-              content: `Title: ${item.title}\nContent: ${item.description || 'No additional content.'}`
-            }
-          ]
-        })
-      });
-      
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      setSummary(data.choices[0].message.content);
+        {
+          role: 'user',
+          content: `Title: ${item.title}\nContent: ${item.description || 'No additional content.'}`,
+        },
+      ]);
+
+      setSummary(summaryText);
     } catch (err: any) {
       setError(err.message || 'Lỗi khi tóm tắt');
     } finally {

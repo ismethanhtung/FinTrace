@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useAppSettings, AppFont, AppTheme, FONT_STACKS, THEME_CYCLE } from "../../context/AppSettingsContext";
 import { cn } from "../../lib/utils";
+import { openrouterService } from '../../services/openrouterService';
 
 // ─── Font preview card ────────────────────────────────────────────────────────
 const FONT_OPTIONS: { value: AppFont; description: string }[] = [
@@ -56,24 +57,18 @@ export default function SettingsPage() {
     systemPrompt, setSystemPrompt,
   } = useAppSettings();
   const [activeSection, setActiveSection] = useState('profile');
-  const [models, setModels] = useState<{ id: string; name: string }[]>([]);
+  const [models, setModels] = useState<{ id: string; name?: string }[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
 
-  // Fetch models if OpenRouter key is present
+  // Fetch models (fallback key is handled server-side)
   React.useEffect(() => {
-    if (!openrouterApiKey) return;
     setIsLoadingModels(true);
-    fetch('https://openrouter.ai/api/v1/models', {
-      headers: { Authorization: `Bearer ${openrouterApiKey}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        const list = (data.data || [])
-          .filter((m: any) => m.id && !m.id.includes(':free') === false || m.id)
-          .sort((a: any, b: any) => a.name.localeCompare(b.name));
-        setModels(list);
+    openrouterService.getModels(openrouterApiKey)
+      .then(list => setModels(list))
+      .catch(err => {
+        console.error('Failed to load OR models:', err);
+        setModels([]);
       })
-      .catch(err => console.error('Failed to load OR models:', err))
       .finally(() => setIsLoadingModels(false));
   }, [openrouterApiKey]);
 
@@ -319,7 +314,10 @@ export default function SettingsPage() {
                         onChange={(e) => setOpenrouterApiKey(e.target.value)}
                         className="w-full bg-main border border-main rounded-lg py-2.5 px-4 text-[14px] focus:outline-none focus:ring-1 focus:ring-accent/30 placeholder:opacity-40"
                       />
-                      <p className="text-[11px] text-muted">Required for FinTrace AI Chat. Get yours at <a href="https://openrouter.ai/keys" className="text-accent hover:underline" target="_blank" rel="noreferrer">openrouter.ai</a></p>
+                      <p className="text-[11px] text-muted">
+                        Optional. If empty, FinTrace will use a default fallback key.
+                        Get yours at <a href="https://openrouter.ai/keys" className="text-accent hover:underline" target="_blank" rel="noreferrer">openrouter.ai</a>
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <label className="text-[12px] font-bold text-muted uppercase tracking-wider">CryptoPanic Auth Token</label>
@@ -345,19 +343,17 @@ export default function SettingsPage() {
                         value={selectedModel}
                         onChange={(e) => setSelectedModel(e.target.value)}
                         className="w-full bg-main border border-main rounded-lg py-2.5 pl-4 pr-10 text-[14px] focus:outline-none focus:ring-1 focus:ring-accent/30 appearance-none"
-                        disabled={!openrouterApiKey}
+                        disabled={isLoadingModels}
                       >
-                        {!openrouterApiKey ? (
-                          <option value={selectedModel}>Enter OpenRouter key to fetch models</option>
-                        ) : models.length === 0 ? (
-                          <option value={selectedModel}>{selectedModel} (fetching alternatives...)</option>
+                        {models.length === 0 ? (
+                          <option value={selectedModel}>{selectedModel} (loading models...)</option>
                         ) : (
                           models.map(m => (
                             <option key={m.id} value={m.id}>{m.name || m.id}</option>
                           ))
                         )}
                         {/* Fallback option if current selected model is not in list but we want to show it */}
-                        {openrouterApiKey && models.length > 0 && !models.find(m => m.id === selectedModel) && (
+                        {models.length > 0 && !models.find(m => m.id === selectedModel) && (
                           <option value={selectedModel}>{selectedModel}</option>
                         )}
                       </select>

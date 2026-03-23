@@ -135,7 +135,6 @@ export const useAIChat = ({
   // ── Send message ──────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (userText: string): Promise<void> => {
     if (!userText.trim() || isStreaming) return;
-    if (!apiKey) throw new Error('NO_API_KEY');
 
     // Ensure we have an active session
     let sessionId = activeSessionId;

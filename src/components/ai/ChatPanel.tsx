@@ -8,7 +8,7 @@ import { useCoinNews } from '../../hooks/useCoinNews';
 import { newsService } from '../../services/newsService';
 import { 
   Send, Bot, User, Trash2, Plus, 
-  MessageSquare, History, XCircle, TerminalSquare, AlertCircle, ExternalLink
+  MessageSquare, History, XCircle, TerminalSquare, ExternalLink
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import ReactMarkdown from 'react-markdown';
@@ -96,8 +96,6 @@ ${news.length > 0 ? news.slice(0, 10).map(n => `- TITLE: ${n.title}\n  SUMMARY: 
     sendMessage(input);
     setInput('');
   };
-
-  const hasApiKey = openrouterApiKey && openrouterApiKey.trim().length > 0;
 
   return (
     <div className="h-full flex flex-col relative bg-main">
@@ -245,49 +243,39 @@ ${news.length > 0 ? news.slice(0, 10).map(n => `- TITLE: ${n.title}\n  SUMMARY: 
 
       {/* ── Input Area ── */}
       <div className="p-3 border-t border-main bg-main shrink-0">
-        {!hasApiKey ? (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-start gap-2">
-            <AlertCircle className="text-rose-500 shrink-0 mt-0.5" size={14} />
-            <div className="text-[11px] leading-snug">
-              <strong className="text-rose-500 block mb-0.5">API Key Required</strong>
-              <span className="text-muted">Please add your OpenRouter API key in Settings.</span>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSend} className="relative flex items-end">
-            <textarea
-              rows={Math.min(4, Math.max(1, input.split('\n').length))}
-              placeholder={`Ask AI about ${selectedSymbol.replace('USDT', '')}...`}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              className="w-full bg-secondary border border-main rounded-xl py-2.5 pl-4 pr-12 text-[12px] text-main focus:outline-none focus:border-accent/50 resize-none thin-scrollbar leading-relaxed placeholder:text-muted"
-              style={{ minHeight: '40px' }}
-            />
-            {isStreaming ? (
-              <button 
-                type="button" 
-                onClick={stopStreaming}
-                className="absolute right-2 bottom-1.5 p-1.5 w-7 h-7 flex items-center justify-center bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
-               >
-                <div className="w-2.5 h-2.5 bg-current rounded-sm animate-pulse" />
-              </button>
-            ) : (
-              <button 
-                type="submit"
-                disabled={!input.trim()}
-                className="absolute right-2 bottom-1.5 p-1.5 w-7 h-7 flex items-center justify-center bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors"
-               >
-                <Send size={12} className="ml-0.5" />
-              </button>
-            )}
-          </form>
-        )}
+        <form onSubmit={handleSend} className="relative flex items-end">
+          <textarea
+            rows={Math.min(4, Math.max(1, input.split('\n').length))}
+            placeholder={`Ask AI about ${selectedSymbol.replace('USDT', '')}...`}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            className="w-full bg-secondary border border-main rounded-xl py-2.5 pl-4 pr-12 text-[12px] text-main focus:outline-none focus:border-accent/50 resize-none thin-scrollbar leading-relaxed placeholder:text-muted"
+            style={{ minHeight: '40px' }}
+          />
+          {isStreaming ? (
+            <button 
+              type="button" 
+              onClick={stopStreaming}
+              className="absolute right-2 bottom-1.5 p-1.5 w-7 h-7 flex items-center justify-center bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
+             >
+              <div className="w-2.5 h-2.5 bg-current rounded-sm animate-pulse" />
+            </button>
+          ) : (
+            <button 
+              type="submit"
+              disabled={!input.trim()}
+              className="absolute right-2 bottom-1.5 p-1.5 w-7 h-7 flex items-center justify-center bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors"
+             >
+              <Send size={12} className="ml-0.5" />
+            </button>
+          )}
+        </form>
       </div>
     </div>
   );
