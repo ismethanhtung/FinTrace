@@ -7,7 +7,7 @@ import { useAppSettings } from '../../context/AppSettingsContext';
 import { useCoinNews } from '../../hooks/useCoinNews';
 import { 
   Send, Bot, User, Trash2, Plus, 
-  MessageSquare, History, XCircle, TerminalSquare, AlertCircle
+  MessageSquare, History, XCircle, TerminalSquare, AlertCircle, ExternalLink
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import ReactMarkdown from 'react-markdown';
@@ -27,9 +27,11 @@ Price: $${currentAsset.price.toLocaleString()}
 24h High: $${currentAsset.high24h?.toLocaleString()}
 24h Low: $${currentAsset.low24h?.toLocaleString()}
 Volume (Base): ${currentAsset.baseVolume}
+CRITICAL INSTRUCTION: You MUST heavily base your analysis on the following recent news headlines AND their summaries. Evaluate if these news items are bullish or bearish, and synthesize that with the technical data above. 
+If you mention a specific news article, you MUST cite it using markdown links formatted exactly like this: [Read Article](URL) so the user can click it.
 
-CRITICAL INSTRUCTION: You MUST heavily base your analysis on the following recent news headlines. Evaluate if these news items are bullish (beneficial) or bearish (harmful) for the asset, and synthesize that with the technical data above:
-${news.length > 0 ? news.slice(0, 10).map(n => `- ${n.title}`).join('\n') : 'No recent news available.'}`
+NEWS DATA:
+${news.length > 0 ? news.slice(0, 10).map(n => `- TITLE: ${n.title}\n  SUMMARY: ${n.description || 'No summary available.'}\n  URL: ${n.url}`).join('\n\n') : 'No recent news available.'}`
     : `No market data available for ${selectedSymbol}`;
 
   const {
@@ -183,7 +185,23 @@ ${news.length > 0 ? news.slice(0, 10).map(n => `- ${n.title}`).join('\n') : 'No 
               )}>
                 {msg.role === 'assistant' ? (
                   <div className="prose prose-invert prose-p:my-1 prose-pre:bg-main/50 prose-pre:border prose-pre:border-main prose-sm max-w-none">
-                     <ReactMarkdown>{msg.content || '...'}</ReactMarkdown>
+                     <ReactMarkdown
+                       components={{
+                         a: ({ node, ...props }) => (
+                           <a 
+                             {...props} 
+                             target="_blank" 
+                             rel="noopener noreferrer" 
+                             className="inline-flex items-center gap-0.5 text-accent hover:text-accent/80 transition-colors underline underline-offset-4 decoration-accent/30 hover:decoration-accent/80 mx-1 font-medium"
+                           >
+                              <span>{props.children}</span>
+                              <ExternalLink size={10} className="shrink-0 ml-0.5" />
+                           </a>
+                         )
+                       }}
+                     >
+                       {msg.content || '...'}
+                     </ReactMarkdown>
                   </div>
                 ) : (
                   msg.content

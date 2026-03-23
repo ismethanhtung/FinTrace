@@ -20,12 +20,17 @@ export async function GET(request: Request) {
     const feed = await parser.parseURL(rssUrl);
     
     const items = feed.items.slice(0, 15).map((item, index) => {
+      let rawDesc = item.contentSnippet || item.content || item.summary || '';
+      // Clean up description: strip basic HTML tags and trim
+      const cleanDesc = rawDesc.replace(/(<([^>]+)>)/gi, "").substring(0, 500);
+
       return {
         id: item.guid || String(index),
         title: item.title?.replace(/ - .*$/, '') || 'Crypto News', // Remove site name from title
         url: item.link || '',
         source: item.creator || item.source || feed.title || 'Crypto News',
         publishedAt: item.isoDate || item.pubDate || new Date().toISOString(),
+        description: cleanDesc,
       };
     });
 

@@ -6,6 +6,7 @@ export type NewsItem = {
   source: string;
   publishedAt: string;      // ISO string
   relativeTime: string;     // "2h ago"
+  description?: string;     // Content summary
   sentiment?: 'positive' | 'negative' | 'neutral';
   currencies?: string[];
   imageUrl?: string;
@@ -46,6 +47,7 @@ export const newsService = {
         source: item.source || 'News',
         publishedAt: item.publishedAt,
         relativeTime: relativeTime(item.publishedAt),
+        description: item.description,
         sentiment: 'neutral', // Hard to extract from basic RSS
         currencies: [symbol.replace('USDT', '')],
       }));
