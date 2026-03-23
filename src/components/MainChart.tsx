@@ -24,11 +24,11 @@ export const MainChart = () => {
           </div>
           <div className="flex items-baseline space-x-2 mt-1">
             <span className="text-[24px] font-mono font-medium tracking-tighter">
-              ${currentAsset?.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ${currentAsset?.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <span className={`text-[13px] font-medium ${(currentAsset?.changePercent || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
               {(currentAsset?.changePercent || 0) >= 0 ? '+' : ''}{currentAsset?.changePercent.toFixed(2)}% 
-              (${Math.abs(currentAsset?.change || 0).toLocaleString()})
+              (${Math.abs(currentAsset?.change || 0).toLocaleString('en-US')})
             </span>
           </div>
         </div>

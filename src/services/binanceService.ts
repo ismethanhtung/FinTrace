@@ -58,7 +58,7 @@ export const binanceService = {
       change: parseFloat(ticker.priceChange),
       changePercent: parseFloat(ticker.priceChangePercent),
       marketCap: '-', // Market cap is not simple with ticker, requires supply data
-      volume24h: `$${parseFloat(ticker.quoteVolume).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+      volume24h: `$${parseFloat(ticker.quoteVolume).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
       sparkline: [], // Placeholder for sparkline data
     };
   }

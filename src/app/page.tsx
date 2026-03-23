@@ -158,7 +158,7 @@ export default function App() {
                       })}
                       <tr className="border-y border-main bg-secondary/50">
                         <td colSpan={3} className="py-2.5 text-center font-sans font-semibold text-[14px]">
-                          ${midPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} 
+                          ${midPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })} 
                           <span className="text-[10px] text-muted font-normal ml-2">Real-time Spread: $0.01</span>
                         </td>
                       </tr>
