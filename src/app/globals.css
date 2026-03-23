@@ -1,13 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+/* ─── Google Fonts ──────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  
   --color-accent: #007AFF;
 }
 
+/* ─── Light Theme ──────────────────────────────────────────────────────────── */
 :root {
   --bg-main: #FFFFFF;
   --bg-secondary: #F5F7F9;
@@ -16,22 +17,52 @@
   --text-muted: #737373;
 }
 
-[data-theme="dark"] {
-  --bg-main: #212124;
-  --bg-secondary: #2A2A2E;
-  --border-color: #38383D;
-  --text-main: #EBEBEB;
-  --text-muted: #9BA1A6;
+/* ─── Dark 1: Classic Charcoal (Warm neutral dark — refined & professional) ── */
+[data-theme="dark1"] {
+  --bg-main: #1C1C1F;
+  --bg-secondary: #252528;
+  --border-color: #3A3A3F;
+  --text-main: #F0EFEC;
+  --text-muted: #9A9A9A;
 }
 
-[data-theme="night"] {
-  --bg-main: #0D1117;
-  --bg-secondary: #161B22;
-  --border-color: #30363D;
-  --text-main: #C9D1D9;
-  --text-muted: #8B949E;
+/* ─── Dark 2: Deep Ocean (Cool blue-black — Bloomberg terminal vibes) ───────── */
+[data-theme="dark2"] {
+  --bg-main: #0E1520;
+  --bg-secondary: #16202E;
+  --border-color: #243045;
+  --text-main: #CDD6E8;
+  --text-muted: #6B7D97;
 }
 
+/* ─── Dark 3: Graphite Purple (Subtle violet tint — modern fintech) ─────────── */
+[data-theme="dark3"] {
+  --bg-main: #13111C;
+  --bg-secondary: #1C1928;
+  --border-color: #2E2A40;
+  --text-main: #E8E4F5;
+  --text-muted: #8B7FAB;
+}
+
+/* ─── Dark 4: Midnight Green (Dark teal — sophisticated wealth management) ──── */
+[data-theme="dark4"] {
+  --bg-main: #0D1714;
+  --bg-secondary: #142119;
+  --border-color: #1E3328;
+  --text-main: #D4EDE1;
+  --text-muted: #5E8A72;
+}
+
+/* ─── Dark 5: Obsidian (Pure near-black — OLED-friendly, ultra-clean) ───────── */
+[data-theme="dark5"] {
+  --bg-main: #090909;
+  --bg-secondary: #131313;
+  --border-color: #222222;
+  --text-main: #E8E8E8;
+  --text-muted: #666666;
+}
+
+/* ─── Base Layer ─────────────────────────────────────────────────────────────── */
 @layer base {
   body {
     @apply font-sans antialiased transition-colors duration-200;
@@ -40,13 +71,14 @@
   }
 }
 
-/* Utility classes mapping to variables */
-.bg-main { background-color: var(--bg-main); }
+/* ─── Utility classes mapping to variables ──────────────────────────────────── */
+.bg-main      { background-color: var(--bg-main); }
 .bg-secondary { background-color: var(--bg-secondary); }
-.border-main { border-color: var(--border-color); }
-.text-main { color: var(--text-main); }
-.text-muted { color: var(--text-muted); }
+.border-main  { border-color: var(--border-color); }
+.text-main    { color: var(--text-main); }
+.text-muted   { color: var(--text-muted); }
 
+/* ─── Custom scrollbar ────────────────────────────────────────────────────────── */
 .thin-scrollbar::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -71,7 +103,7 @@
   opacity: 0.95;
 }
 
-/* ─── Ticker scrolling animation ────── */
+/* ─── Ticker scrolling animation ─────────────────────────────────────────────── */
 @keyframes ticker-scroll {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
@@ -86,4 +118,9 @@
 
 .ticker-wrapper:hover .ticker-track {
   animation-play-state: paused;
+}
+
+/* ─── Chart pan/drag cursor ──────────────────────────────────────────────────── */
+.chart-panning {
+  cursor: grabbing !important;
 }

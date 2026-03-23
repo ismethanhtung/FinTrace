@@ -25,7 +25,7 @@ function groupEntries(
   raw: string[][],
   grouping: number,
   side: 'bid' | 'ask',
-  limit = 14,
+  limit = 50,
 ): { price: number; quantity: number }[] {
   const map = new Map<number, number>();
   for (const [priceStr, qtyStr] of raw) {

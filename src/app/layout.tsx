@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { MarketProvider } from "../context/MarketContext";
+import { AppSettingsProvider } from "../context/AppSettingsContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,8 +19,6 @@ export const metadata: Metadata = {
   description: "Advanced financial tracking and AI-driven analysis",
 };
 
-import { MarketProvider } from "../context/MarketContext";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,12 +26,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
-      >
-        <MarketProvider>
-          {children}
-        </MarketProvider>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
+        <AppSettingsProvider>
+          <MarketProvider>
+            {children}
+          </MarketProvider>
+        </AppSettingsProvider>
       </body>
     </html>
   );

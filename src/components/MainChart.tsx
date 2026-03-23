@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -15,7 +15,9 @@ import {
 import { useMarket } from '../context/MarketContext';
 import { useChartData, CHART_INTERVALS, EnrichedPoint, Indicator } from '../hooks/useChartData';
 import { cn } from '../lib/utils';
-import { TrendingUp, TrendingDown, BarChart2, LineChart, Info, Activity } from 'lucide-react';
+import {
+  TrendingUp, TrendingDown, BarChart2, LineChart, Info, Activity, ChevronsRight, Loader2,
+} from 'lucide-react';
 
 // ─── Price formatter ─────────────────────────────────────────────────────────
 const priceFmt = (v: number) => {
@@ -29,11 +31,6 @@ const priceFmt = (v: number) => {
 };
 
 // ─── Custom Candlestick Shape ─────────────────────────────────────────────────
-// Recharts passes: x, y, width, height where:
-//   dataKey = "fullRange" = [low, high]
-//   y    = pixel position of high (top of range, small y = high on screen)
-//   y+height = pixel position of low (bottom)
-// We then compute body position proportionally within that bounding box.
 const CandleShape = (props: any) => {
   const { x, y, width, height, payload } = props;
   if (!payload || width <= 0 || height <= 0) return <g />;
@@ -47,11 +44,9 @@ const CandleShape = (props: any) => {
   const cw = Math.max(2, width * 0.65);
 
   if (range === 0) {
-    // Doji candle — just a horizontal line
     return <line x1={x} x2={x + width} y1={y} y2={y} stroke={color} strokeWidth={1.5} />;
   }
 
-  // Body position as fraction of the total wick height
   const bodyTopPrice = Math.max(open, close);
   const bodyBotPrice = Math.min(open, close);
   const bodyTopY = y + ((high - bodyTopPrice) / range) * height;
@@ -60,9 +55,7 @@ const CandleShape = (props: any) => {
 
   return (
     <g>
-      {/* Upper wick: high → body top */}
       <line x1={cx} y1={y} x2={cx} y2={bodyTopY} stroke={color} strokeWidth={1} />
-      {/* Body */}
       <rect
         x={cx - cw / 2}
         y={bodyTopY}
@@ -73,7 +66,6 @@ const CandleShape = (props: any) => {
         strokeWidth={0.5}
         rx={0.5}
       />
-      {/* Lower wick: body bottom → low */}
       <line x1={cx} y1={bodyBotY} x2={cx} y2={y + height} stroke={color} strokeWidth={1} />
     </g>
   );
@@ -182,7 +174,7 @@ const CoinInfoPanel = () => {
         </div>
         <p className="text-[12px] text-muted leading-relaxed">
           {asset.symbol} is a digital asset traded on Binance. Real-time price and volume data is
-          sourced directly from the Binance exchange REST API, refreshed every 30 seconds.
+          sourced directly from the Binance exchange REST API, refreshed every 5 seconds.
         </p>
       </div>
     </div>
@@ -195,12 +187,17 @@ export const MainChart = () => {
   const {
     data,
     isLoading,
+    isFetchingHistory,
     interval,
     setInterval,
     chartType,
     setChartType,
     activeIndicators,
     toggleIndicator,
+    panBy,
+    zoomBy,
+    isPanned,
+    goToLatest,
   } = useChartData(selectedSymbol);
 
   const [activeTab, setActiveTab] = useState<'chart' | 'info'>('chart');
@@ -216,12 +213,11 @@ export const MainChart = () => {
   const pad = (maxPrice - minPrice) * 0.06 || maxPrice * 0.01;
   const domain: [number, number] = [minPrice - pad, maxPrice + pad];
 
-  // Chart data enriched with fullRange for candlestick Bar
   const chartData = data.map(d => ({ ...d, fullRange: [d.low, d.high] }));
 
   const indicators: { key: Indicator; label: string; color: string }[] = [
-    { key: 'MA7', label: 'MA(7)', color: '#f59e0b' },
-    { key: 'MA25', label: 'MA(25)', color: '#a78bfa' },
+    { key: 'MA7',   label: 'MA(7)',   color: '#f59e0b' },
+    { key: 'MA25',  label: 'MA(25)',  color: '#a78bfa' },
     { key: 'EMA99', label: 'EMA(99)', color: '#38bdf8' },
   ];
 
@@ -229,6 +225,82 @@ export const MainChart = () => {
     if (!v) return '—';
     return v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)}M` : `${(v / 1_000).toFixed(0)}K`;
   }, []);
+
+  // ─── Pan & Zoom Handlers ──────────────────────────────────────────────────
+  // Track lastX to get per-frame delta; accumulate sub-candle pixels in remainder.
+  const chartAreaRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const lastDragX = useRef(0);
+  const subCanclePxRemainder = useRef(0); // fractional pixel overflow between panBy calls
+
+  // Pixels per candle — based on container width and current visible count
+  const pxPerCandle = useCallback((): number => {
+    const width = chartAreaRef.current?.offsetWidth ?? 600;
+    const marginRight = 60; // approx YAxis width
+    const effective = width - marginRight;
+    return effective / Math.max(1, data.length);
+  }, [data.length]);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    if (activeTab !== 'chart') return;
+    isDragging.current = true;
+    lastDragX.current = e.clientX;
+    subCanclePxRemainder.current = 0;
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  }, [activeTab]);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const dx = e.clientX - lastDragX.current; // delta from last frame
+      lastDragX.current = e.clientX;
+
+      const ppc = pxPerCandle();
+      // Accumulate this frame's pixels with any leftover from last frame
+      const total = subCanclePxRemainder.current + dx;
+      // How many whole candles did we cover?
+      const candleCount = Math.trunc(total / ppc);
+      // Save leftover sub-candle pixels
+      subCanclePxRemainder.current = total - candleCount * ppc;
+
+      if (candleCount !== 0) {
+        // Dragging right (positive dx) = show newer candles (pan right = decrease endIndex offset)
+        // Dragging left (negative dx) = show older candles (pan left = increase endIndex offset)
+        panBy(-candleCount); // panBy positive = older; negative = newer
+      }
+    };
+    const onUp = () => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [panBy, pxPerCandle]);
+
+  const onWheel = useCallback((e: React.WheelEvent) => {
+    if (activeTab !== 'chart') return;
+    e.preventDefault();
+    const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+
+    if (isHorizontal || e.shiftKey) {
+      // Horizontal scroll / shift+wheel → pan
+      const ppc = pxPerCandle();
+      const candles = Math.round(e.deltaX / ppc) || (e.deltaY > 0 ? -1 : 1);
+      panBy(candles);
+    } else {
+      // Vertical wheel → zoom (positive deltaY = zoom out = more candles)
+      const zoomStep = e.deltaY > 0 ? 5 : -5;
+      zoomBy(zoomStep);
+    }
+  }, [activeTab, panBy, zoomBy, pxPerCandle]);
 
   return (
     <div className="h-full flex flex-col">
@@ -282,27 +354,77 @@ export const MainChart = () => {
           </div>
         </div>
 
-        {/* OHLCV Stats Bar */}
-        {lastPoint && (
-          <div className="flex items-center space-x-4 py-1.5 border-t border-dashed border-main/60 text-[10px]">
-            {[
-              { label: 'O', value: priceFmt(lastPoint.open), cls: 'text-main' },
-              { label: 'H', value: priceFmt(lastPoint.high), cls: 'text-emerald-500' },
-              { label: 'L', value: priceFmt(lastPoint.low), cls: 'text-rose-500' },
-              {
-                label: 'C',
-                value: priceFmt(lastPoint.close),
-                cls: lastPoint.close >= lastPoint.open ? 'text-emerald-500' : 'text-rose-500',
-              },
-              { label: 'Vol', value: volFmt(lastPoint.volume), cls: 'text-accent' },
-            ].map(item => (
-              <div key={item.label} className="flex items-center space-x-1">
-                <span className="text-muted">{item.label}:</span>
-                <span className={cn('font-mono font-medium', item.cls)}>{item.value}</span>
+        {/* ── Stats Section ── */}
+        <div className="py-1.5 border-t border-dashed border-main/60 space-y-1">
+          {/* Row 1: Current candle OHLCV */}
+          {lastPoint && (
+            <div className="flex items-center space-x-3 text-[10px] flex-wrap gap-y-0.5">
+              <span className="text-muted font-semibold uppercase tracking-wider mr-1">{interval}</span>
+              {[
+                { label: 'O', value: priceFmt(lastPoint.open), cls: 'text-main' },
+                { label: 'H', value: priceFmt(lastPoint.high), cls: 'text-emerald-500' },
+                { label: 'L', value: priceFmt(lastPoint.low),  cls: 'text-rose-500' },
+                {
+                  label: 'C',
+                  value: priceFmt(lastPoint.close),
+                  cls: lastPoint.close >= lastPoint.open ? 'text-emerald-500' : 'text-rose-500',
+                },
+                { label: 'Vol', value: volFmt(lastPoint.volume), cls: 'text-accent' },
+              ].map(item => (
+                <div key={item.label} className="flex items-center space-x-0.5">
+                  <span className="text-muted">{item.label}:</span>
+                  <span className={cn('font-mono font-medium', item.cls)}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Row 2: 24h market data */}
+          {currentAsset && (
+            <div className="flex items-center space-x-3 text-[10px] flex-wrap gap-y-0.5">
+              <span className="text-muted font-semibold uppercase tracking-wider mr-1">24h</span>
+              <div className="flex items-center space-x-0.5">
+                <span className="text-muted">Chg:</span>
+                <span className={cn('font-mono font-medium', isPositive ? 'text-emerald-500' : 'text-rose-500')}>
+                  {isPositive ? '+' : ''}{priceFmt(currentAsset.change)}
+                </span>
+                <span className={cn('font-mono', isPositive ? 'text-emerald-500/70' : 'text-rose-500/70')}>
+                  ({isPositive ? '+' : ''}{currentAsset.changePercent.toFixed(2)}%)
+                </span>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="flex items-center space-x-0.5">
+                <span className="text-muted">H:</span>
+                <span className="font-mono text-emerald-500">{priceFmt(currentAsset.high24h ?? 0)}</span>
+              </div>
+              <div className="flex items-center space-x-0.5">
+                <span className="text-muted">L:</span>
+                <span className="font-mono text-rose-500">{priceFmt(currentAsset.low24h ?? 0)}</span>
+              </div>
+              {currentAsset.baseVolume > 0 && (
+                <div className="flex items-center space-x-0.5">
+                  <span className="text-muted">Vol({currentAsset.symbol}):</span>
+                  <span className="font-mono text-main">
+                    {currentAsset.baseVolume >= 1_000_000
+                      ? `${(currentAsset.baseVolume / 1_000_000).toFixed(2)}M`
+                      : currentAsset.baseVolume >= 1000
+                      ? `${(currentAsset.baseVolume / 1000).toFixed(2)}K`
+                      : currentAsset.baseVolume.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {currentAsset.quoteVolumeRaw > 0 && (
+                <div className="flex items-center space-x-0.5">
+                  <span className="text-muted">Vol(USDT):</span>
+                  <span className="font-mono text-accent">
+                    {currentAsset.quoteVolumeRaw >= 1_000_000_000
+                      ? `${(currentAsset.quoteVolumeRaw / 1_000_000_000).toFixed(2)}B`
+                      : `${(currentAsset.quoteVolumeRaw / 1_000_000).toFixed(1)}M`}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Controls (chart tab only) */}
         {activeTab === 'chart' && (
@@ -326,6 +448,22 @@ export const MainChart = () => {
             </div>
 
             <div className="flex items-center space-x-2">
+              {/* "Go to latest" badge when panned */}
+              {isPanned && (
+                <button
+                  onClick={goToLatest}
+                  className="flex items-center space-x-1 px-2 py-0.5 rounded border border-accent/40 text-accent text-[9px] font-medium hover:bg-accent/10 transition-colors"
+                >
+                  <ChevronsRight size={11} />
+                  <span>Latest</span>
+                </button>
+              )}
+
+              {/* History loading indicator */}
+              {isFetchingHistory && (
+                <Loader2 size={11} className="text-muted animate-spin" />
+              )}
+
               {/* Chart type */}
               <div className="flex items-center bg-secondary border border-main rounded-md p-0.5">
                 <button
@@ -369,7 +507,13 @@ export const MainChart = () => {
       {activeTab === 'info' ? (
         <CoinInfoPanel />
       ) : (
-        <div className="flex-1 min-h-0 relative">
+        <div
+          ref={chartAreaRef}
+          className="flex-1 min-h-0 relative select-none"
+          style={{ cursor: isDragging.current ? 'grabbing' : 'grab' }}
+          onMouseDown={onMouseDown}
+          onWheel={onWheel}
+        >
           {isLoading && data.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-main/60 z-10">
               <div className="flex flex-col items-center space-y-2">
@@ -379,14 +523,21 @@ export const MainChart = () => {
             </div>
           )}
 
+          {/* Pan hint overlay — only on first load */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+            <span className="text-[9px] text-muted/50 select-none">
+              Drag to pan · Scroll to zoom
+            </span>
+          </div>
+
           <ResponsiveContainer width="100%" height="100%">
             {chartType === 'area' ? (
               /* ─── AREA ─── */
               <ComposedChart data={data} margin={{ top: 8, right: 60, bottom: 4, left: 0 }}>
                 <defs>
                   <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#007AFF" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#007AFF" stopOpacity={0} />
+                    <stop offset="5%"  stopColor="#007AFF" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#007AFF" stopOpacity={0}    />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="var(--border-color)" opacity={0.5} />
@@ -394,22 +545,20 @@ export const MainChart = () => {
                 <YAxis domain={domain} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} width={60} tickFormatter={priceFmt} orientation="right" />
                 <Tooltip content={<ChartTooltip />} />
                 <Area type="monotone" dataKey="close" stroke="#007AFF" strokeWidth={2} fill="url(#areaGrad)" dot={false} animationDuration={500} />
-                {activeIndicators.has('MA7') && <Line type="monotone" dataKey="MA7" stroke="#f59e0b" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />}
-                {activeIndicators.has('MA25') && <Line type="monotone" dataKey="MA25" stroke="#a78bfa" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />}
+                {activeIndicators.has('MA7')   && <Line type="monotone" dataKey="MA7"   stroke="#f59e0b" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />}
+                {activeIndicators.has('MA25')  && <Line type="monotone" dataKey="MA25"  stroke="#a78bfa" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />}
                 {activeIndicators.has('EMA99') && <Line type="monotone" dataKey="EMA99" stroke="#38bdf8" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />}
               </ComposedChart>
             ) : (
               /* ─── CANDLESTICK ─── */
-              /* Bar uses [low, high] as range. CandleShape draws wick + body proportionally. */
               <ComposedChart data={chartData} margin={{ top: 8, right: 60, bottom: 4, left: 0 }}>
                 <CartesianGrid strokeDasharray="2 4" vertical={false} stroke="var(--border-color)" opacity={0.5} />
                 <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} dy={6} interval="preserveStartEnd" />
                 <YAxis domain={domain} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} width={60} tickFormatter={priceFmt} orientation="right" />
                 <Tooltip content={<ChartTooltip />} />
-                {/* Single bar = full high-low range; CandleShape draws everything inside */}
                 <Bar dataKey="fullRange" shape={<CandleShape />} isAnimationActive={false} maxBarSize={20} />
-                {activeIndicators.has('MA7') && <Line type="monotone" dataKey="MA7" stroke="#f59e0b" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />}
-                {activeIndicators.has('MA25') && <Line type="monotone" dataKey="MA25" stroke="#a78bfa" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />}
+                {activeIndicators.has('MA7')   && <Line type="monotone" dataKey="MA7"   stroke="#f59e0b" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />}
+                {activeIndicators.has('MA25')  && <Line type="monotone" dataKey="MA25"  stroke="#a78bfa" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />}
                 {activeIndicators.has('EMA99') && <Line type="monotone" dataKey="EMA99" stroke="#38bdf8" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />}
               </ComposedChart>
             )}

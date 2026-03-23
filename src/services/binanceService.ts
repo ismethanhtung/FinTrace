@@ -23,6 +23,10 @@ export type Asset = {
   volume24h: string;
   high24h: number;
   low24h: number;
+  /** Raw base-asset volume (e.g. BTC amount) */
+  baseVolume: number;
+  /** Raw quote-asset (USDT) volume */
+  quoteVolumeRaw: number;
   sparkline: number[];
 };
 
@@ -70,18 +74,26 @@ export const binanceService = {
     return response.json() as Promise<BinanceTicker[]>;
   },
 
-  /** Get OHLCV candlestick data for a symbol */
-  async getKlines(symbol: string, interval: string = '1H', limit?: number): Promise<any[]> {
+  /** Get OHLCV candlestick data for a symbol.
+   *  Pass `endTime` (ms) to fetch candles ending before that timestamp (for history panning).
+   */
+  async getKlines(
+    symbol: string,
+    interval: string = '1H',
+    limit?: number,
+    endTime?: number,
+  ): Promise<any[]> {
     const binanceInterval = INTERVAL_MAP[interval] ?? interval;
     const resolvedLimit = limit ?? INTERVAL_LIMIT[interval] ?? 72;
-    const url = `${BINANCE_BASE_URL}/klines?symbol=${symbol}&interval=${binanceInterval}&limit=${resolvedLimit}`;
+    let url = `${BINANCE_BASE_URL}/klines?symbol=${symbol}&interval=${binanceInterval}&limit=${resolvedLimit}`;
+    if (endTime) url += `&endTime=${endTime}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Binance klines error: ${response.status}`);
     return response.json();
   },
 
-  /** Get order book depth */
-  async getDepth(symbol: string, limit: number = 20): Promise<{ bids: string[][], asks: string[][] }> {
+  /** Get order book depth. limit max = 1000 on Binance */
+  async getDepth(symbol: string, limit: number = 1000): Promise<{ bids: string[][], asks: string[][] }> {
     const response = await fetch(`${BINANCE_BASE_URL}/depth?symbol=${symbol}&limit=${limit}`);
     if (!response.ok) throw new Error(`Binance depth error: ${response.status}`);
     return response.json();
@@ -103,6 +115,8 @@ export const binanceService = {
   /** Transform raw Binance ticker → internal Asset type */
   transformTicker(ticker: BinanceTicker): Asset {
     const symbol = ticker.symbol.replace('USDT', '');
+    const quoteVolumeRaw = parseFloat(ticker.quoteVolume);
+    const baseVolume = parseFloat(ticker.volume);
     return {
       id: ticker.symbol,
       symbol,
@@ -112,8 +126,10 @@ export const binanceService = {
       changePercent: parseFloat(ticker.priceChangePercent),
       high24h: parseFloat(ticker.highPrice),
       low24h: parseFloat(ticker.lowPrice),
+      baseVolume,
+      quoteVolumeRaw,
       marketCap: '-',
-      volume24h: `$${(parseFloat(ticker.quoteVolume) / 1_000_000).toFixed(1)}M`,
+      volume24h: `$${(quoteVolumeRaw / 1_000_000).toFixed(1)}M`,
       sparkline: [],
     };
   },
