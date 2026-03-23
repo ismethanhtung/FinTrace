@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
     binanceService,
     OhlcvPoint,
+    MarketType,
 } from "../services/binanceService";
 import { format } from "date-fns";
 
@@ -92,7 +93,11 @@ function enrich(mapped: OhlcvPoint[]): EnrichedPoint[] {
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
-export const useChartData = (symbol: string) => {
+/**
+ * @param symbol - Trading pair symbol (e.g. "BTCUSDT")
+ * @param marketType - Which market to fetch klines from. Futures uses fapi; spot/margin use api.
+ */
+export const useChartData = (symbol: string, marketType: MarketType = 'spot') => {
     const [interval, setInterval] = useState<ChartInterval>("1H");
     const [chartType, setChartType] = useState<ChartType>("candlestick");
     const [activeIndicators, setActiveIndicators] = useState<Set<Indicator>>(
@@ -112,11 +117,10 @@ export const useChartData = (symbol: string) => {
         async (sym: string, intv: ChartInterval) => {
             try {
                 setIsLoading(true);
-                const raw = await binanceService.getKlines(
-                    sym,
-                    intv,
-                    INITIAL_LIMIT,
-                );
+                const getKlines = marketType === 'futures'
+                    ? binanceService.getFuturesKlines.bind(binanceService)
+                    : binanceService.getKlines.bind(binanceService);
+                const raw = await getKlines(sym, intv, INITIAL_LIMIT);
                 const mapped: OhlcvPoint[] = raw.map((k: any[]) => ({
                     ...binanceService.mapKline(k),
                     time: formatTime(k[0], intv),
@@ -134,13 +138,16 @@ export const useChartData = (symbol: string) => {
                 setIsLoading(false);
             }
         },
-        [],
+        [marketType],
     );
 
     const fetchLatest = useCallback(
         async (sym: string, intv: ChartInterval) => {
             try {
-                const raw = await binanceService.getKlines(sym, intv, 2);
+                const getKlines = marketType === 'futures'
+                    ? binanceService.getFuturesKlines.bind(binanceService)
+                    : binanceService.getKlines.bind(binanceService);
+                const raw = await getKlines(sym, intv, 2);
                 const mapped: OhlcvPoint[] = raw.map((k: any[]) => ({
                     ...binanceService.mapKline(k),
                     time: formatTime(k[0], intv),
@@ -165,7 +172,7 @@ export const useChartData = (symbol: string) => {
                 // Ignore poll errors silently
             }
         },
-        [],
+        [marketType],
     );
 
     const fetchHistory = useCallback(async () => {
@@ -174,7 +181,10 @@ export const useChartData = (symbol: string) => {
         if (!oldest) return;
         try {
             setIsFetchingHistory(true);
-            const raw = await binanceService.getKlines(
+            const getKlines = marketType === 'futures'
+                ? binanceService.getFuturesKlines.bind(binanceService)
+                : binanceService.getKlines.bind(binanceService);
+            const raw = await getKlines(
                 symbol,
                 interval,
                 HISTORY_BATCH,
@@ -202,7 +212,7 @@ export const useChartData = (symbol: string) => {
         } finally {
             setIsFetchingHistory(false);
         }
-    }, [symbol, interval, isFetchingHistory]);
+    }, [symbol, interval, isFetchingHistory, marketType]);
 
     useEffect(() => {
         fetchInitial(symbol, interval);
@@ -216,7 +226,7 @@ export const useChartData = (symbol: string) => {
         return () => {
             if (pollRef.current) clearInterval(pollRef.current);
         };
-    }, [symbol, interval, fetchInitial, fetchLatest]);
+    }, [symbol, interval, marketType, fetchInitial, fetchLatest]);
 
     const toggleIndicator = useCallback((ind: Indicator) => {
         setActiveIndicators((prev) => {

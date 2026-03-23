@@ -15,6 +15,8 @@ import {
   Flame,
   BarChart2,
   Clock,
+  Zap,
+  RefreshCw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -39,35 +41,56 @@ function generateTrades(price: number, count = 14): { price: number; qty: number
   });
 }
 
+
 // ─── Coin Row ─────────────────────────────────────────────────────────────────
-const CoinRow = ({ asset, isSelected, onClick }: { asset: Asset; isSelected: boolean; onClick: () => void }) => (
-  <div
-    onClick={onClick}
-    className={cn(
-      'flex items-center justify-between px-3 py-2 cursor-pointer transition-all group border-b border-main last:border-0',
-      isSelected ? 'bg-accent/8' : 'hover:bg-secondary'
-    )}
-  >
-    <div className="flex items-center space-x-2 min-w-0">
-      <TokenAvatar
-        symbol={asset.symbol}
-        logoUrl={asset.logoUrl}
-        size={24}
-        selected={isSelected}
-      />
-      <div className="min-w-0">
-        <div className={cn('text-[11px] font-semibold truncate', isSelected && 'text-accent')}>{asset.symbol}</div>
-        <div className="text-[9px] text-muted truncate">{asset.id}</div>
+const CoinRow = ({ asset, isSelected, onClick }: { asset: Asset; isSelected: boolean; onClick: () => void }) => {
+  const isFutures = asset.marketType === 'futures';
+  const fundingRate = asset.fundingRate;
+
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        'flex items-center justify-between px-3 py-2 cursor-pointer transition-all group border-b border-main last:border-0',
+        isSelected ? 'bg-accent/8' : 'hover:bg-secondary'
+      )}
+    >
+      <div className="flex items-center space-x-2 min-w-0">
+        <TokenAvatar
+          symbol={asset.symbol}
+          logoUrl={asset.logoUrl}
+          size={24}
+          selected={isSelected}
+        />
+        <div className="min-w-0">
+          <div className="flex items-center gap-1">
+            <span className={cn('text-[11px] font-semibold truncate', isSelected && 'text-accent')}>{asset.symbol}</span>
+            {isFutures && (
+              <span className="text-[7px] font-bold px-1 py-px rounded bg-amber-400/15 text-amber-400 border border-amber-400/20 shrink-0">
+                PERP
+              </span>
+            )}
+          </div>
+          <div className="text-[9px] text-muted truncate">
+            {isFutures && typeof fundingRate === 'number' ? (
+              <span className={cn('font-mono', fundingRate >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                {fundingRate >= 0 ? '+' : ''}{(fundingRate * 100).toFixed(4)}% fund
+              </span>
+            ) : (
+              asset.id
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="text-right shrink-0 ml-2">
+        <div className="text-[11px] font-mono">{priceFmt(asset.price)}</div>
+        <div className={cn('text-[10px] font-medium', asset.changePercent >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+          {asset.changePercent >= 0 ? '+' : ''}{asset.changePercent.toFixed(2)}%
+        </div>
       </div>
     </div>
-    <div className="text-right shrink-0 ml-2">
-      <div className="text-[11px] font-mono">{priceFmt(asset.price)}</div>
-      <div className={cn('text-[10px] font-medium', asset.changePercent >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-        {asset.changePercent >= 0 ? '+' : ''}{asset.changePercent.toFixed(2)}%
-      </div>
-    </div>
-  </div>
-);
+  );
+};
 
 // ─── Movers: chỉ coin thật sự lãi / lỗ (tránh +0.03% nằm trong tab Losers) ───
 const EPS = 1e-8;
@@ -224,6 +247,44 @@ const RecentTrades = ({ price }: { price: number }) => {
   );
 };
 
+// ─── Market bar: status + toggle Spot ↔ Futures ──────────────────────────────
+const MarketBar = () => {
+  const { marketType, setMarketType, assets, isLoading, isFuturesLoading } = useMarket();
+  const isFutures = marketType === 'futures';
+  const loading   = isFutures ? isFuturesLoading : isLoading;
+
+  const label = isFutures
+    ? 'USD-M Perpetual · Binance Futures'
+    : 'Spot Market · Binance';
+
+  const toggle = () => setMarketType(isFutures ? 'spot' : 'futures');
+
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-1 border-b border-main bg-secondary/10 shrink-0">
+      <span className={cn(
+        'inline-block h-1.5 w-1.5 rounded-full shrink-0',
+        loading ? 'animate-pulse bg-amber-400' : (isFutures ? 'bg-amber-400' : 'bg-emerald-500')
+      )} />
+      <span className="text-[9px] text-muted truncate flex-1">{label}</span>
+      {!loading && (
+        <span className="text-[9px] text-muted tabular-nums">{assets.length} pairs</span>
+      )}
+      <button
+        onClick={toggle}
+        title={isFutures ? 'Chuyển sang Spot' : 'Chuyển sang USD-M Futures'}
+        className={cn(
+          'p-1 rounded transition-colors shrink-0',
+          isFutures
+            ? 'text-amber-400 hover:bg-amber-400/15'
+            : 'text-muted hover:text-main hover:bg-secondary'
+        )}
+      >
+        <RefreshCw size={11} />
+      </button>
+    </div>
+  );
+};
+
 // ─── Main Left Sidebar ────────────────────────────────────────────────────────
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 420;
@@ -288,6 +349,8 @@ export const LeftSidebar = () => {
             style={{ width, minWidth: width, maxWidth: width }}
             className="h-full min-h-0 flex flex-col bg-main border-r border-main overflow-hidden"
           >
+            {/* Market status bar with Spot ↔ Futures toggle */}
+            <MarketBar />
             {/* Section nav */}
             <div className="flex items-center border-b border-main shrink-0 bg-secondary/40">
               {[

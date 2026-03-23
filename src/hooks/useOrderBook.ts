@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { binanceService } from "../services/binanceService";
+import { binanceService, MarketType } from "../services/binanceService";
 
 export type OrderBookEntry = {
     price: number;
@@ -73,14 +73,22 @@ export function suggestGrouping(price: number): Grouping {
     return 100;
 }
 
-export const useOrderBook = (symbol: string, grouping: Grouping) => {
+/**
+ * @param symbol - Trading pair symbol (e.g. "BTCUSDT")
+ * @param grouping - Price grouping precision for bucketing orders
+ * @param marketType - Which market to fetch depth from. Futures uses fapi; spot/margin use api.
+ */
+export const useOrderBook = (symbol: string, grouping: Grouping, marketType: MarketType = 'spot') => {
     const [data, setData] = useState<OrderBookData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const fetchDepth = useCallback(async () => {
         try {
-            const raw = await binanceService.getDepth(symbol, 1000);
+            const getDepth = marketType === 'futures'
+                ? binanceService.getFuturesDepth.bind(binanceService)
+                : binanceService.getDepth.bind(binanceService);
+            const raw = await getDepth(symbol, 1000);
 
             const rawBids = groupEntries(raw.bids, grouping, "bid");
             const rawAsks = groupEntries(raw.asks, grouping, "ask");
@@ -127,7 +135,7 @@ export const useOrderBook = (symbol: string, grouping: Grouping) => {
         } finally {
             setIsLoading(false);
         }
-    }, [symbol, grouping]);
+    }, [symbol, grouping, marketType]);
 
     useEffect(() => {
         fetchDepth();

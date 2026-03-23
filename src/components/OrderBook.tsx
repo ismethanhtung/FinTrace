@@ -68,7 +68,7 @@ const ColHeader = ({ baseSymbol }: { baseSymbol: string }) => (
 
 // ─── OrderBook Component ──────────────────────────────────────────────────────
 export const OrderBook = () => {
-  const { selectedSymbol, assets } = useMarket();
+  const { selectedSymbol, assets, marketType } = useMarket();
   const currentAsset = assets.find(a => a.id === selectedSymbol);
   const baseSymbol = selectedSymbol.replace('USDT', '');
 
@@ -88,7 +88,7 @@ export const OrderBook = () => {
     setIsUserGrouping(false);
   }, [selectedSymbol]);
 
-  const { data, isLoading } = useOrderBook(selectedSymbol, grouping);
+  const { data, isLoading } = useOrderBook(selectedSymbol, grouping, marketType);
   const [activeTab, setActiveTab] = useState<'book' | 'trades'>('book');
 
   const asksReversed = data ? [...data.asks].reverse() : [];

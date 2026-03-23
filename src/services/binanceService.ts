@@ -1,4 +1,8 @@
 const BINANCE_BASE_URL = 'https://api.binance.com/api/v3';
+const FAPI_BASE_URL = 'https://fapi.binance.com/fapi/v1';
+
+/** Which market this asset/data belongs to */
+export type MarketType = 'spot' | 'futures';
 
 export type BinanceTicker = {
   symbol: string;
@@ -10,6 +14,34 @@ export type BinanceTicker = {
   highPrice: string;
   lowPrice: string;
   weightedAvgPrice: string;
+};
+
+/** Raw 24hr ticker from Binance Futures (USD-M Perpetual) */
+export type FuturesTicker = {
+  symbol: string;
+  priceChange: string;
+  priceChangePercent: string;
+  lastPrice: string;
+  volume: string;
+  quoteVolume: string;
+  highPrice: string;
+  lowPrice: string;
+  openInterest?: string;
+};
+
+/**
+ * Mark price + funding rate data for a futures symbol.
+ * Sourced from fapi/v1/premiumIndex.
+ */
+export type FuturesPremiumIndex = {
+  symbol: string;
+  markPrice: string;
+  indexPrice: string;
+  estimatedSettlePrice: string;
+  lastFundingRate: string;
+  nextFundingTime: number;
+  interestRate: string;
+  time: number;
 };
 
 export type Asset = {
@@ -30,6 +62,16 @@ export type Asset = {
   sparkline: number[];
   /** Logo URL (e.g. CoinGecko), optional — see tokenLogoService */
   logoUrl?: string;
+  /** Which market this asset belongs to */
+  marketType?: MarketType;
+  /** Futures-specific: mark price from premiumIndex */
+  markPrice?: number;
+  /** Futures-specific: index price from premiumIndex */
+  indexPrice?: number;
+  /** Futures-specific: current funding rate (decimal, e.g. 0.0001 = 0.01%) */
+  fundingRate?: number;
+  /** Futures-specific: next funding settlement timestamp (ms) */
+  nextFundingTime?: number;
 };
 
 export type OhlcvPoint = {
@@ -69,15 +111,18 @@ export const INTERVAL_LIMIT: Record<string, number> = {
 };
 
 export const binanceService = {
-  /** Get 24hr ticker data for all symbols */
+  // ─── Spot API ────────────────────────────────────────────────────────────────
+
+  /** Get 24hr ticker data for all spot symbols */
   async getTickers(): Promise<BinanceTicker[]> {
     const response = await fetch(`${BINANCE_BASE_URL}/ticker/24hr`);
     if (!response.ok) throw new Error(`Binance API error: ${response.status}`);
     return response.json() as Promise<BinanceTicker[]>;
   },
 
-  /** Get OHLCV candlestick data for a symbol.
-   *  Pass `endTime` (ms) to fetch candles ending before that timestamp (for history panning).
+  /**
+   * Get OHLCV candlestick data for a spot symbol.
+   * Pass `endTime` (ms) to fetch candles ending before that timestamp (for history panning).
    */
   async getKlines(
     symbol: string,
@@ -94,12 +139,59 @@ export const binanceService = {
     return response.json();
   },
 
-  /** Get order book depth. limit max = 1000 on Binance */
+  /** Get spot order book depth. limit max = 1000 on Binance */
   async getDepth(symbol: string, limit: number = 1000): Promise<{ bids: string[][], asks: string[][] }> {
     const response = await fetch(`${BINANCE_BASE_URL}/depth?symbol=${symbol}&limit=${limit}`);
     if (!response.ok) throw new Error(`Binance depth error: ${response.status}`);
     return response.json();
   },
+
+  // ─── Futures (USD-M Perpetual) API ───────────────────────────────────────────
+
+  /** Get 24hr ticker data for all USD-M futures perpetual symbols */
+  async getFuturesTickers(): Promise<FuturesTicker[]> {
+    const response = await fetch(`${FAPI_BASE_URL}/ticker/24hr`);
+    if (!response.ok) throw new Error(`Binance Futures API error: ${response.status}`);
+    return response.json() as Promise<FuturesTicker[]>;
+  },
+
+  /**
+   * Get mark price, index price and funding rate for a futures symbol.
+   * Updates approximately every 3 seconds on Binance's end.
+   */
+  async getFuturesPremiumIndex(symbol: string): Promise<FuturesPremiumIndex> {
+    const response = await fetch(`${FAPI_BASE_URL}/premiumIndex?symbol=${symbol}`);
+    if (!response.ok) throw new Error(`Futures premiumIndex error: ${response.status}`);
+    return response.json() as Promise<FuturesPremiumIndex>;
+  },
+
+  /**
+   * Get OHLCV candlestick data for a futures symbol.
+   * Pass `endTime` (ms) to fetch candles ending before that timestamp.
+   */
+  async getFuturesKlines(
+    symbol: string,
+    interval: string = '1H',
+    limit?: number,
+    endTime?: number,
+  ): Promise<any[]> {
+    const binanceInterval = INTERVAL_MAP[interval] ?? interval;
+    const resolvedLimit = limit ?? INTERVAL_LIMIT[interval] ?? 72;
+    let url = `${FAPI_BASE_URL}/klines?symbol=${symbol}&interval=${binanceInterval}&limit=${resolvedLimit}`;
+    if (endTime) url += `&endTime=${endTime}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Futures klines error: ${response.status}`);
+    return response.json();
+  },
+
+  /** Get futures order book depth. limit max = 1000 on Binance Futures */
+  async getFuturesDepth(symbol: string, limit: number = 1000): Promise<{ bids: string[][], asks: string[][] }> {
+    const response = await fetch(`${FAPI_BASE_URL}/depth?symbol=${symbol}&limit=${limit}`);
+    if (!response.ok) throw new Error(`Futures depth error: ${response.status}`);
+    return response.json();
+  },
+
+  // ─── Shared transforms ───────────────────────────────────────────────────────
 
   /** Transform Binance kline array into typed OhlcvPoint */
   mapKline(k: any[]): OhlcvPoint {
@@ -114,7 +206,7 @@ export const binanceService = {
     };
   },
 
-  /** Transform raw Binance ticker → internal Asset type */
+  /** Transform raw Binance spot ticker → internal Asset type */
   transformTicker(ticker: BinanceTicker): Asset {
     const symbol = ticker.symbol.replace('USDT', '');
     const quoteVolumeRaw = parseFloat(ticker.quoteVolume);
@@ -133,6 +225,30 @@ export const binanceService = {
       marketCap: '-',
       volume24h: `$${(quoteVolumeRaw / 1_000_000).toFixed(1)}M`,
       sparkline: [],
+      marketType: 'spot',
+    };
+  },
+
+  /** Transform raw Binance Futures ticker → internal Asset type */
+  transformFuturesTicker(ticker: FuturesTicker): Asset {
+    const symbol = ticker.symbol.replace('USDT', '').replace('_PERP', '');
+    const quoteVolumeRaw = parseFloat(ticker.quoteVolume);
+    const baseVolume = parseFloat(ticker.volume);
+    return {
+      id: ticker.symbol,
+      symbol,
+      name: symbol,
+      price: parseFloat(ticker.lastPrice),
+      change: parseFloat(ticker.priceChange),
+      changePercent: parseFloat(ticker.priceChangePercent),
+      high24h: parseFloat(ticker.highPrice),
+      low24h: parseFloat(ticker.lowPrice),
+      baseVolume,
+      quoteVolumeRaw,
+      marketCap: '-',
+      volume24h: `$${(quoteVolumeRaw / 1_000_000).toFixed(1)}M`,
+      sparkline: [],
+      marketType: 'futures',
     };
   },
 };

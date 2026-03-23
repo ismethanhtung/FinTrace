@@ -8,6 +8,7 @@ import {
     CHART_INTERVALS,
     type Indicator,
 } from "../hooks/useChartData";
+import { useFuturesPremiumIndex } from "../hooks/useFuturesPremiumIndex";
 import { cn } from "../lib/utils";
 import {
     TrendingUp,
@@ -19,6 +20,8 @@ import {
     ChevronsRight,
     Loader2,
     Waves,
+    Zap,
+    Clock,
 } from "lucide-react";
 import { FlowPanel } from "./FlowPanel";
 import { TokenAvatar } from "./TokenAvatar";
@@ -44,10 +47,33 @@ const volFmt = (v: number) => {
         : `${(v / 1_000).toFixed(0)}K`;
 };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function msToCountdown(ms: number): string {
+    if (ms <= 0) return '00:00:00';
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return [h, m, sec].map((n) => String(n).padStart(2, '0')).join(':');
+}
+
 // ─── Coin Info Panel ──────────────────────────────────────────────────────────
 const CoinInfoPanel = () => {
-    const { assets, selectedSymbol } = useMarket();
+    const { assets, selectedSymbol, marketType } = useMarket();
     const asset = assets.find((a) => a.id === selectedSymbol);
+    const { data: premiumData, isLoading: premiumLoading, fundingRatePct, msToNextFunding } =
+        useFuturesPremiumIndex(selectedSymbol, marketType);
+
+    // Countdown ticker for next funding time
+    const [countdown, setCountdown] = useState<string>('—');
+    useEffect(() => {
+        if (marketType !== 'futures' || !premiumData) { setCountdown('—'); return; }
+        const tick = () => setCountdown(msToCountdown(premiumData.nextFundingTime - Date.now()));
+        tick();
+        const timer = setInterval(tick, 1000);
+        return () => clearInterval(timer);
+    }, [marketType, premiumData]);
+
     if (!asset)
         return (
             <div className="flex-1 flex items-center justify-center text-muted text-[12px]">
@@ -55,19 +81,57 @@ const CoinInfoPanel = () => {
             </div>
         );
 
-    const rows = [
-        { label: "Last Price", value: `$${priceFmt(asset.price)}` },
+    const isFutures = marketType === 'futures';
+    const fundingRateNum = premiumData ? parseFloat(premiumData.lastFundingRate) : 0;
+
+    const spotRows = [
+        { label: 'Last Price',  value: `$${priceFmt(asset.price)}` },
         {
-            label: "24h Change",
-            value: `${asset.changePercent >= 0 ? "+" : ""}${asset.changePercent.toFixed(2)}%`,
-            color:
-                asset.changePercent >= 0 ? "text-emerald-500" : "text-rose-500",
+            label: '24h Change',
+            value: `${asset.changePercent >= 0 ? '+' : ''}${asset.changePercent.toFixed(2)}%`,
+            color: asset.changePercent >= 0 ? 'text-emerald-500' : 'text-rose-500',
         },
-        { label: "24h High", value: `$${priceFmt(asset.high24h ?? 0)}` },
-        { label: "24h Low", value: `$${priceFmt(asset.low24h ?? 0)}` },
-        { label: "24h Volume", value: asset.volume24h },
-        { label: "Market Cap", value: asset.marketCap },
+        { label: '24h High',   value: `$${priceFmt(asset.high24h ?? 0)}` },
+        { label: '24h Low',    value: `$${priceFmt(asset.low24h ?? 0)}` },
+        { label: '24h Volume', value: asset.volume24h },
+        { label: 'Market Cap', value: asset.marketCap },
     ];
+
+    const futuresRows = [
+        { label: 'Last Price',  value: `$${priceFmt(asset.price)}` },
+        {
+            label: 'Mark Price',
+            value: premiumLoading ? '...' : premiumData ? `$${priceFmt(parseFloat(premiumData.markPrice))}` : '—',
+        },
+        {
+            label: 'Index Price',
+            value: premiumLoading ? '...' : premiumData ? `$${priceFmt(parseFloat(premiumData.indexPrice))}` : '—',
+        },
+        {
+            label: '24h Change',
+            value: `${asset.changePercent >= 0 ? '+' : ''}${asset.changePercent.toFixed(2)}%`,
+            color: asset.changePercent >= 0 ? 'text-emerald-500' : 'text-rose-500',
+        },
+        { label: '24h High',    value: `$${priceFmt(asset.high24h ?? 0)}` },
+        { label: '24h Low',     value: `$${priceFmt(asset.low24h ?? 0)}` },
+        { label: '24h Volume',  value: asset.volume24h },
+        {
+            label: 'Funding Rate',
+            value: premiumLoading ? '...' : fundingRatePct ?? '—',
+            color: !premiumData ? undefined : fundingRateNum >= 0 ? 'text-emerald-500' : 'text-rose-500',
+            tooltip: 'Funding rate (annualised ~3×/day). Positive = longs pay shorts.',
+        },
+        {
+            label: 'Next Funding',
+            value: countdown,
+        },
+    ];
+
+    const rows = isFutures ? futuresRows : spotRows;
+
+    const marketBadge = isFutures
+        ? { label: 'PERP', bg: 'bg-amber-400/15 text-amber-400 border border-amber-400/20', icon: Zap }
+        : null;
 
     return (
         <div className="flex-1 overflow-y-auto thin-scrollbar p-5 space-y-4">
@@ -77,13 +141,21 @@ const CoinInfoPanel = () => {
                     logoUrl={asset.logoUrl}
                     size={40}
                 />
-                <div>
-                    <div className="font-bold text-[15px]">{asset.symbol}</div>
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold text-[15px]">{asset.symbol}</span>
+                        {marketBadge && (
+                            <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5', marketBadge.bg)}>
+                                <marketBadge.icon size={9} />
+                                {marketBadge.label}
+                            </span>
+                        )}
+                    </div>
                     <div className="text-muted text-[11px]">
-                        {asset.id} · Binance
+                        {asset.id} · {isFutures ? 'Binance Futures' : 'Binance'}
                     </div>
                 </div>
-                <div className="ml-auto">
+                <div className="ml-auto shrink-0">
                     {asset.changePercent >= 0 ? (
                         <TrendingUp size={20} className="text-emerald-500" />
                     ) : (
@@ -97,33 +169,61 @@ const CoinInfoPanel = () => {
                     <div
                         key={i}
                         className={cn(
-                            "flex items-center justify-between px-4 py-3",
-                            i % 2 === 0 ? "bg-secondary/40" : "",
+                            'flex items-center justify-between px-4 py-3',
+                            i % 2 === 0 ? 'bg-secondary/40' : '',
                         )}
                     >
-                        <span className="text-[11px] text-muted">
+                        <span className="text-[11px] text-muted flex items-center gap-1">
                             {row.label}
-                        </span>
-                        <span
-                            className={cn(
-                                "text-[12px] font-mono font-medium",
-                                row.color ?? "",
+                            {'tooltip' in row && row.tooltip && (
+                                <span title={row.tooltip as string}>
+                                    <Info size={10} className="text-muted/50" />
+                                </span>
                             )}
-                        >
+                        </span>
+                        <span className={cn('text-[12px] font-mono font-medium', row.color ?? '')}>
                             {row.value}
                         </span>
                     </div>
                 ))}
             </div>
 
+            {/* Futures funding rate visual bar */}
+            {isFutures && premiumData && (
+                <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-muted flex items-center gap-1">
+                            <Clock size={10} />
+                            Đến kỳ thanh toán
+                        </span>
+                        <span className="font-mono text-main">{countdown}</span>
+                    </div>
+                    <div className="h-1 rounded-full bg-secondary overflow-hidden">
+                        <div
+                            className={cn(
+                                'h-full rounded-full transition-all',
+                                fundingRateNum >= 0 ? 'bg-emerald-500' : 'bg-rose-500',
+                            )}
+                            style={{
+                                width: `${Math.min(100, Math.abs(fundingRateNum) * 10000 * 5)}%`,
+                            }}
+                        />
+                    </div>
+                    <p className="text-[10px] text-muted leading-relaxed">
+                        Funding rate <strong className={fundingRateNum >= 0 ? 'text-emerald-500' : 'text-rose-500'}>{fundingRatePct}</strong>:&nbsp;
+                        {fundingRateNum >= 0 ? 'Longs đang trả shorts.' : 'Shorts đang trả longs.'}
+                    </p>
+                </div>
+            )}
+
             <div className="space-y-1">
                 <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">
                     About {asset.symbol}
                 </div>
                 <p className="text-[12px] text-muted leading-relaxed">
-                    {asset.symbol} is a digital asset traded on Binance.
-                    Real-time price and volume data is sourced directly from the
-                    Binance exchange REST API, refreshed every 5 seconds.
+                    {asset.symbol} là tài sản kỹ thuật số giao dịch trên Binance.
+                    Dữ liệu giá và khối lượng thời gian thực từ{' '}
+                    {isFutures ? 'Binance Futures REST API' : 'Binance REST API'}.
                 </p>
             </div>
         </div>
@@ -132,7 +232,7 @@ const CoinInfoPanel = () => {
 
 // ─── Main Chart ───────────────────────────────────────────────────────────────
 export const MainChart = () => {
-    const { selectedSymbol, assets } = useMarket();
+    const { selectedSymbol, assets, marketType } = useMarket();
     const {
         data,
         isLoading,
@@ -144,7 +244,7 @@ export const MainChart = () => {
         activeIndicators,
         toggleIndicator,
         fetchHistory,
-    } = useChartData(selectedSymbol);
+    } = useChartData(selectedSymbol, marketType);
 
     const [activeTab, setActiveTab] = useState<"chart" | "info" | "flow">(
         "chart",
