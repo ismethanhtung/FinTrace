@@ -70,3 +70,20 @@
   backdrop-filter: blur(12px);
   opacity: 0.95;
 }
+
+/* ─── Ticker scrolling animation ────── */
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker-scroll 120s linear infinite;
+  will-change: transform;
+}
+
+.ticker-wrapper:hover .ticker-track {
+  animation-play-state: paused;
+}

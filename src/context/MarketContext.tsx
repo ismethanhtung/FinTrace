@@ -1,35 +1,56 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { useMarketData } from '../hooks/useMarketData';
-import { Asset } from '../services/binanceService';
+import React, { useState, useEffect, useCallback } from 'react';
+import { binanceService, Asset, BinanceTicker } from '../services/binanceService';
 
 interface MarketContextType {
   selectedSymbol: string;
   setSelectedSymbol: (symbol: string) => void;
   assets: Asset[];
-  chartData: { time: string, value: number }[];
   isLoading: boolean;
   error: string | null;
 }
 
-const MarketContext = createContext<MarketContextType | undefined>(undefined);
+const MarketContext = React.createContext<MarketContextType | undefined>(undefined);
 
-export const MarketProvider = ({ children }: { children: ReactNode }) => {
+export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
   const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT');
-  const marketData = useMarketData(selectedSymbol);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAssets = useCallback(async () => {
+    try {
+      const tickers: BinanceTicker[] = await binanceService.getTickers();
+      const topUSDT = tickers
+        .filter(t => t.symbol.endsWith('USDT'))
+        .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+        .slice(0, 50);
+      setAssets(topUSDT.map(binanceService.transformTicker));
+      setError(null);
+    } catch (err) {
+      console.error('[MarketProvider] Failed to fetch assets:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load market data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAssets();
+    const interval = setInterval(fetchAssets, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchAssets]);
 
   return (
-    <MarketContext.Provider value={{ selectedSymbol, setSelectedSymbol, ...marketData }}>
+    <MarketContext.Provider value={{ selectedSymbol, setSelectedSymbol, assets, isLoading, error }}>
       {children}
     </MarketContext.Provider>
   );
 };
 
 export const useMarket = () => {
-  const context = useContext(MarketContext);
-  if (context === undefined) {
-    throw new Error('useMarket must be used within a MarketProvider');
-  }
-  return context;
+  const ctx = React.useContext(MarketContext);
+  if (!ctx) throw new Error('useMarket must be used within a MarketProvider');
+  return ctx;
 };
