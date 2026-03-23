@@ -1,35 +1,63 @@
 # Logo token (FinTrace)
 
-## Vì sao Binance không đủ?
+## Mục tiêu
 
-API ticker Binance (`/api/v3/ticker/24hr`) không trả URL logo. Logo được lấy qua **CoinGecko** (public API), map **base asset** (ví dụ `BTC` từ cặp `BTCUSDT`) → **CoinGecko coin `id`** → ảnh từ endpoint `coins/markets`.
+FinTrace không còn phụ thuộc vào CoinGecko để lấy logo token trong runtime. Logo hiện được resolve từ metadata marketing của Binance để:
+
+- tránh rate limit của CoinGecko
+- giữ một nguồn logo thống nhất cho spot và futures
+- giảm số request lặp lại ở client
 
 ## Kiến trúc
 
 | Thành phần | Vai trò |
 |------------|---------|
-| `src/services/tokenLogoService.ts` | Cache danh sách coin, resolve `id`, batch `markets`, cache ảnh theo `id` |
-| `src/config/tokenLogoOverrides.ts` | Map tay `SYMBOL` → `coingecko-id` khi trùng ticker / sai tự động |
-| `src/components/TokenAvatar.tsx` | Hiển thị ảnh; lỗi tải → chữ cái đầu |
+| `src/app/api/binance/marketing-symbols/route.ts` | Fetch server-side từ Binance marketing API, trả về payload gọn cho client |
+| `src/services/tokenLogoService.ts` | Cache metadata trong memory + `localStorage`, build catalog lookup, resolve `logoUrl` cho asset |
+| `src/config/tokenLogoOverrides.ts` | Override thủ công khi cần ép một asset dùng key lookup khác |
+| `src/context/MarketContext.tsx` | Enrich logo cho cả danh sách spot và futures |
+| `src/components/TokenAvatar.tsx` | Hiển thị ảnh; lỗi tải thì fallback sang chữ cái đầu |
 | `Asset.logoUrl` | Trường tùy chọn trên model thị trường |
 
-Luồng:
+## Luồng dữ liệu
 
-1. `GET /api/v3/coins/list` — cache ~7 ngày (bộ nhớ + `localStorage`).
-2. Với mỗi asset: `resolveCoinGeckoId(symbol, list)` (+ overrides).
-3. `GET /api/v3/coins/markets?vs_currency=usd&ids=...` theo lô — chỉ gọi cho `id` chưa có trong cache bộ nhớ.
+1. Client gọi `/api/binance/marketing-symbols`.
+2. Route handler gọi `https://www.binance.com/bapi/composite/v1/public/marketing/symbol/list`.
+3. Route chỉ trả về các field cần thiết như `symbol`, `baseAsset`, `quoteAsset`, `logo`, `mapperName`.
+4. `tokenLogoService` cache danh sách này trong memory và `localStorage`.
+5. Với mỗi asset:
+   - ưu tiên match theo trading symbol đầy đủ như `BTCUSDT`
+   - fallback sang `${baseAsset}USDT`
+   - fallback tiếp theo `baseAsset`
+   - cuối cùng thử `mapperName`
+6. Nếu không resolve được logo, UI vẫn render bình thường với fallback text avatar.
 
-## Mở rộng
+## Matching strategy
 
-- **Sai logo / trùng symbol:** thêm một dòng vào `COINGECKO_ID_OVERRIDES` (giá trị là `id` đúng trên CoinGecko, tra tại trang coin hoặc API list).
-- **Provider khác (sau này):** có thể tách interface `TokenLogoProvider` và gọi song song hoặc fallback; hiện tại chỉ triển khai CoinGecko để giảm phức tạp.
-- **API key / proxy:** CoinGecko free tier có giới hạn tốc độ; nếu cần, thêm route Next.js proxy + biến môi trường và trỏ `fetch` vào đó.
+- **Spot:** `BTCUSDT` sẽ match trực tiếp vào entry cùng symbol.
+- **Futures perpetual:** nếu symbol futures không có entry exact, service sẽ fallback về `baseAsset` như `BTC` rồi thử `BTCUSDT`.
+- **Multiplier assets:** các symbol như `1000SATS` được giữ nguyên, không tự ý rút gọn để tránh map sai logo.
+- **Duplicate entries:** catalog ưu tiên entry có `logo`, quote asset `USDT`, và entry public hơn.
 
-## Attribution
+## Cache
 
-Dữ liệu logo qua [CoinGecko API](https://www.coingecko.com/en/api). Tuân thủ điều khoản và giới hạn request của họ khi triển khai production.
+- **Server cache:** route dùng revalidation để tránh gọi Binance marketing endpoint quá thường xuyên.
+- **Client cache:** metadata được giữ trong memory và `localStorage` trong 6 giờ.
+- **Request dedupe:** nhiều request đồng thời sẽ dùng chung một promise thay vì bắn nhiều lần.
+
+## Override thủ công
+
+Nếu một asset cần ép sang key khác, thêm vào `BINANCE_LOGO_KEY_OVERRIDES` trong `src/config/tokenLogoOverrides.ts`.
+
+Ví dụ:
+
+```ts
+export const BINANCE_LOGO_KEY_OVERRIDES = {
+    BTCUSDT: "BTCUSDT",
+    BTC: "BTC",
+};
+```
 
 ## Tham chiếu API
 
-- [Coins list](https://docs.coingecko.com/reference/coins-list)
-- [Coins markets](https://docs.coingecko.com/reference/coins-markets)
+- [Binance Marketing Symbol List](https://www.binance.com/bapi/composite/v1/public/marketing/symbol/list)

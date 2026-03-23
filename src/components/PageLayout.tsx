@@ -2,7 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft } from "lucide-react";
 
 export default function PageLayout({
     title,
@@ -22,7 +23,13 @@ export default function PageLayout({
                         <ArrowLeft size={16} />
                     </Link>
                     <div className="flex items-center space-x-2">
-                        <TrendingUp size={18} className="text-accent" />
+                        <Image
+                            src="/logo.gif"
+                            alt="FinTrace logo"
+                            width={18}
+                            height={18}
+                            className="rounded-sm"
+                        />
                         <span className="font-bold text-[15px] tracking-tight">
                             FinTrace
                         </span>

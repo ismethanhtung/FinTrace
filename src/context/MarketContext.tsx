@@ -80,9 +80,10 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
                     (a, b) =>
                         parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume),
                 );
-            setFuturesAssets(
+            const next = await enrichAssetsWithLogos(
                 allUSDT.map(binanceService.transformFuturesTicker),
             );
+            setFuturesAssets(next);
         } catch (err) {
             console.error(
                 "[MarketProvider] Failed to fetch futures assets:",

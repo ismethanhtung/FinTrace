@@ -70,7 +70,7 @@ export type Asset = {
   /** Raw quote-asset (USDT) volume */
   quoteVolumeRaw: number;
   sparkline: number[];
-  /** Logo URL (e.g. CoinGecko), optional — see tokenLogoService */
+  /** Logo URL resolved from Binance marketing metadata, optional */
   logoUrl?: string;
   /** Which market this asset belongs to */
   marketType?: MarketType;

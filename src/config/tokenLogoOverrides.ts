@@ -1,9 +1,16 @@
 /**
- * Binance base asset (e.g. "BTC", "1000SATS") → CoinGecko coin `id`
- * when tự động map theo symbol bị trùng hoặc sai.
+ * Manual overrides for token logo lookup keys.
+ *
+ * Key:
+ * - asset id (e.g. `BTCUSDT`)
+ * - or base asset symbol (e.g. `BTC`, `1000SATS`)
+ *
+ * Value:
+ * - canonical Binance lookup key to try first.
  *
  * @see docs/token-logos.md
  */
-export const COINGECKO_ID_OVERRIDES: Record<string, string> = {
-    // Ví dụ: 'IOT': 'iota',
+export const BINANCE_LOGO_KEY_OVERRIDES: Record<string, string> = {
+    // Example: 'BTCUSDT': 'BTCUSDT',
+    // Example: 'BTC': 'BTC',
 };

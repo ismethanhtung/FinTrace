@@ -22,6 +22,7 @@ import {
     Search,
     Palette,
 } from "lucide-react";
+import Image from "next/image";
 
 const BOTTOM_MIN = 100;
 const BOTTOM_MAX = 460;
@@ -102,7 +103,13 @@ export default function App() {
                 <div className="flex items-center space-x-6">
                     {/* Logo */}
                     <div className="flex items-center space-x-2">
-                        <TrendingUp size={17} className="text-accent" />
+                        <Image
+                            src="/logo.gif"
+                            alt="FinTrace logo"
+                            width={36}
+                            height={36}
+                            className="rounded-sm"
+                        />
                         <span className="font-bold text-[14px] tracking-tight">
                             FinTrace
                         </span>
