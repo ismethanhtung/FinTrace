@@ -3,13 +3,11 @@ import { newsService, NewsItem } from '../services/newsService';
 
 interface UseCoinNewsOptions {
   symbol: string;          // e.g. "BTCUSDT" or "BTC"
-  authToken?: string;      // CryptoPanic API token
   refreshIntervalMs?: number;
 }
 
 export const useCoinNews = ({
   symbol,
-  authToken,
   refreshIntervalMs = 5 * 60_000, // 5 minutes
 }: UseCoinNewsOptions) => {
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -25,7 +23,7 @@ export const useCoinNews = ({
   const fetchNews = useCallback(async () => {
     setIsLoading(true);
     try {
-      const items = await newsService.getNews(baseSymbol, authToken);
+      const items = await newsService.getNews(baseSymbol);
       if (!isMounted.current) return;
       setNews(items);
       setLastFetched(new Date());
@@ -37,9 +35,9 @@ export const useCoinNews = ({
     } finally {
       if (isMounted.current) setIsLoading(false);
     }
-  }, [baseSymbol, authToken]);
+  }, [baseSymbol]);
 
-  // Fetch on symbol/token change + set up polling
+  // Fetch on symbol change + set up polling
   useEffect(() => {
     isMounted.current = true;
     fetchNews();
@@ -52,3 +50,4 @@ export const useCoinNews = ({
 
   return { news, isLoading, error, lastFetched, refetch: fetchNews, baseSymbol };
 };
+

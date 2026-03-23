@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Sparkles, MessageSquare, Newspaper, FileText, GripVertical } from 'lucide-react';
+import { Sparkles, MessageSquare, Rss, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ChatPanel } from './ai/ChatPanel';
 import { NewsPanel } from './ai/NewsPanel';
 import { SummaryPanel } from './ai/SummaryPanel';
+import { motion, AnimatePresence } from 'motion/react';
 
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 600;
@@ -32,7 +33,6 @@ export const RightPanel = () => {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
-      // Dragging left edge: drag left = wider (negative delta = more width)
       const delta = startX.current - e.clientX;
       const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
       setWidth(next);
@@ -51,6 +51,12 @@ export const RightPanel = () => {
     };
   }, []);
 
+  const TABS = [
+    { id: 'chat', label: 'AI Chat', icon: MessageSquare },
+    { id: 'news', label: 'News', icon: Rss },
+    { id: 'summary', label: 'Summary', icon: FileText },
+  ];
+
   return (
     <div
       className="h-full flex flex-col bg-main border-l border-main relative shrink-0"
@@ -59,20 +65,15 @@ export const RightPanel = () => {
       {/* ── Left-edge resize handle ── */}
       <div
         onMouseDown={onMouseDown}
-        className="absolute left-0 top-0 w-1.5 h-full z-20 cursor-col-resize flex items-center justify-center hover:bg-accent/10 active:bg-accent/20 transition-colors"
-        title="Drag to resize panel"
+        className="absolute left-0 top-0 w-1.5 h-full z-30 cursor-col-resize flex flex-col items-center justify-center hover:bg-accent/10 active:bg-accent/20 transition-colors"
       >
         <div className="w-0.5 h-10 rounded-full bg-main border border-main pointer-events-none" />
       </div>
 
       {/* ── Header w/ Tabs ── */}
-      <div className="pl-4 pr-3 py-2 border-b border-main flex items-center justify-between shrink-0 bg-main">
-        <div className="flex items-center space-x-2 bg-secondary p-1 rounded-lg border border-main">
-          {[
-            { id: 'chat', label: 'AI Chat', icon: MessageSquare },
-            { id: 'news', label: 'News', icon: Newspaper },
-            { id: 'summary', label: 'Summary', icon: FileText },
-          ].map((tab) => {
+      <div className="pl-4 pr-3 py-2 border-b border-main flex items-center justify-between shrink-0 bg-main z-20">
+        <div className="flex items-center space-x-2 bg-secondary p-1 rounded-lg border border-main relative">
+          {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
             return (
@@ -80,14 +81,19 @@ export const RightPanel = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as Tab)}
                 className={cn(
-                  'flex items-center space-x-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all',
-                  isActive
-                    ? 'bg-main text-accent shadow-sm border border-main/50'
-                    : 'text-muted hover:text-main hover:bg-main/50 border border-transparent'
+                  'relative flex items-center justify-center space-x-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-colors z-10',
+                  isActive ? 'text-accent' : 'text-muted hover:text-main'
                 )}
               >
                 <Icon size={12} className={isActive ? 'text-accent' : 'opacity-70'} />
                 <span>{tab.label}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="rightTabActive"
+                    className="absolute inset-0 bg-main rounded-md border border-main/50 shadow-sm -z-10"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
+                )}
               </button>
             );
           })}
@@ -98,11 +104,21 @@ export const RightPanel = () => {
         </div>
       </div>
 
-      {/* ── Content Area ── */}
-      <div className="flex-1 min-h-0 relative">
-        {activeTab === 'chat' && <ChatPanel />}
-        {activeTab === 'news' && <NewsPanel />}
-        {activeTab === 'summary' && <SummaryPanel />}
+      <div className="flex-1 min-h-0 relative z-10 bg-main">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 3 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -3 }}
+            transition={{ duration: 0.15 }}
+            className="h-full"
+          >
+            {activeTab === 'chat' && <ChatPanel />}
+            {activeTab === 'news' && <NewsPanel />}
+            {activeTab === 'summary' && <SummaryPanel />}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
