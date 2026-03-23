@@ -40,15 +40,42 @@ const SIDEBAR_SECTIONS = [
   { id: 'profile',    icon: User,    label: 'Profile' },
   { id: 'ui',         icon: Type,    label: 'UI Preferences' },
   { id: 'appearance', icon: Palette, label: 'Appearance' },
+  { id: 'integrations', icon: Globe, label: 'Integrations & AI' },
   { id: 'notif',      icon: Bell,    label: 'Notifications' },
   { id: 'security',   icon: Shield,  label: 'Security' },
   { id: 'data',       icon: Database,label: 'Data & Privacy' },
-  { id: 'locale',     icon: Globe,   label: 'Language & Region' },
 ];
 
 export default function SettingsPage() {
-  const { font, setFont, theme, setTheme } = useAppSettings();
+  const { 
+    font, setFont, 
+    theme, setTheme,
+    openrouterApiKey, setOpenrouterApiKey,
+    cryptoPanicApiKey, setCryptoPanicApiKey,
+    selectedModel, setSelectedModel,
+    systemPrompt, setSystemPrompt,
+  } = useAppSettings();
   const [activeSection, setActiveSection] = useState('profile');
+  const [models, setModels] = useState<{ id: string; name: string }[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+
+  // Fetch models if OpenRouter key is present
+  React.useEffect(() => {
+    if (!openrouterApiKey) return;
+    setIsLoadingModels(true);
+    fetch('https://openrouter.ai/api/v1/models', {
+      headers: { Authorization: `Bearer ${openrouterApiKey}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        const list = (data.data || [])
+          .filter((m: any) => m.id && !m.id.includes(':free') === false || m.id)
+          .sort((a: any, b: any) => a.name.localeCompare(b.name));
+        setModels(list);
+      })
+      .catch(err => console.error('Failed to load OR models:', err))
+      .finally(() => setIsLoadingModels(false));
+  }, [openrouterApiKey]);
 
   return (
     <PageLayout title="Settings">
@@ -266,8 +293,122 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* ── Integrations & AI ── */}
+          {activeSection === 'integrations' && (
+            <div className="space-y-6">
+              <div className="p-8 bg-secondary rounded-2xl border border-main space-y-6">
+                <div className="border-b border-main pb-5">
+                  <h3 className="text-[18px] font-bold flex items-center space-x-2">
+                    <Globe size={20} className="text-accent" />
+                    <span>Integrations & AI</span>
+                  </h3>
+                  <p className="text-muted text-[13px] mt-1">
+                    Configure your API keys, select your preferred language model, and customize the AI agent behavior.
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  {/* API Keys */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[12px] font-bold text-muted uppercase tracking-wider">OpenRouter API Key</label>
+                      <input
+                        type="password"
+                        placeholder="sk-or-v1-..."
+                        value={openrouterApiKey}
+                        onChange={(e) => setOpenrouterApiKey(e.target.value)}
+                        className="w-full bg-main border border-main rounded-lg py-2.5 px-4 text-[14px] focus:outline-none focus:ring-1 focus:ring-accent/30 placeholder:opacity-40"
+                      />
+                      <p className="text-[11px] text-muted">Required for FinTrace AI Chat. Get yours at <a href="https://openrouter.ai/keys" className="text-accent hover:underline" target="_blank" rel="noreferrer">openrouter.ai</a></p>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[12px] font-bold text-muted uppercase tracking-wider">CryptoPanic Auth Token</label>
+                      <input
+                        type="password"
+                        placeholder="Your free api auth token..."
+                        value={cryptoPanicApiKey}
+                        onChange={(e) => setCryptoPanicApiKey(e.target.value)}
+                        className="w-full bg-main border border-main rounded-lg py-2.5 px-4 text-[14px] focus:outline-none focus:ring-1 focus:ring-accent/30 placeholder:opacity-40"
+                      />
+                      <p className="text-[11px] text-muted">Required for real news updates. Get yours at <a href="https://cryptopanic.com/developers/api/" className="text-accent hover:underline" target="_blank" rel="noreferrer">cryptopanic.com</a></p>
+                    </div>
+                  </div>
+
+                  {/* AI Model Selection */}
+                  <div className="space-y-2">
+                    <label className="text-[12px] font-bold text-muted uppercase tracking-wider flex items-center justify-between">
+                      <span>Preferred AI Model</span>
+                      {isLoadingModels && <span className="text-[10px] text-accent animate-pulse capitalize normal-case">Fetching latest...</span>}
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        className="w-full bg-main border border-main rounded-lg py-2.5 pl-4 pr-10 text-[14px] focus:outline-none focus:ring-1 focus:ring-accent/30 appearance-none"
+                        disabled={!openrouterApiKey}
+                      >
+                        {!openrouterApiKey ? (
+                          <option value={selectedModel}>Enter OpenRouter key to fetch models</option>
+                        ) : models.length === 0 ? (
+                          <option value={selectedModel}>{selectedModel} (fetching alternatives...)</option>
+                        ) : (
+                          models.map(m => (
+                            <option key={m.id} value={m.id}>{m.name || m.id}</option>
+                          ))
+                        )}
+                        {/* Fallback option if current selected model is not in list but we want to show it */}
+                        {openrouterApiKey && models.length > 0 && !models.find(m => m.id === selectedModel) && (
+                          <option value={selectedModel}>{selectedModel}</option>
+                        )}
+                      </select>
+                      <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                        <Type size={14} className="text-muted" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* System Prompt Customization */}
+                  <div className="space-y-2">
+                    <label className="text-[12px] font-bold text-muted uppercase tracking-wider flex items-center justify-between">
+                      <span>AI System Prompt</span>
+                      <button 
+                         className="text-[10px] text-accent hover:text-accent/80 transition-colors uppercase tracking-wide normal-case"
+                         onClick={() => {
+                           // Reset logic -> just string match default
+                           setSystemPrompt(`You are FinTrace AI, an expert crypto market analyst embedded in the FinTrace trading platform.
+
+You have access to real-time market data for the coin the user is currently viewing. This data will be injected at the start of each conversation.
+
+Your role:
+- Provide sharp, data-driven analysis of price action, trends, and momentum
+- Explain technical indicators (MA, EMA, RSI, MACD, support/resistance)
+- Assess risk/reward and market context
+- Answer questions clearly, concisely, and in the user's language
+
+You do NOT give financial advice or buy/sell recommendations. Always state that decisions are the user's own.`);
+                         }}
+                      >
+                        Reset to Default
+                      </button>
+                    </label>
+                    <textarea
+                      rows={10}
+                      value={systemPrompt}
+                      onChange={(e) => setSystemPrompt(e.target.value)}
+                      className="w-full bg-main border border-main rounded-lg py-3 px-4 text-[13px] font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-accent/30 resize-y"
+                    />
+                    <p className="text-[11px] text-muted">
+                      Use the placeholder <span className="font-mono bg-main px-1 py-0.5 rounded text-main border border-main">{"{CONTEXT}"}</span> to show where real-time market data will be injected automatically.
+                    </p>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Fallback placeholder ── */}
-          {!['profile', 'ui', 'appearance', 'notif'].includes(activeSection) && (
+          {!['profile', 'ui', 'appearance', 'integrations', 'notif'].includes(activeSection) && (
             <div className="p-8 bg-secondary rounded-2xl border border-main flex items-center justify-center min-h-[200px]">
               <p className="text-muted text-[14px]">This section is coming soon.</p>
             </div>

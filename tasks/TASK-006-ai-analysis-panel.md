@@ -1,6 +1,6 @@
 # TASK-006: AI Analysis Panel + Real News Feed
 
-**Status:** [ ] In Progress  
+**Status:** [x] Done  
 **Priority:** High  
 **Type:** Feature  
 **Created:** 2026-03-23  
@@ -18,17 +18,17 @@ Need to fully implement:
 
 ## Acceptance Criteria
 
-- [ ] Right panel has tabs: **Chat** | **News** | **Summary**
-- [ ] Chat supports multi-turn conversation with streaming response
-- [ ] Sessions saved to localStorage (title, messages, timestamp)
-- [ ] Session history sidebar: create new, switch, delete sessions
-- [ ] Model selector: fetches available models from OpenRouter `/api/v1/models`
-- [ ] OpenRouter API key + CryptoPanic API key stored in Settings (UI Preferences or new "Integrations" section)
-- [ ] System prompt is pre-populated with current coin data (price, OHLCV, 24h stats)
-- [ ] System prompt editable in Settings
-- [ ] News tab shows real articles from CryptoPanic filtered by current coin symbol
-- [ ] News refreshes when coin changes
-- [ ] TypeScript clean, extensible service/hook architecture
+- [x] Right panel has tabs: **Chat** | **News** | **Summary**
+- [x] Chat supports multi-turn conversation with streaming response
+- [x] Sessions saved to localStorage (title, messages, timestamp)
+- [x] Session history sidebar: create new, switch, delete sessions
+- [x] Model selector: fetches available models from OpenRouter `/api/v1/models`
+- [x] OpenRouter API key + CryptoPanic API key stored in Settings (UI Preferences or new "Integrations" section)
+- [x] System prompt is pre-populated with current coin data (price, OHLCV, 24h stats)
+- [x] System prompt editable in Settings
+- [x] News tab shows real articles from CryptoPanic filtered by current coin symbol
+- [x] News refreshes when coin changes
+- [x] TypeScript clean, extensible service/hook architecture
 
 ## Architecture
 
