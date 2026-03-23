@@ -42,7 +42,7 @@ const NewsItemCard = ({ item }: { item: NewsItem }) => {
           messages: [
             {
               role: 'system',
-              content: 'Bạn là chuyên gia phân tích tài chính AI. Dựa trên tiêu đề và mô tả của bài báo, hãy tóm tắt ý chính và tác động thị trường (nếu có). Trả về dưới dạng 2-3 gạch đầu dòng (bullet points) vô cùng ngắn gọn, xúc tích bằng tiếng Việt. Bắt buộc dùng Markdown (dấu -).'
+              content: 'Bạn là chuyên gia phân tích tài chính AI. Nhiệm vụ của bạn là đọc tin tức, sau đó trả về chuẩn xác theo định dạng Markdown tiếng Việt thật ngắn gọn:\n1. 2-3 gạch đầu dòng tóm tắt ý chính.\n2. Cuối cùng, bắt buộc kết luận bằng dòng chữ:\n\n**Đánh giá:** [Tích cực / Tiêu cực / Bình thường / Không liên quan / Giật tít rẻ tiền] - (1 câu giải thích ngắn).'
             },
             {
               role: 'user',
