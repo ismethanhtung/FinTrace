@@ -19,6 +19,7 @@ import {
   TrendingUp, TrendingDown, BarChart2, LineChart, Info, Activity, ChevronsRight, Loader2, Waves,
 } from 'lucide-react';
 import { FlowPanel } from './FlowPanel';
+import { TokenAvatar } from './TokenAvatar';
 
 // ─── Price formatter ─────────────────────────────────────────────────────────
 const priceFmt = (v: number) => {
@@ -143,9 +144,11 @@ const CoinInfoPanel = () => {
   return (
     <div className="flex-1 overflow-y-auto thin-scrollbar p-5 space-y-4">
       <div className="flex items-center space-x-3 pb-4 border-b border-main">
-        <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-          <span className="text-accent font-bold text-[14px]">{asset.symbol[0]}</span>
-        </div>
+        <TokenAvatar
+          symbol={asset.symbol}
+          logoUrl={asset.logoUrl}
+          size={40}
+        />
         <div>
           <div className="font-bold text-[15px]">{asset.symbol}</div>
           <div className="text-muted text-[11px]">{asset.id} · Binance</div>

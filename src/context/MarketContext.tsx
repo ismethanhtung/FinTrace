@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { binanceService, Asset, BinanceTicker } from '../services/binanceService';
+import { enrichAssetsWithLogos } from '../services/tokenLogoService';
 
 interface MarketContextType {
   selectedSymbol: string;
@@ -26,7 +27,9 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         .filter(t => t.symbol.endsWith('USDT'))
         .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
         .slice(0, 50);
-      setAssets(topUSDT.map(binanceService.transformTicker));
+      let next = topUSDT.map(binanceService.transformTicker);
+      next = await enrichAssetsWithLogos(next);
+      setAssets(next);
       setError(null);
     } catch (err) {
       console.error('[MarketProvider] Failed to fetch assets:', err);

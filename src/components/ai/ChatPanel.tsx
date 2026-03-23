@@ -26,6 +26,23 @@ import { cn } from "../../lib/utils";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "motion/react";
 
+// ─── Fallback models for when API fetch fails ─────────────────────────────────
+const FALLBACK_OPENROUTER_MODELS: ModelInfo[] = [
+    {
+        id: "arcee-ai/trinity-large-preview:free",
+        name: "Arcee Trinity Large (Free)",
+    },
+    { id: "google/gemini-2.0-flash-lite-001", name: "Gemini 2.0 Flash Lite" },
+    { id: "google/gemini-2.0-flash-001", name: "Gemini 2.0 Flash" },
+    { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku" },
+    { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet" },
+    { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
+    { id: "openai/gpt-4o", name: "GPT-4o" },
+    { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B Instruct" },
+    { id: "meta-llama/llama-3.1-8b-instruct", name: "Llama 3.1 8B Instruct" },
+    { id: "mistralai/mistral-7b-instruct", name: "Mistral 7B Instruct" },
+];
+
 // ─── Provider/Model Selector ──────────────────────────────────────────────────
 
 interface ModelSelectorProps {
@@ -57,10 +74,16 @@ const ModelSelector = ({
     // Close dropdowns on outside click
     useEffect(() => {
         const handler = (e: MouseEvent) => {
-            if (providerRef.current && !providerRef.current.contains(e.target as Node)) {
+            if (
+                providerRef.current &&
+                !providerRef.current.contains(e.target as Node)
+            ) {
                 setShowProviderMenu(false);
             }
-            if (modelRef.current && !modelRef.current.contains(e.target as Node)) {
+            if (
+                modelRef.current &&
+                !modelRef.current.contains(e.target as Node)
+            ) {
                 setShowModelMenu(false);
             }
         };
@@ -68,8 +91,11 @@ const ModelSelector = ({
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-    const shortModel = model.includes("/") ? model.split("/").pop() ?? model : model;
-    const displayModel = shortModel.length > 22 ? shortModel.slice(0, 20) + "…" : shortModel;
+    const shortModel = model.includes("/")
+        ? (model.split("/").pop() ?? model)
+        : model;
+    const displayModel =
+        shortModel.length > 22 ? shortModel.slice(0, 20) + "…" : shortModel;
 
     return (
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -112,11 +138,22 @@ const ModelSelector = ({
                                         )}
                                     >
                                         <div className="flex items-center gap-2">
-                                            <Zap size={10} className={p.id === providerId ? "text-accent" : "text-muted"} />
-                                            <span className="font-medium">{p.name}</span>
+                                            <Zap
+                                                size={10}
+                                                className={
+                                                    p.id === providerId
+                                                        ? "text-accent"
+                                                        : "text-muted"
+                                                }
+                                            />
+                                            <span className="font-medium">
+                                                {p.name}
+                                            </span>
                                         </div>
                                         {!p.hasKey && (
-                                            <span className="text-[9px] text-amber-500 font-mono">no key</span>
+                                            <span className="text-[9px] text-amber-500 font-mono">
+                                                no key
+                                            </span>
                                         )}
                                     </button>
                                 ))}
@@ -138,7 +175,9 @@ const ModelSelector = ({
                     title="Select model"
                 >
                     <Cpu size={9} />
-                    <span className="font-mono">{isLoadingModels ? "loading…" : displayModel}</span>
+                    <span className="font-mono">
+                        {isLoadingModels ? "loading…" : displayModel}
+                    </span>
                     <ChevronDown size={8} />
                 </button>
                 <AnimatePresence>
@@ -211,21 +250,41 @@ export const ChatPanel = () => {
             .then((list) => {
                 setModels(list);
                 // If current model not in new provider's list, switch to first
-                if (list.length > 0 && !list.find((m) => m.id === selectedModel)) {
+                if (
+                    list.length > 0 &&
+                    !list.find((m) => m.id === selectedModel)
+                ) {
                     setSelectedModel(list[0].id);
                 }
             })
             .catch((err) => {
-                console.error("[ChatPanel] Failed to load models:", err);
-                setModels([]);
+                console.warn(
+                    "[ChatPanel] Failed to load models, using fallback:",
+                    err,
+                );
+                // Use fallback models so UI still works even when API fails
+                const fallback =
+                    activeProvider.id === "openrouter"
+                        ? FALLBACK_OPENROUTER_MODELS
+                        : [];
+                setModels(fallback);
+                if (
+                    fallback.length > 0 &&
+                    !fallback.find((m) => m.id === selectedModel)
+                ) {
+                    setSelectedModel(fallback[0].id);
+                }
             })
             .finally(() => setIsLoadingModels(false));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeProvider?.id, activeProvider?.apiKey]);
 
-    const handleProviderChange = useCallback((id: string) => {
-        setActiveProviderId(id);
-    }, [setActiveProviderId]);
+    const handleProviderChange = useCallback(
+        (id: string) => {
+            setActiveProviderId(id);
+        },
+        [setActiveProviderId],
+    );
 
     const currentAsset = assets.find((a) => a.id === selectedSymbol);
     const contextSummary = currentAsset
@@ -565,7 +624,7 @@ ${
                                 handleSend();
                             }
                         }}
-                        className="w-full bg-secondary border border-main rounded-xl py-2.5 pl-4 pr-12 text-[12px] text-main focus:outline-none focus:border-accent/50 resize-none thin-scrollbar leading-relaxed placeholder:text-muted"
+                        className="w-full bg-secondary border border-main rounded-lg py-2.5 pl-4 pr-12 text-[12px] text-main focus:outline-none focus:border-accent/50 resize-none thin-scrollbar leading-relaxed placeholder:text-muted"
                         style={{ minHeight: "40px" }}
                     />
                     {isStreaming ? (

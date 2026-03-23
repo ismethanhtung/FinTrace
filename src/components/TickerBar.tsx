@@ -3,6 +3,7 @@
 import React from 'react';
 import { cn } from '../lib/utils';
 import { useMarket } from '../context/MarketContext';
+import { TokenAvatar } from './TokenAvatar';
 import { Wifi } from 'lucide-react';
 
 const priceFmt = (v: number) =>
@@ -42,6 +43,11 @@ export const TickerBar = () => {
               onClick={() => setSelectedSymbol(asset.id)}
               className="flex items-center space-x-1.5 px-4 h-8 hover:bg-secondary/80 transition-colors border-r border-main last:border-r-0 shrink-0"
             >
+              <TokenAvatar
+                symbol={asset.symbol}
+                logoUrl={asset.logoUrl}
+                size={14}
+              />
               <span className="text-[10px] font-semibold whitespace-nowrap">
                 {asset.symbol}
                 <span className="text-muted font-normal">/USDT</span>

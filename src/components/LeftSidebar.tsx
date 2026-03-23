@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '../lib/utils';
 import { useMarket } from '../context/MarketContext';
 import { Asset } from '../services/binanceService';
+import { TokenAvatar } from './TokenAvatar';
 import {
   Search,
   Star,
@@ -49,12 +50,12 @@ const CoinRow = ({ asset, isSelected, onClick }: { asset: Asset; isSelected: boo
     )}
   >
     <div className="flex items-center space-x-2 min-w-0">
-      <div className={cn(
-        'w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0',
-        isSelected ? 'bg-accent text-white' : 'bg-secondary text-muted'
-      )}>
-        {asset.symbol[0]}
-      </div>
+      <TokenAvatar
+        symbol={asset.symbol}
+        logoUrl={asset.logoUrl}
+        size={24}
+        selected={isSelected}
+      />
       <div className="min-w-0">
         <div className={cn('text-[11px] font-semibold truncate', isSelected && 'text-accent')}>{asset.symbol}</div>
         <div className="text-[9px] text-muted truncate">{asset.id}</div>

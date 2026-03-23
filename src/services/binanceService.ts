@@ -28,6 +28,8 @@ export type Asset = {
   /** Raw quote-asset (USDT) volume */
   quoteVolumeRaw: number;
   sparkline: number[];
+  /** Logo URL (e.g. CoinGecko), optional — see tokenLogoService */
+  logoUrl?: string;
 };
 
 export type OhlcvPoint = {

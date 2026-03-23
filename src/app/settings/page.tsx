@@ -35,6 +35,20 @@ import {
 import { cn } from "../../lib/utils";
 import { openrouterService } from "../../services/openrouterService";
 
+// ─── Fallback models for when API fetch fails ─────────────────────────────────
+const FALLBACK_OPENROUTER_MODELS: { id: string; name?: string }[] = [
+    { id: "arcee-ai/trinity-large-preview:free", name: "Arcee Trinity Large (Free)" },
+    { id: "google/gemini-2.0-flash-lite-001", name: "Gemini 2.0 Flash Lite" },
+    { id: "google/gemini-2.0-flash-001", name: "Gemini 2.0 Flash" },
+    { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku" },
+    { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet" },
+    { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
+    { id: "openai/gpt-4o", name: "GPT-4o" },
+    { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B Instruct" },
+    { id: "meta-llama/llama-3.1-8b-instruct", name: "Llama 3.1 8B Instruct" },
+    { id: "mistralai/mistral-7b-instruct", name: "Mistral 7B Instruct" },
+];
+
 // ─── Font preview card ────────────────────────────────────────────────────────
 const FONT_OPTIONS: { value: AppFont; description: string }[] = [
     {
@@ -452,8 +466,8 @@ export default function SettingsPage() {
             .getModels(openrouterApiKey)
             .then((list) => setModels(list))
             .catch((err) => {
-                console.error("Failed to load OR models:", err);
-                setModels([]);
+                console.warn("Failed to load OR models, using fallback:", err);
+                setModels(FALLBACK_OPENROUTER_MODELS);
             })
             .finally(() => setIsLoadingModels(false));
     }, [openrouterApiKey]);
