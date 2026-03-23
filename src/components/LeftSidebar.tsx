@@ -7,7 +7,6 @@ import { Asset } from '../services/binanceService';
 import { TokenAvatar } from './TokenAvatar';
 import {
   Search,
-  Star,
   TrendingUp,
   TrendingDown,
   Activity,
@@ -70,24 +69,35 @@ const CoinRow = ({ asset, isSelected, onClick }: { asset: Asset; isSelected: boo
   </div>
 );
 
+// ─── Movers: chỉ coin thật sự lãi / lỗ (tránh +0.03% nằm trong tab Losers) ───
+const EPS = 1e-8;
+
+function formatPctSigned(p: number) {
+  const s = p >= 0 ? '+' : '-';
+  return `${s}${Math.abs(p).toFixed(2)}%`;
+}
+
 // ─── Top Movers Section ──────────────────────────────────────────────────────
 const TopMovers = ({ assets, onSelect }: { assets: Asset[]; onSelect: (id: string) => void }) => {
   const [tab, setTab] = useState<'gainers' | 'losers'>('gainers');
 
-  const sorted = [...assets]
-    .sort((a, b) =>
-      tab === 'gainers'
-        ? b.changePercent - a.changePercent
-        : a.changePercent - b.changePercent
-    )
-    .slice(0, 5);
+  const sorted = (() => {
+    if (tab === 'gainers') {
+      return [...assets]
+        .filter((a) => a.changePercent > EPS)
+        .sort((a, b) => b.changePercent - a.changePercent);
+    }
+    return [...assets]
+      .filter((a) => a.changePercent < -EPS)
+      .sort((a, b) => a.changePercent - b.changePercent);
+  })();
 
   return (
-    <div className="border-t border-main">
-      <div className="flex items-center justify-between px-3 py-2">
+    <div className="flex flex-1 min-h-0 flex-col border-t border-main">
+      <div className="flex shrink-0 items-center justify-between px-3 py-2">
         <div className="flex items-center space-x-1.5">
           <Flame size={12} className="text-orange-400" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Top Movers</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted">24h %</span>
         </div>
         <div className="flex items-center bg-secondary rounded p-0.5">
           <button
@@ -105,83 +115,110 @@ const TopMovers = ({ assets, onSelect }: { assets: Asset[]; onSelect: (id: strin
         </div>
       </div>
 
-      <div>
-        {sorted.map((asset, i) => (
-          <div
-            key={asset.id}
-            onClick={() => onSelect(asset.id)}
-            className="flex items-center justify-between px-3 py-2 border-b border-main last:border-0 hover:bg-secondary cursor-pointer transition-colors"
-          >
-            <div className="flex items-center space-x-2">
-              <span className="text-[10px] text-muted w-4">{i + 1}</span>
-              <div>
-                <div className="text-[11px] font-semibold">{asset.symbol}</div>
-                <div className="text-[9px] text-muted font-mono">{priceFmt(asset.price)}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto thin-scrollbar">
+        {sorted.length === 0 ? (
+          <div className="px-3 py-6 text-center text-[11px] text-muted">
+            {tab === 'gainers' ? 'Không có coin tăng trong danh sách.' : 'Không có coin giảm trong danh sách.'}
+          </div>
+        ) : (
+          sorted.map((asset, i) => (
+            <div
+              key={asset.id}
+              onClick={() => onSelect(asset.id)}
+              className="flex items-center justify-between px-3 py-2 border-b border-main last:border-0 hover:bg-secondary cursor-pointer transition-colors"
+            >
+              <div className="flex items-center space-x-2 min-w-0">
+                <span className="text-[10px] text-muted w-5 shrink-0 tabular-nums">{i + 1}</span>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold truncate">{asset.symbol}</div>
+                  <div className="text-[9px] text-muted font-mono tabular-nums">{priceFmt(asset.price)}</div>
+                </div>
+              </div>
+              <div
+                className={cn(
+                  'flex shrink-0 items-center space-x-1 rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums',
+                  asset.changePercent > EPS
+                    ? 'bg-emerald-500/15 text-emerald-500'
+                    : 'bg-rose-500/15 text-rose-500',
+                )}
+              >
+                {asset.changePercent > EPS ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
+                <span>{formatPctSigned(asset.changePercent)}</span>
               </div>
             </div>
-            <div className={cn(
-              'flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-bold',
-              asset.changePercent >= 0 ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500'
-            )}>
-              {asset.changePercent >= 0 ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
-              <span>{Math.abs(asset.changePercent).toFixed(2)}%</span>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
 };
 
-// ─── Recent Market Trades Section ─────────────────────────────────────────────
-const RecentTrades = ({ price }: { price: number }) => {
-  const [trades, setTrades] = useState(() => generateTrades(price));
+type TradeRow = {
+  id: number;
+  price: number;
+  qty: number;
+  time: string;
+  isBuy: boolean;
+};
 
-  // Refresh trades every 3s to simulate live feed
+// ─── Recent Market Trades Section (không animate từng dòng — tránh giật layout) ─
+const RecentTrades = ({ price }: { price: number }) => {
+  const tradeIdRef = useRef(0);
+  const [trades, setTrades] = useState<TradeRow[]>(() =>
+    generateTrades(price, 16).map((t) => ({ ...t, id: tradeIdRef.current++ })),
+  );
+
+  useEffect(() => {
+    if (!price) return;
+    setTrades(
+      generateTrades(price, 16).map((t) => ({ ...t, id: tradeIdRef.current++ })),
+    );
+  }, [price]);
+
   useEffect(() => {
     if (!price) return;
     const timer = setInterval(() => {
-      setTrades(prev => {
-        const newTrade = generateTrades(price, 1)[0];
-        return [newTrade, ...prev.slice(0, 13)];
+      setTrades((prev) => {
+        const raw = generateTrades(price, 1)[0];
+        const row: TradeRow = { ...raw, id: tradeIdRef.current++ };
+        return [row, ...prev.slice(0, 39)];
       });
-    }, 2000);
+    }, 2500);
     return () => clearInterval(timer);
   }, [price]);
 
   return (
-    <div className="border-t border-main">
-      <div className="flex items-center space-x-1.5 px-3 py-2 border-b border-main">
+    <div className="flex flex-1 min-h-0 flex-col border-t border-main">
+      <div className="flex shrink-0 items-center space-x-1.5 border-b border-main px-3 py-2">
         <Clock size={12} className="text-muted" />
         <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Market Trades</span>
         <span className="ml-auto">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
         </span>
       </div>
-      <div className="px-3 py-1.5 grid grid-cols-3 text-[9px] font-semibold text-muted uppercase tracking-wider border-b border-main">
+      <div className="grid shrink-0 grid-cols-3 border-b border-main px-3 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-muted">
         <span>Price (USDT)</span>
         <span className="text-center">Qty</span>
         <span className="text-right">Time</span>
       </div>
-      <div className="overflow-y-auto thin-scrollbar" style={{ maxHeight: 180 }}>
-        <AnimatePresence initial={false}>
-          {trades.map((t, i) => (
-            <motion.div
-              key={`${t.time}-${i}`}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="grid grid-cols-3 px-3 py-1 border-b border-main last:border-0 hover:bg-secondary"
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto thin-scrollbar">
+        {trades.map((t) => (
+          <div
+            key={t.id}
+            className="grid grid-cols-3 border-b border-main px-3 py-1 last:border-0 hover:bg-secondary"
+          >
+            <span
+              className={cn(
+                'text-[10px] font-mono font-medium tabular-nums',
+                t.isBuy ? 'text-emerald-500' : 'text-rose-500',
+              )}
             >
-              <span className={cn('text-[10px] font-mono font-medium', t.isBuy ? 'text-emerald-500' : 'text-rose-500')}>
-                {priceFmt(t.price)}
-              </span>
-              <span className="text-[10px] font-mono text-center text-muted">{t.qty.toFixed(4)}</span>
-              <span className="text-[10px] font-mono text-right text-muted">{t.time}</span>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+              {priceFmt(t.price)}
+            </span>
+            <span className="text-center text-[10px] font-mono tabular-nums text-muted">{t.qty.toFixed(4)}</span>
+            <span className="text-right text-[10px] font-mono tabular-nums text-muted">{t.time}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -197,7 +234,6 @@ export const LeftSidebar = () => {
   const [isOpen, setIsOpen] = useState(true);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'all' | 'gainers' | 'losers'>('all');
   const [section, setSection] = useState<'list' | 'movers' | 'trades'>('list');
   const isDragging = useRef(false);
   const startX = useRef(0);
@@ -205,13 +241,9 @@ export const LeftSidebar = () => {
 
   const selectedAsset = assets.find(a => a.id === selectedSymbol);
 
-  const filteredAssets = assets.filter(asset => {
-    const matchSearch = asset.symbol.toLowerCase().includes(search.toLowerCase());
-    if (!matchSearch) return false;
-    if (tab === 'gainers') return asset.changePercent > 0;
-    if (tab === 'losers') return asset.changePercent < 0;
-    return true;
-  });
+  const filteredAssets = assets.filter(asset =>
+    asset.symbol.toLowerCase().includes(search.toLowerCase()),
+  );
 
   // Handle resize drag
   const onMouseDown = useCallback((e: React.MouseEvent) => {
@@ -244,7 +276,7 @@ export const LeftSidebar = () => {
   }, []);
 
   return (
-    <div className="relative flex h-full shrink-0">
+    <div className="relative flex h-full min-h-0 shrink-0">
       {/* Sidebar Panel */}
       <AnimatePresence initial={false}>
         {isOpen && (
@@ -254,7 +286,7 @@ export const LeftSidebar = () => {
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             style={{ width, minWidth: width, maxWidth: width }}
-            className="h-full flex flex-col bg-main border-r border-main overflow-hidden"
+            className="h-full min-h-0 flex flex-col bg-main border-r border-main overflow-hidden"
           >
             {/* Section nav */}
             <div className="flex items-center border-b border-main shrink-0 bg-secondary/40">
@@ -279,7 +311,8 @@ export const LeftSidebar = () => {
               ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto thin-scrollbar">
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar flex flex-col">
               {/* ── Coin List ── */}
               {section === 'list' && (
                 <>
@@ -295,22 +328,6 @@ export const LeftSidebar = () => {
                         className="w-full bg-secondary border border-main rounded-md py-1.5 pl-7 pr-3 text-[11px] focus:outline-none focus:ring-1 focus:ring-accent/30"
                       />
                     </div>
-                  </div>
-
-                  {/* Tab filters */}
-                  <div className="flex border-b border-main">
-                    {(['all', 'gainers', 'losers'] as const).map(t => (
-                      <button
-                        key={t}
-                        onClick={() => setTab(t)}
-                        className={cn(
-                          'flex-1 py-1.5 text-[9px] font-bold uppercase tracking-wider transition-all',
-                          tab === t ? 'text-accent border-b-2 border-accent' : 'text-muted hover:text-main'
-                        )}
-                      >
-                        {t}
-                      </button>
-                    ))}
                   </div>
 
                   {/* Column headers */}
@@ -339,7 +356,7 @@ export const LeftSidebar = () => {
 
               {/* ── Top Movers ── */}
               {section === 'movers' && (
-                <div className="py-2">
+                <div className="flex flex-1 min-h-0 flex-col py-2">
                   <TopMovers assets={assets} onSelect={setSelectedSymbol} />
                 </div>
               )}
@@ -348,6 +365,7 @@ export const LeftSidebar = () => {
               {section === 'trades' && (
                 <RecentTrades price={selectedAsset?.price ?? 0} />
               )}
+              </div>
             </div>
           </motion.div>
         )}

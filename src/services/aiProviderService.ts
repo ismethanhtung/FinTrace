@@ -49,10 +49,29 @@ function buildHeaders(providerId: string, apiKey: string): Record<string, string
 
 async function getModels(providerId: string, apiKey: string): Promise<ModelInfo[]> {
   const base = getProxyBase(providerId);
+  const trimmedKey = apiKey?.trim() ?? '';
+
+  // Không gọi API khi chưa cấu hình khóa — tránh 401 và lỗi throw (ChatPanel dùng fallback)
+  if (providerId === 'openrouter' && !trimmedKey) {
+    return [];
+  }
+  if (providerId === 'groq' && !trimmedKey) {
+    return [];
+  }
+
   const headers = buildHeaders(providerId, apiKey);
 
   const res = await fetch(`${base}/models`, { headers });
-  if (!res.ok) throw new Error(`[${providerId}] models error: ${res.status}`);
+  if (!res.ok) {
+    // 401/403: thiếu hoặc sai khóa — không throw để UI dùng model dự phòng / Settings
+    if (res.status === 401 || res.status === 403) {
+      console.warn(
+        `[aiProvider] ${providerId} /models: ${res.status} — kiểm tra API key trong Settings`,
+      );
+      return [];
+    }
+    throw new Error(`[${providerId}] models error: ${res.status}`);
+  }
 
   const json: unknown = await res.json();
 

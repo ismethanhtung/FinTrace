@@ -248,13 +248,18 @@ export const ChatPanel = () => {
         aiProviderService
             .getModels(activeProvider.id, activeProvider.apiKey)
             .then((list) => {
-                setModels(list);
-                // If current model not in new provider's list, switch to first
+                const effective =
+                    list.length > 0
+                        ? list
+                        : activeProvider.id === "openrouter"
+                          ? FALLBACK_OPENROUTER_MODELS
+                          : [];
+                setModels(effective);
                 if (
-                    list.length > 0 &&
-                    !list.find((m) => m.id === selectedModel)
+                    effective.length > 0 &&
+                    !effective.find((m) => m.id === selectedModel)
                 ) {
-                    setSelectedModel(list[0].id);
+                    setSelectedModel(effective[0].id);
                 }
             })
             .catch((err) => {

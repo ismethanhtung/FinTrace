@@ -68,6 +68,18 @@ export const TickerBar = () => {
           ))}
         </div>
       </div>
+
+      {/* Attribution */}
+      <div className="flex items-center px-3 border-l border-main h-full shrink-0">
+        <a
+          href="https://www.tradingview.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[9px] text-muted/60 hover:text-muted transition-colors whitespace-nowrap"
+        >
+          Charts by TradingView
+        </a>
+      </div>
     </div>
   );
 };

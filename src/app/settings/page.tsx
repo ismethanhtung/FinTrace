@@ -37,7 +37,10 @@ import { openrouterService } from "../../services/openrouterService";
 
 // ─── Fallback models for when API fetch fails ─────────────────────────────────
 const FALLBACK_OPENROUTER_MODELS: { id: string; name?: string }[] = [
-    { id: "arcee-ai/trinity-large-preview:free", name: "Arcee Trinity Large (Free)" },
+    {
+        id: "arcee-ai/trinity-large-preview:free",
+        name: "Arcee Trinity Large (Free)",
+    },
     { id: "google/gemini-2.0-flash-lite-001", name: "Gemini 2.0 Flash Lite" },
     { id: "google/gemini-2.0-flash-001", name: "Gemini 2.0 Flash" },
     { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku" },
@@ -302,7 +305,11 @@ const ProviderCard = ({
                             rel="noreferrer"
                             className="text-accent hover:underline inline-flex items-center gap-0.5"
                         >
-                            {provider.websiteUrl.replace("https://", "").split("/")[0]}
+                            {
+                                provider.websiteUrl
+                                    .replace("https://", "")
+                                    .split("/")[0]
+                            }
                             <ExternalLink size={10} />
                         </a>
                     </p>
@@ -313,7 +320,11 @@ const ProviderCard = ({
 };
 
 // ─── Add Custom Provider Modal ────────────────────────────────────────────────
-const AddProviderForm = ({ onAdd }: { onAdd: (p: Omit<AIProviderConfig, "enabled">) => void }) => {
+const AddProviderForm = ({
+    onAdd,
+}: {
+    onAdd: (p: Omit<AIProviderConfig, "enabled">) => void;
+}) => {
     const [open, setOpen] = useState(false);
     const [form, setForm] = useState({
         id: "",
@@ -335,7 +346,14 @@ const AddProviderForm = ({ onAdd }: { onAdd: (p: Omit<AIProviderConfig, "enabled
             websiteUrl: form.websiteUrl.trim(),
             description: form.description.trim(),
         });
-        setForm({ id: "", name: "", apiKey: "", placeholder: "your-api-key", websiteUrl: "", description: "" });
+        setForm({
+            id: "",
+            name: "",
+            apiKey: "",
+            placeholder: "your-api-key",
+            websiteUrl: "",
+            description: "",
+        });
         setOpen(false);
     };
 
@@ -356,7 +374,9 @@ const AddProviderForm = ({ onAdd }: { onAdd: (p: Omit<AIProviderConfig, "enabled
             onSubmit={handleSubmit}
             className="p-5 rounded-xl border border-accent/30 bg-accent/5 space-y-4"
         >
-            <h4 className="text-[13px] font-bold text-main">Add Custom Provider</h4>
+            <h4 className="text-[13px] font-bold text-main">
+                Add Custom Provider
+            </h4>
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
@@ -366,7 +386,9 @@ const AddProviderForm = ({ onAdd }: { onAdd: (p: Omit<AIProviderConfig, "enabled
                         required
                         placeholder="e.g. mistral"
                         value={form.id}
-                        onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))}
+                        onChange={(e) =>
+                            setForm((f) => ({ ...f, id: e.target.value }))
+                        }
                         className="w-full bg-main border border-main rounded-lg py-2 px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-accent/30"
                     />
                 </div>
@@ -378,7 +400,9 @@ const AddProviderForm = ({ onAdd }: { onAdd: (p: Omit<AIProviderConfig, "enabled
                         required
                         placeholder="e.g. Mistral AI"
                         value={form.name}
-                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                        onChange={(e) =>
+                            setForm((f) => ({ ...f, name: e.target.value }))
+                        }
                         className="w-full bg-main border border-main rounded-lg py-2 px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-accent/30"
                     />
                 </div>
@@ -400,7 +424,9 @@ const AddProviderForm = ({ onAdd }: { onAdd: (p: Omit<AIProviderConfig, "enabled
                 <input
                     placeholder="https://console.example.com/keys"
                     value={form.websiteUrl}
-                    onChange={(e) => setForm((f) => ({ ...f, websiteUrl: e.target.value }))}
+                    onChange={(e) =>
+                        setForm((f) => ({ ...f, websiteUrl: e.target.value }))
+                    }
                     className="w-full bg-main border border-main rounded-lg py-2 px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-accent/30"
                 />
             </div>
@@ -411,7 +437,9 @@ const AddProviderForm = ({ onAdd }: { onAdd: (p: Omit<AIProviderConfig, "enabled
                 <input
                     placeholder="Short description"
                     value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    onChange={(e) =>
+                        setForm((f) => ({ ...f, description: e.target.value }))
+                    }
                     className="w-full bg-main border border-main rounded-lg py-2 px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-accent/30"
                 />
             </div>
@@ -842,8 +870,10 @@ export default function SettingsPage() {
                                         <span>AI Providers</span>
                                     </h3>
                                     <p className="text-muted text-[13px] mt-1">
-                                        Configure API keys for each AI provider. Toggle providers on/off and add custom ones.
-                                        The active provider and model can be switched directly in the chat panel.
+                                        Configure API keys for each AI provider.
+                                        Toggle providers on/off and add custom
+                                        ones. The active provider and model can
+                                        be switched directly in the chat panel.
                                     </p>
                                 </div>
 
@@ -852,15 +882,25 @@ export default function SettingsPage() {
                                         <ProviderCard
                                             key={provider.id}
                                             provider={provider}
-                                            isBuiltIn={builtInIds.has(provider.id)}
+                                            isBuiltIn={builtInIds.has(
+                                                provider.id,
+                                            )}
                                             onKeyChange={(key) =>
-                                                setProviderApiKey(provider.id, key)
+                                                setProviderApiKey(
+                                                    provider.id,
+                                                    key,
+                                                )
                                             }
                                             onToggle={(enabled) =>
-                                                setProviderEnabled(provider.id, enabled)
+                                                setProviderEnabled(
+                                                    provider.id,
+                                                    enabled,
+                                                )
                                             }
                                             onRemove={() =>
-                                                removeCustomProvider(provider.id)
+                                                removeCustomProvider(
+                                                    provider.id,
+                                                )
                                             }
                                         />
                                     ))}
@@ -890,7 +930,8 @@ export default function SettingsPage() {
                                         onChange={setCryptoPanicApiKey}
                                     />
                                     <p className="text-[11px] text-muted">
-                                        Required for real news updates. Get yours at{" "}
+                                        Required for real news updates. Get
+                                        yours at{" "}
                                         <a
                                             href="https://cryptopanic.com/developers/api/"
                                             className="text-accent hover:underline"
@@ -907,11 +948,15 @@ export default function SettingsPage() {
                             <div className="p-8 bg-secondary rounded-2xl border border-main space-y-6">
                                 <div className="border-b border-main pb-5">
                                     <h3 className="text-[18px] font-bold flex items-center space-x-2">
-                                        <Globe size={20} className="text-accent" />
+                                        <Globe
+                                            size={20}
+                                            className="text-accent"
+                                        />
                                         <span>Model & Prompt Defaults</span>
                                     </h3>
                                     <p className="text-muted text-[13px] mt-1">
-                                        Default model for OpenRouter. You can also switch model directly in the chat.
+                                        Default model for OpenRouter. You can
+                                        also switch model directly in the chat.
                                     </p>
                                 </div>
 
@@ -935,26 +980,36 @@ export default function SettingsPage() {
                                         >
                                             {models.length === 0 ? (
                                                 <option value={selectedModel}>
-                                                    {selectedModel} (loading models...)
+                                                    {selectedModel} (loading
+                                                    models...)
                                                 </option>
                                             ) : (
                                                 models.map((m) => (
-                                                    <option key={m.id} value={m.id}>
+                                                    <option
+                                                        key={m.id}
+                                                        value={m.id}
+                                                    >
                                                         {m.name || m.id}
                                                     </option>
                                                 ))
                                             )}
                                             {models.length > 0 &&
                                                 !models.find(
-                                                    (m) => m.id === selectedModel,
+                                                    (m) =>
+                                                        m.id === selectedModel,
                                                 ) && (
-                                                    <option value={selectedModel}>
+                                                    <option
+                                                        value={selectedModel}
+                                                    >
                                                         {selectedModel}
                                                     </option>
                                                 )}
                                         </select>
                                         <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                                            <Type size={14} className="text-muted" />
+                                            <Type
+                                                size={14}
+                                                className="text-muted"
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -995,7 +1050,8 @@ You do NOT give financial advice or buy/sell recommendations. Always state that 
                                         <span className="font-mono bg-main px-1 py-0.5 rounded text-main border border-main">
                                             {"{CONTEXT}"}
                                         </span>{" "}
-                                        to show where real-time market data will be injected automatically.
+                                        to show where real-time market data will
+                                        be injected automatically.
                                     </p>
                                 </div>
                             </div>
