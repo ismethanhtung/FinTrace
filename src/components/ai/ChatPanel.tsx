@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAIChat } from '../../hooks/useAIChat';
 import { useMarket } from '../../context/MarketContext';
 import { useAppSettings } from '../../context/AppSettingsContext';
 import { useCoinNews } from '../../hooks/useCoinNews';
+import { newsService } from '../../services/newsService';
 import { 
   Send, Bot, User, Trash2, Plus, 
   MessageSquare, History, XCircle, TerminalSquare, AlertCircle, ExternalLink
@@ -34,6 +35,34 @@ NEWS DATA:
 ${news.length > 0 ? news.slice(0, 10).map(n => `- TITLE: ${n.title}\n  SUMMARY: ${n.description || 'No summary available.'}\n  URL: ${n.url}`).join('\n\n') : 'No recent news available.'}`
     : `No market data available for ${selectedSymbol}`;
 
+  const resolveDynamicContext = useCallback(async (userText: string) => {
+    const mentioned = assets.filter(a => {
+      if (a.id === selectedSymbol) return false;
+      const base = a.id.replace('USDT', '');
+      const regex = new RegExp(`\\b${base}\\b`, 'i');
+      let isMatch = regex.test(userText);
+      if (!isMatch && base === 'BTC') isMatch = /bitcoin/i.test(userText);
+      if (!isMatch && base === 'ETH') isMatch = /ethereum/i.test(userText);
+      if (!isMatch && base === 'SOL') isMatch = /solana/i.test(userText);
+      if (!isMatch && base === 'XRP') isMatch = /ripple/i.test(userText);
+      if (!isMatch && base === 'DOGE') isMatch = /dogecoin/i.test(userText);
+      return isMatch;
+    });
+
+    if (mentioned.length === 0) return null;
+
+    const targets = mentioned.slice(0, 2); // max 2 cross-references
+    const parts = [];
+    for (const asset of targets) {
+      try {
+        const n = await newsService.getNews(asset.id, undefined, 5);
+        const newsText = n.map(x => `- [${x.title}](${x.url}): ${x.description || ''}`).join('\n');
+        parts.push(`=== MENTIONED ASSET: ${asset.id} ===\nPrice: $${asset.price.toLocaleString()} | 24h Change: ${asset.changePercent.toFixed(2)}%\nNews Headlines:\n${newsText || 'No recent news.'}`);
+      } catch (err) { }
+    }
+    return parts.join('\n\n');
+  }, [assets, selectedSymbol]);
+
   const {
     sessions,
     activeSession,
@@ -50,6 +79,7 @@ ${news.length > 0 ? news.slice(0, 10).map(n => `- TITLE: ${n.title}\n  SUMMARY: 
     systemPromptTemplate: systemPrompt,
     symbol: selectedSymbol,
     contextSummary,
+    resolveDynamicContext,
   });
 
   const [input, setInput] = useState('');

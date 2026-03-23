@@ -58,6 +58,7 @@ interface UseAIChatOptions {
   systemPromptTemplate: string;  // may contain {CONTEXT} placeholder
   symbol: string;
   contextSummary: string;        // current market data injected into system prompt
+  resolveDynamicContext?: (userText: string) => Promise<string | null>;
 }
 
 export const useAIChat = ({
@@ -66,6 +67,7 @@ export const useAIChat = ({
   systemPromptTemplate,
   symbol,
   contextSummary,
+  resolveDynamicContext,
 }: UseAIChatOptions) => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -142,8 +144,20 @@ export const useAIChat = ({
     }
 
     // Build system prompt with injected market context
+    let dynamicText = '';
+    if (resolveDynamicContext) {
+      try {
+        const ext = await resolveDynamicContext(userText);
+        if (ext) dynamicText = `\n\n---\n**DYNAMIC RAG CONTEXT (User Mentioned Assets):**\n${ext}`;
+      } catch (err) {
+        console.warn('RAG Context failed:', err);
+      }
+    }
+
     const systemContent = systemPromptTemplate.replace('{CONTEXT}', contextSummary) +
-      `\n\n---\n**Current Market Context (${symbol}):**\n${contextSummary}`;
+      `\n\n---\n**Current Market Context (${symbol}):**\n${contextSummary}` +
+      dynamicText +
+      `\n\nCRITICAL INSTRUCTION: You MUST process and answer the user's message in the EXACT SAME LANGUAGE the user used. If the user asks in Vietnamese, you MUST reply entirely in Vietnamese. If the user asks in English, reply in English.`;
 
     const userMsg: Message = {
       id: uid(),
@@ -255,7 +269,7 @@ export const useAIChat = ({
     }
   }, [
     activeSessionId, apiKey, model, systemPromptTemplate,
-    contextSummary, symbol, isStreaming, createSession,
+    contextSummary, symbol, isStreaming, createSession, resolveDynamicContext,
   ]);
 
   const stopStreaming = useCallback(() => {
