@@ -8,20 +8,28 @@ import {
   Tooltip, 
   CartesianGrid 
 } from 'recharts';
-import { CHART_DATA } from '../lib/mockData';
+import { useMarket } from '../context/MarketContext';
 
 export const MainChart = () => {
+  const { chartData, isLoading, assets, selectedSymbol } = useMarket();
+  const currentAsset = assets.find(a => a.id === selectedSymbol);
+  
   return (
     <div className="h-full flex flex-col">
       <div className="px-6 py-4 flex items-center justify-between border-b border-main">
         <div>
           <div className="flex items-center space-x-2">
-            <h2 className="text-[18px] font-semibold">Bitcoin / USD</h2>
-            <span className="px-1.5 py-0.5 bg-secondary text-muted text-[10px] font-medium rounded">BTC-USD</span>
+            <h2 className="text-[18px] font-semibold">{currentAsset?.name || selectedSymbol.replace('USDT', '')} / USDT</h2>
+            <span className="px-1.5 py-0.5 bg-secondary text-muted text-[10px] font-medium rounded">{selectedSymbol}</span>
           </div>
           <div className="flex items-baseline space-x-2 mt-1">
-            <span className="text-[24px] font-mono font-medium tracking-tighter">$64,231.50</span>
-            <span className="text-[13px] text-emerald-500 font-medium">+1.96% (+$1,240.20)</span>
+            <span className="text-[24px] font-mono font-medium tracking-tighter">
+              ${currentAsset?.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className={`text-[13px] font-medium ${(currentAsset?.changePercent || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+              {(currentAsset?.changePercent || 0) >= 0 ? '+' : ''}{currentAsset?.changePercent.toFixed(2)}% 
+              (${Math.abs(currentAsset?.change || 0).toLocaleString()})
+            </span>
           </div>
         </div>
         
@@ -42,8 +50,8 @@ export const MainChart = () => {
       </div>
 
       <div className="flex-1 p-4 min-h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={CHART_DATA}>
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <AreaChart data={chartData}>
             <defs>
               <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#007AFF" stopOpacity={0.1}/>

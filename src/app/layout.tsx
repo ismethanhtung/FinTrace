@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "Advanced financial tracking and AI-driven analysis",
 };
 
+import { MarketProvider } from "../context/MarketContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,7 +29,9 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        {children}
+        <MarketProvider>
+          {children}
+        </MarketProvider>
       </body>
     </html>
   );

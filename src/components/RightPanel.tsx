@@ -2,7 +2,13 @@ import React from 'react';
 import { Sparkles, BrainCircuit, Info, MessageSquare, Zap, Share2, Maximize2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
+import { useMarket } from '../context/MarketContext';
+
 export const RightPanel = () => {
+  const { selectedSymbol, assets } = useMarket();
+  const currentAsset = assets.find(a => a.id === selectedSymbol);
+  const baseSymbol = selectedSymbol.replace('USDT', '');
+
   return (
     <div className="w-80 h-full flex flex-col bg-main border-l border-main">
       <div className="px-4 py-3 border-b border-main flex items-center justify-between">
@@ -21,7 +27,7 @@ export const RightPanel = () => {
         <div className="space-y-3">
           <div className="flex items-center space-x-2 text-muted">
             <BrainCircuit size={14} />
-            <span className="text-[11px] font-medium uppercase tracking-tight">Market Sentiment</span>
+            <span className="text-[11px] font-medium uppercase tracking-tight">Market Sentiment: {baseSymbol}</span>
           </div>
           <div className="p-3 bg-secondary rounded-lg border border-main">
             <div className="flex items-center justify-between mb-2">
@@ -37,7 +43,7 @@ export const RightPanel = () => {
               />
             </div>
             <p className="text-[11px] text-muted mt-3 leading-relaxed">
-              Based on technical indicators and social volume, BTC shows strong accumulation patterns at the $62k support level.
+              Based on technical indicators and social volume, {baseSymbol} shows strong accumulation patterns at the current level.
             </p>
           </div>
         </div>

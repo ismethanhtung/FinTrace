@@ -29,9 +29,15 @@ function seeded01(seed: number) {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296; // 0..1
 }
 
+import { useMarket } from '../context/MarketContext';
+
 export default function App() {
   const [theme, setTheme] = useState<Theme>('light');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { assets, selectedSymbol, isLoading } = useMarket();
+  
+  const currentAsset = assets.find(a => a.id === selectedSymbol);
+  const baseSymbol = selectedSymbol.replace('USDT', '');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -49,12 +55,15 @@ export default function App() {
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
+  const midPrice = currentAsset?.price || 0;
+
   return (
     <div className="flex flex-col h-screen w-full bg-main text-main overflow-hidden">
       {/* Global Header */}
       <header className="h-12 border-b border-main flex items-center justify-between px-4 bg-main z-50">
         <div className="flex items-center space-x-6">
           <div className="flex items-center space-x-2">
+            <TrendingUp size={18} className="text-accent" />
             <span className="font-bold text-[15px] tracking-tight">FinTrace</span>
           </div>
 
@@ -118,11 +127,11 @@ export default function App() {
                 <div className="flex items-center space-x-6">
                   <button className="text-[10px] font-bold uppercase tracking-widest border-b-2 border-accent pb-1">Order Book</button>
                   <button className="text-[10px] font-bold uppercase tracking-widest text-muted pb-1 hover:text-main transition-colors">Recent Trades</button>
-                  <button className="text-[10px] font-bold uppercase tracking-widest text-muted pb-1 hover:text-main transition-colors">My Orders</button>
+                  <button className="text-[10px] font-bold uppercase tracking-widest text-muted pb-1 hover:text-main transition-colors">Analytical Depth</button>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <button className="p-1 text-muted hover:text-main"><Download size={12} /></button>
-                  <button className="p-1 text-muted hover:text-main"><Share2 size={12} /></button>
+                  <button className="p-1 text-muted hover:text-main" title="Download Data"><Download size={12} /></button>
+                  <button className="p-1 text-muted hover:text-main" title="Share Analysis"><Share2 size={12} /></button>
                   <button className="p-1 text-muted hover:text-main"><MoreHorizontal size={12} /></button>
                 </div>
               </div>
@@ -131,31 +140,38 @@ export default function App() {
                   <table className="w-full text-[11px]">
                     <thead>
                       <tr className="text-muted text-left">
-                        <th className="font-medium pb-3">Price (USD)</th>
-                        <th className="font-medium pb-3 text-right">Amount (BTC)</th>
+                        <th className="font-medium pb-3">Price (USDT)</th>
+                        <th className="font-medium pb-3 text-right">Amount ({baseSymbol})</th>
                         <th className="font-medium pb-3 text-right">Total</th>
                       </tr>
                     </thead>
                     <tbody className="font-mono">
-                      {[...Array(8)].map((_, i) => (
-                        <tr key={i} className="hover:bg-secondary group">
-                          <td className="py-1 text-rose-500">{(64250 + i * 5).toFixed(2)}</td>
-                          <td className="py-1 text-right">{(seeded01(1000 + i * 10 + 1) * 0.5).toFixed(4)}</td>
-                          <td className="py-1 text-right text-muted">{(seeded01(1000 + i * 10 + 2) * 10).toFixed(2)}k</td>
-                        </tr>
-                      ))}
+                      {[...Array(6)].reverse().map((_, i) => {
+                        const price = midPrice + (i + 1) * (midPrice * 0.0001);
+                        return (
+                          <tr key={i} className="hover:bg-rose-500/5 group">
+                            <td className="py-1 text-rose-500">{price.toFixed(midPrice < 10 ? 4 : 2)}</td>
+                            <td className="py-1 text-right">{(seeded01(1000 + i * 10 + 1) * 2).toFixed(4)}</td>
+                            <td className="py-1 text-right text-muted">{(seeded01(1000 + i * 10 + 2) * 5).toFixed(1)}k</td>
+                          </tr>
+                        );
+                      })}
                       <tr className="border-y border-main bg-secondary/50">
                         <td colSpan={3} className="py-2.5 text-center font-sans font-semibold text-[14px]">
-                          $64,231.50 <span className="text-[10px] text-muted font-normal ml-2">Spread: $0.45</span>
+                          ${midPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} 
+                          <span className="text-[10px] text-muted font-normal ml-2">Real-time Spread: $0.01</span>
                         </td>
                       </tr>
-                      {[...Array(8)].map((_, i) => (
-                        <tr key={i} className="hover:bg-secondary group">
-                          <td className="py-1 text-emerald-500">{(64210 - i * 5).toFixed(2)}</td>
-                          <td className="py-1 text-right">{(seeded01(2000 + i * 10 + 1) * 0.5).toFixed(4)}</td>
-                          <td className="py-1 text-right text-muted">{(seeded01(2000 + i * 10 + 2) * 10).toFixed(2)}k</td>
-                        </tr>
-                      ))}
+                      {[...Array(6)].map((_, i) => {
+                        const price = midPrice - (i + 1) * (midPrice * 0.0001);
+                        return (
+                          <tr key={i} className="hover:bg-emerald-500/5 group">
+                            <td className="py-1 text-emerald-500">{price.toFixed(midPrice < 10 ? 4 : 2)}</td>
+                            <td className="py-1 text-right">{(seeded01(2000 + i * 10 + 1) * 2).toFixed(4)}</td>
+                            <td className="py-1 text-right text-muted">{(seeded01(2000 + i * 10 + 2) * 5).toFixed(1)}k</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -164,9 +180,9 @@ export default function App() {
                     <Activity size={24} className="text-accent" />
                   </div>
                   <div>
-                    <div className="text-[13px] font-semibold">Market Depth</div>
+                    <div className="text-[13px] font-semibold">{baseSymbol} Market Depth</div>
                     <p className="text-[11px] text-muted mt-2 max-w-[180px] leading-relaxed">
-                      Liquidity is currently high. Volatility index: 12.4 (Low). Order execution is optimal.
+                      Liquidity is currently high. Volatility index: {(seeded01(3000) * 20 + 5).toFixed(1)} (Low). Order execution is optimal for {baseSymbol}.
                     </p>
                   </div>
                 </div>

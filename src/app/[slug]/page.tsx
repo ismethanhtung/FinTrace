@@ -1,8 +1,9 @@
 import PageLayout from "../../components/PageLayout";
 import { Database, Terminal, Cpu, History, Bell, Info } from "lucide-react";
 
-export default function PlaceholderPage({ params }: { params: { slug: string } }) {
-  const title = params.slug.charAt(0).toUpperCase() + params.slug.slice(1);
+export default async function PlaceholderPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const title = slug.charAt(0).toUpperCase() + slug.slice(1);
   return (
     <PageLayout title={title}>
       <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
