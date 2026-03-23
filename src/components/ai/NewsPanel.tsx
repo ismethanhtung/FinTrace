@@ -18,7 +18,6 @@ export const NewsPanel = () => {
     <div className="flex-1 overflow-y-auto thin-scrollbar p-5">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center space-x-2 text-muted">
-          <Newspaper size={14} />
           <span className="text-[11px] font-semibold uppercase tracking-wider text-main">
             Latest News · {baseSymbol}
           </span>

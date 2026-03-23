@@ -6,7 +6,6 @@ import { cn } from '../lib/utils';
 import { ChatPanel } from './ai/ChatPanel';
 import { NewsPanel } from './ai/NewsPanel';
 import { SummaryPanel } from './ai/SummaryPanel';
-import { motion, AnimatePresence } from 'motion/react';
 
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 600;
@@ -65,60 +64,47 @@ export const RightPanel = () => {
       {/* ── Left-edge resize handle ── */}
       <div
         onMouseDown={onMouseDown}
-        className="absolute left-0 top-0 w-1.5 h-full z-30 cursor-col-resize flex flex-col items-center justify-center hover:bg-accent/10 active:bg-accent/20 transition-colors"
-      >
-        <div className="w-0.5 h-10 rounded-full bg-main border border-main pointer-events-none" />
-      </div>
+        className="absolute left-0 top-0 w-1.5 h-full z-30 cursor-col-resize hover:bg-accent/20 transition-colors"
+      />
 
-      {/* ── Header w/ Tabs ── */}
-      <div className="pl-4 pr-3 py-2 border-b border-main flex items-center justify-between shrink-0 bg-main z-20">
-        <div className="flex items-center space-x-2 bg-secondary p-1 rounded-lg border border-main relative">
-          {TABS.map((tab) => {
-            const isActive = activeTab === tab.id;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as Tab)}
-                className={cn(
-                  'relative flex items-center justify-center space-x-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-colors z-10',
-                  isActive ? 'text-accent' : 'text-muted hover:text-main'
-                )}
-              >
-                <Icon size={12} className={isActive ? 'text-accent' : 'opacity-70'} />
-                <span>{tab.label}</span>
-                {isActive && (
-                  <motion.div
-                    layoutId="rightTabActive"
-                    className="absolute inset-0 bg-main rounded-md border border-main/50 shadow-sm -z-10"
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center space-x-1 pl-2" title="FinTrace AI">
-          <Sparkles size={13} className="text-accent hover:opacity-80 transition-opacity cursor-pointer" />
+      {/* ── Classic Trading Tabs ── */}
+      <div className="flex items-center shrink-0 border-b border-main bg-secondary/20 h-[38px]">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as Tab)}
+              className={cn(
+                'flex items-center space-x-1.5 px-4 h-full text-[11px] font-medium border-b-2 transition-colors relative',
+                isActive 
+                  ? 'border-accent text-accent bg-main' 
+                  : 'border-transparent text-muted hover:text-main hover:bg-main/50'
+              )}
+            >
+              <Icon size={12} className={cn(isActive ? 'text-accent' : 'opacity-70')} />
+              <span>{tab.label}</span>
+              {isActive && (
+                <div className="absolute top-0 right-0 w-[1px] h-full bg-main" />
+              )}
+              {isActive && (
+                <div className="absolute top-0 left-0 w-[1px] h-full bg-main" />
+              )}
+            </button>
+          );
+        })}
+        <div className="flex-1 border-b-2 border-transparent h-full" />
+        <div className="px-3 h-full flex items-center border-b-2 border-transparent" title="FinTrace AI">
+          <Sparkles size={12} className="text-accent hover:opacity-80 transition-opacity cursor-pointer" />
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 relative z-10 bg-main">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 3 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -3 }}
-            transition={{ duration: 0.15 }}
-            className="h-full"
-          >
-            {activeTab === 'chat' && <ChatPanel />}
-            {activeTab === 'news' && <NewsPanel />}
-            {activeTab === 'summary' && <SummaryPanel />}
-          </motion.div>
-        </AnimatePresence>
+      {/* ── Content Area ── */}
+      <div className="flex-1 min-h-0 relative z-10 bg-main flex flex-col">
+        {activeTab === 'chat' && <ChatPanel />}
+        {activeTab === 'news' && <NewsPanel />}
+        {activeTab === 'summary' && <SummaryPanel />}
       </div>
     </div>
   );

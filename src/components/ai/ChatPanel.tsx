@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAIChat } from '../../hooks/useAIChat';
 import { useMarket } from '../../context/MarketContext';
 import { useAppSettings } from '../../context/AppSettingsContext';
+import { useCoinNews } from '../../hooks/useCoinNews';
 import { 
   Send, Bot, User, Trash2, Plus, 
   MessageSquare, History, XCircle, TerminalSquare, AlertCircle
@@ -16,6 +17,8 @@ export const ChatPanel = () => {
   const { selectedSymbol, assets } = useMarket();
   const { openrouterApiKey, selectedModel, systemPrompt } = useAppSettings();
 
+  const { news } = useCoinNews({ symbol: selectedSymbol });
+
   const currentAsset = assets.find(a => a.id === selectedSymbol);
   const contextSummary = currentAsset ? 
     `Symbol: ${selectedSymbol}
@@ -23,7 +26,10 @@ Price: $${currentAsset.price.toLocaleString()}
 24h Change: ${currentAsset.changePercent.toFixed(2)}%
 24h High: $${currentAsset.high24h?.toLocaleString()}
 24h Low: $${currentAsset.low24h?.toLocaleString()}
-Volume (Base): ${currentAsset.baseVolume}`
+Volume (Base): ${currentAsset.baseVolume}
+
+CRITICAL INSTRUCTION: You MUST heavily base your analysis on the following recent news headlines. Evaluate if these news items are bullish (beneficial) or bearish (harmful) for the asset, and synthesize that with the technical data above:
+${news.length > 0 ? news.slice(0, 10).map(n => `- ${n.title}`).join('\n') : 'No recent news available.'}`
     : `No market data available for ${selectedSymbol}`;
 
   const {
@@ -140,6 +146,7 @@ Volume (Base): ${currentAsset.baseVolume}`
         )}
       </AnimatePresence>
 
+
       {/* ── Message Area ── */}
       <div className="flex-1 overflow-y-auto thin-scrollbar p-5 space-y-5">
         {!activeSession || activeSession.messages.length === 0 ? (
@@ -166,20 +173,9 @@ Volume (Base): ${currentAsset.baseVolume}`
             <div 
               key={msg.id || i} 
               className={cn("flex flex-col space-y-1.5 max-w-[95%]", msg.role === 'user' ? "ml-auto items-end" : "mr-auto")}
-            >
-              <div className="flex items-center space-x-1.5 px-1 pb-0.5">
-                {msg.role === 'user' ? (
-                  <><span>You</span><User size={10} /></>
-                ) : (
-                  <>
-                    <Bot size={11} className="text-accent" />
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-muted">Agent</span>
-                  </>
-                )}
-              </div>
-              
+            > 
               <div className={cn(
-                "p-3.5 rounded-2xl text-[12.5px] leading-relaxed break-words shadow-sm",
+                "px-3 py-2 rounded-2xl text-[12.5px] leading-relaxed break-words shadow-sm",
                 msg.role === 'user' 
                   ? "bg-accent text-white rounded-br-sm" 
                   : "bg-secondary border border-main rounded-bl-sm",
@@ -229,7 +225,7 @@ Volume (Base): ${currentAsset.baseVolume}`
               <button 
                 type="button" 
                 onClick={stopStreaming}
-                className="absolute right-2 bottom-2 p-1.5 w-7 h-7 flex items-center justify-center bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
+                className="absolute right-2 bottom-1.5 p-1.5 w-7 h-7 flex items-center justify-center bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
                >
                 <div className="w-2.5 h-2.5 bg-current rounded-sm animate-pulse" />
               </button>
@@ -237,7 +233,7 @@ Volume (Base): ${currentAsset.baseVolume}`
               <button 
                 type="submit"
                 disabled={!input.trim()}
-                className="absolute right-2 bottom-2 p-1.5 w-7 h-7 flex items-center justify-center bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors"
+                className="absolute right-2 bottom-1.5 p-1.5 w-7 h-7 flex items-center justify-center bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors"
                >
                 <Send size={12} className="ml-0.5" />
               </button>
