@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-accent: #007AFF;
+}
+
+:root {
+  --bg-main: #FFFFFF;
+  --bg-secondary: #F5F7F9;
+  --border-color: #EDEDED;
+  --text-main: #171717;
+  --text-muted: #737373;
+}
+
+[data-theme="dark"] {
+  --bg-main: #212124;
+  --bg-secondary: #2A2A2E;
+  --border-color: #38383D;
+  --text-main: #EBEBEB;
+  --text-muted: #9BA1A6;
+}
+
+[data-theme="night"] {
+  --bg-main: #0D1117;
+  --bg-secondary: #161B22;
+  --border-color: #30363D;
+  --text-main: #C9D1D9;
+  --text-muted: #8B949E;
+}
+
+@layer base {
+  body {
+    @apply font-sans antialiased transition-colors duration-200;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+  }
+}
+
+/* Utility classes mapping to variables */
+.bg-main { background-color: var(--bg-main); }
+.bg-secondary { background-color: var(--bg-secondary); }
+.border-main { border-color: var(--border-color); }
+.text-main { color: var(--text-main); }
+.text-muted { color: var(--text-muted); }
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--border-color);
+  border-radius: 9999px;
+}
+
+.pane-border {
+  border-color: var(--border-color);
+}
+
+.glass-panel {
+  background-color: var(--bg-main);
+  backdrop-filter: blur(12px);
+  opacity: 0.95;
+}
