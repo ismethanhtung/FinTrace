@@ -16,8 +16,9 @@ import { useMarket } from '../context/MarketContext';
 import { useChartData, CHART_INTERVALS, EnrichedPoint, Indicator } from '../hooks/useChartData';
 import { cn } from '../lib/utils';
 import {
-  TrendingUp, TrendingDown, BarChart2, LineChart, Info, Activity, ChevronsRight, Loader2,
+  TrendingUp, TrendingDown, BarChart2, LineChart, Info, Activity, ChevronsRight, Loader2, Waves,
 } from 'lucide-react';
+import { FlowPanel } from './FlowPanel';
 
 // ─── Price formatter ─────────────────────────────────────────────────────────
 const priceFmt = (v: number) => {
@@ -200,7 +201,7 @@ export const MainChart = () => {
     goToLatest,
   } = useChartData(selectedSymbol);
 
-  const [activeTab, setActiveTab] = useState<'chart' | 'info'>('chart');
+  const [activeTab, setActiveTab] = useState<'chart' | 'info' | 'flow'>('chart');
 
   const currentAsset = assets.find(a => a.id === selectedSymbol);
   const isPositive = (currentAsset?.changePercent ?? 0) >= 0;
@@ -336,7 +337,7 @@ export const MainChart = () => {
 
           {/* Tab switcher */}
           <div className="flex items-center space-x-1 bg-secondary p-0.5 rounded-lg border border-main">
-            {(['chart', 'info'] as const).map(tab => (
+            {(['chart', 'info', 'flow'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -347,8 +348,8 @@ export const MainChart = () => {
                     : 'text-muted hover:text-main',
                 )}
               >
-                {tab === 'chart' ? <BarChart2 size={11} /> : <Info size={11} />}
-                <span>{tab === 'info' ? 'Coin Info' : 'Chart'}</span>
+                {tab === 'chart' ? <BarChart2 size={11} /> : tab === 'info' ? <Info size={11} /> : <Waves size={11} />}
+                <span>{tab === 'info' ? 'Coin Info' : tab === 'flow' ? 'Flow' : 'Chart'}</span>
               </button>
             ))}
           </div>
@@ -503,9 +504,11 @@ export const MainChart = () => {
         )}
       </div>
 
-      {/* ── Chart or Info ── */}
+      {/* ── Chart / Info / Flow ── */}
       {activeTab === 'info' ? (
         <CoinInfoPanel />
+      ) : activeTab === 'flow' ? (
+        <FlowPanel />
       ) : (
         <div
           ref={chartAreaRef}

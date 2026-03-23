@@ -244,7 +244,7 @@ ${news.length > 0 ? news.slice(0, 10).map(n => `- TITLE: ${n.title}\n  SUMMARY: 
       </div>
 
       {/* ── Input Area ── */}
-      <div className="p-4 border-t border-main bg-main shrink-0">
+      <div className="p-3 border-t border-main bg-main shrink-0">
         {!hasApiKey ? (
           <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-start gap-2">
             <AlertCircle className="text-rose-500 shrink-0 mt-0.5" size={14} />
