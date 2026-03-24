@@ -26,8 +26,8 @@ export default function PageLayout({
                         <Image
                             src="/logo.gif"
                             alt="FinTrace logo"
-                            width={32}
-                            height={32}
+                            width={36}
+                            height={36}
                             className="rounded-sm"
                             unoptimized
                             priority

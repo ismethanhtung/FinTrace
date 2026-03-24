@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getOpenRouterApiKey } from '../../../../lib/getOpenRouterKey';
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 
@@ -12,17 +13,20 @@ function extractApiKeyFromHeaders(req: Request): string | null {
   return m?.[1]?.trim() ? m[1].trim() : null;
 }
 
-function getFallbackApiKey(): string | null {
-  const v = process.env.OPENROUTER_FALLBACK_API_KEY;
-  return v && v.trim() ? v.trim() : null;
-}
-
 export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   try {
     const apiKeyFromUser = extractApiKeyFromHeaders(request);
-    const apiKey = apiKeyFromUser ?? getFallbackApiKey();
+    let apiKey = apiKeyFromUser;
+
+    if (!apiKey) {
+      try {
+        apiKey = await getOpenRouterApiKey();
+      } catch {
+        apiKey = null;
+      }
+    }
 
     if (!apiKey) {
       return NextResponse.json(

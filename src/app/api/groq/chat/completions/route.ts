@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getGroqApiKey } from '../../../../../lib/getGroqKey';
 
 const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -41,7 +42,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing messages' }, { status: 400 });
   }
 
-  const apiKey = extractApiKey(request);
+  let apiKey = extractApiKey(request);
+  if (!apiKey) {
+    try {
+      apiKey = await getGroqApiKey();
+    } catch {
+      apiKey = null;
+    }
+  }
   if (!apiKey) {
     return NextResponse.json({ error: 'Missing Groq API key' }, { status: 401 });
   }

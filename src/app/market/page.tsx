@@ -15,6 +15,8 @@ import {
     Sun,
     Palette,
     LayoutGrid,
+    BookOpenText,
+    TrendingUp,
 } from "lucide-react";
 import { LineChart, Line, YAxis } from "recharts";
 import { useAppSettings, AppTheme } from "../../context/AppSettingsContext";
@@ -561,8 +563,8 @@ export default function MarketPage() {
                         <Image
                             src="/logo.gif"
                             alt="FinTrace"
-                            width={32}
-                            height={32}
+                            width={36}
+                            height={36}
                             unoptimized
                             className=" "
                             priority
@@ -573,29 +575,27 @@ export default function MarketPage() {
                     </Link>
 
                     <nav className="flex items-center gap-1">
-                        <div className="flex items-center rounded-md border border-main overflow-hidden">
-                            {MARKET_TABS.map((tab) => (
-                                <button
-                                    key={tab}
-                                    onClick={() => {
-                                        setActiveMarket(tab);
-                                        setMarketType(
-                                            tab === "Futures"
-                                                ? "futures"
-                                                : "spot",
-                                        );
-                                    }}
-                                    className={cn(
-                                        "px-3 py-1.5 text-[12px] font-medium transition-colors border-r border-main last:border-0",
-                                        activeMarket === tab
-                                            ? "bg-accent/10 text-accent"
-                                            : "text-muted hover:text-main hover:bg-secondary",
-                                    )}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
-                        </div>
+                        <Link
+                            href="/"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <TrendingUp size={13} />
+                            <span>Chart</span>
+                        </Link>
+                        <Link
+                            href="/heatmap"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <LayoutGrid size={13} />
+                            <span>Heatmap</span>
+                        </Link>
+                        <Link
+                            href="/news"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <BookOpenText size={13} />
+                            <span>News</span>
+                        </Link>
                         <div className="h-4 w-px border-l border-main mx-2" />
                         <WatchlistDropdown />
                     </nav>
@@ -632,19 +632,6 @@ export default function MarketPage() {
                     >
                         <RefreshCw size={14} />
                     </button>
-                    <Link
-                        href="/"
-                        className="px-3.5 py-1.5 bg-accent text-white rounded-md text-[11px] font-semibold hover:bg-accent/90 transition-colors"
-                    >
-                        Open Chart
-                    </Link>
-                    <Link
-                        href="/heatmap"
-                        className="px-3.5 py-1.5 bg-secondary border border-main text-main rounded-md text-[11px] font-semibold hover:border-accent/40 hover:text-accent transition-colors flex items-center gap-1.5"
-                    >
-                        <LayoutGrid size={12} />
-                        Heatmap
-                    </Link>
                     <div className="h-4 w-px border-l border-main" />
                     <UserMenu />
                 </div>
@@ -721,7 +708,7 @@ export default function MarketPage() {
                 </div>
 
                 {/* ── Network Filter row ───────────────────────────────────── */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
                         {FILTER_CHIPS.map((chip) => (
                             <button
@@ -739,10 +726,35 @@ export default function MarketPage() {
                             </button>
                         ))}
                     </div>
-                    <button className="flex items-center gap-1.5 bg-secondary border border-main px-3.5 py-1.5 rounded-lg text-[11px] text-muted hover:text-main hover:border-accent/40 transition-colors shrink-0 ml-3">
-                        <Filter size={13} />
-                        Filter
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center rounded-md border border-main overflow-hidden">
+                            {MARKET_TABS.map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => {
+                                        setActiveMarket(tab);
+                                        setMarketType(
+                                            tab === "Futures"
+                                                ? "futures"
+                                                : "spot",
+                                        );
+                                    }}
+                                    className={cn(
+                                        "px-3 py-1.5 text-[12px] font-medium transition-colors border-r border-main last:border-0",
+                                        activeMarket === tab
+                                            ? "bg-accent/10 text-accent"
+                                            : "text-muted hover:text-main hover:bg-secondary",
+                                    )}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+                        <button className="flex items-center gap-1.5 bg-secondary border border-main px-3.5 py-1.5 rounded-lg text-[11px] text-muted hover:text-main hover:border-accent/40 transition-colors">
+                            <Filter size={13} />
+                            Filter
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Main Table ───────────────────────────────────────────── */}
@@ -915,8 +927,8 @@ export default function MarketPage() {
                         <Image
                             src="/logo.gif"
                             alt=""
-                            width={32}
-                            height={32}
+                            width={36}
+                            height={36}
                             unoptimized
                             className="rounded opacity-70"
                             priority

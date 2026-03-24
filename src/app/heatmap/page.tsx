@@ -6,9 +6,11 @@ import Link from "next/link";
 import {
     LayoutGrid,
     Moon,
+    BookOpenText,
     RefreshCw,
     Sun,
     TrendingUp,
+    ShoppingCart,
     Palette,
 } from "lucide-react";
 import { MarketHeatmap } from "../../components/MarketHeatmap";
@@ -55,14 +57,22 @@ export default function HeatmapPage() {
                             href="/"
                             className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
                         >
+                            <TrendingUp size={13} />
                             <span>Chart</span>
                         </Link>
                         <Link
                             href="/market"
                             className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
                         >
-                            <TrendingUp size={13} />
+                            <ShoppingCart size={13} />
                             <span>Markets</span>
+                        </Link>
+                        <Link
+                            href="/news"
+                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <BookOpenText size={13} />
+                            <span>News</span>
                         </Link>
 
                         <div className="h-4 w-px bg-main border-l border-main" />

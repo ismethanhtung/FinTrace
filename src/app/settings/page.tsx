@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import SettingsLayout from "../../components/SettingsLayout";
 import {
     Globe,
@@ -28,27 +28,12 @@ import {
     FONT_STACKS,
     BUILT_IN_PROVIDERS,
     AIProviderConfig,
+    AIProviderId,
     DEFAULT_SYSTEM_PROMPT,
 } from "../../context/AppSettingsContext";
 import { cn } from "../../lib/utils";
-import { openrouterService } from "../../services/openrouterService";
-
-// ─── Fallback models for when API fetch fails ─────────────────────────────────
-const FALLBACK_OPENROUTER_MODELS: { id: string; name?: string }[] = [
-    {
-        id: "arcee-ai/trinity-large-preview:free",
-        name: "Arcee Trinity Large (Free)",
-    },
-    { id: "google/gemini-2.0-flash-lite-001", name: "Gemini 2.0 Flash Lite" },
-    { id: "google/gemini-2.0-flash-001", name: "Gemini 2.0 Flash" },
-    { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku" },
-    { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet" },
-    { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
-    { id: "openai/gpt-4o", name: "GPT-4o" },
-    { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B Instruct" },
-    { id: "meta-llama/llama-3.1-8b-instruct", name: "Llama 3.1 8B Instruct" },
-    { id: "mistralai/mistral-7b-instruct", name: "Mistral 7B Instruct" },
-];
+import { aiProviderService, ModelInfo } from "../../services/aiProviderService";
+import { getFallbackModelsForProvider } from "../../lib/aiModelDefaults";
 
 // ─── Font preview card ────────────────────────────────────────────────────────
 const FONT_OPTIONS: { value: AppFont; description: string }[] = [
@@ -266,18 +251,26 @@ const ApiKeyInput = ({
 const ProviderCard = ({
     provider,
     isBuiltIn,
+    keySource,
     onKeyChange,
     onToggle,
     onRemove,
 }: {
     provider: AIProviderConfig;
     isBuiltIn: boolean;
+    keySource: "user" | "platform" | "none";
     onKeyChange: (key: string) => void;
     onToggle: (enabled: boolean) => void;
     onRemove: () => void;
 }) => {
     const [expanded, setExpanded] = useState(false);
-    const hasKey = !!provider.apiKey;
+    const hasKey = keySource !== "none";
+    const statusLabel =
+        keySource === "user"
+            ? "personal key"
+            : keySource === "platform"
+              ? "platform key"
+              : "no key";
 
     return (
         <div
@@ -306,11 +299,18 @@ const ProviderCard = ({
                             <span className="text-[14px] font-semibold text-main">
                                 {provider.name}
                             </span>
-                            {hasKey && (
-                                <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
-                                    configured
-                                </span>
-                            )}
+                            <span
+                                className={cn(
+                                    "text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded",
+                                    keySource === "user"
+                                        ? "bg-emerald-500/10 text-emerald-500"
+                                        : keySource === "platform"
+                                          ? "bg-accent/10 text-accent"
+                                          : "bg-secondary text-muted",
+                                )}
+                            >
+                                {statusLabel}
+                            </span>
                         </div>
                         <p className="text-[11px] text-muted truncate">
                             {provider.description}
@@ -353,6 +353,13 @@ const ProviderCard = ({
                             placeholder={provider.placeholder}
                             onChange={onKeyChange}
                         />
+                        <p className="text-[11px] text-muted">
+                            {keySource === "user"
+                                ? "Using your personal API key. It overrides the platform key."
+                                : keySource === "platform"
+                                  ? "No personal key entered. FinTrace is currently using the platform key for this provider."
+                                  : "No key available yet. Add your own key or configure the platform key on the server."}
+                        </p>
                     </div>
                     <p className="text-[11px] text-muted">
                         Get your key at{" "}
@@ -531,33 +538,88 @@ export default function SettingsPage() {
         setProviderEnabled,
         addCustomProvider,
         removeCustomProvider,
+        activeProviderId,
+        activeProvider,
+        serverKeyStatus,
         cryptoPanicApiKey,
         setCryptoPanicApiKey,
-        selectedModel,
+        getSelectedModel,
         setSelectedModel,
         systemPrompt,
         setSystemPrompt,
-        openrouterApiKey,
     } = useAppSettings();
 
     const [activeSection, setActiveSection] = useState("profile");
-    const [models, setModels] = useState<{ id: string; name?: string }[]>([]);
+    const [modelProviderId, setModelProviderId] =
+        useState<AIProviderId>(activeProviderId);
+    const [models, setModels] = useState<ModelInfo[]>([]);
     const [isLoadingModels, setIsLoadingModels] = useState(false);
+    const modelProvider =
+        aiProviders.find((provider) => provider.id === modelProviderId) ??
+        activeProvider;
+    const modelSelectionValue = getSelectedModel(modelProvider?.id ?? activeProviderId);
+    const modelKeySource = modelProvider?.apiKey?.trim()
+        ? "user"
+        : modelProvider
+          ? serverKeyStatus[modelProvider.id]
+              ? "platform"
+              : "none"
+          : "none";
 
-    // Fetch OpenRouter models for model selector
-    React.useEffect(() => {
+    useEffect(() => {
+        setModelProviderId(activeProviderId);
+    }, [activeProviderId]);
+
+    useEffect(() => {
+        if (!modelProvider) {
+            setModels([]);
+            return;
+        }
+
         setIsLoadingModels(true);
-        openrouterService
-            .getModels(openrouterApiKey)
-            .then((list) => setModels(list))
+        aiProviderService
+            .getModels(modelProvider.id, modelProvider.apiKey)
+            .then((list) => {
+                const effective =
+                    list.length > 0
+                        ? list
+                        : getFallbackModelsForProvider(modelProvider.id);
+                setModels(effective);
+                if (
+                    effective.length > 0 &&
+                    !effective.find((m) => m.id === modelSelectionValue)
+                ) {
+                    setSelectedModel(effective[0].id, modelProvider.id);
+                }
+            })
             .catch((err) => {
-                console.warn("Failed to load OR models, using fallback:", err);
-                setModels(FALLBACK_OPENROUTER_MODELS);
+                console.warn(
+                    "[Settings] Failed to load provider models, using fallback:",
+                    err,
+                );
+                const fallback = getFallbackModelsForProvider(modelProvider.id);
+                setModels(fallback);
+                if (
+                    fallback.length > 0 &&
+                    !fallback.find((m) => m.id === modelSelectionValue)
+                ) {
+                    setSelectedModel(fallback[0].id, modelProvider.id);
+                }
             })
             .finally(() => setIsLoadingModels(false));
-    }, [openrouterApiKey]);
+    }, [
+        modelProvider,
+        modelProviderId,
+        modelSelectionValue,
+        setSelectedModel,
+    ]);
 
     const builtInIds = new Set(BUILT_IN_PROVIDERS.map((p) => p.id));
+    const availableProviderCount = aiProviders.filter(
+        (provider) =>
+            Boolean(provider.apiKey?.trim()) || Boolean(serverKeyStatus[provider.id]),
+    ).length;
+    const modelProviderOptions = aiProviders;
 
     const sectionMeta: Record<string, { title: string; description: string }> = {
         profile: { title: "My Profile", description: "Update your personal details and account information." },
@@ -705,7 +767,7 @@ export default function SettingsPage() {
                                 </p>
                             </div>
                             <span className="text-[11px] text-muted bg-secondary border border-main px-2.5 py-1 rounded-full">
-                                {aiProviders.filter((p) => p.apiKey).length} / {aiProviders.length} configured
+                                {availableProviderCount} / {aiProviders.length} available
                             </span>
                         </div>
                         <div className="space-y-2">
@@ -714,6 +776,13 @@ export default function SettingsPage() {
                                     key={provider.id}
                                     provider={provider}
                                     isBuiltIn={builtInIds.has(provider.id)}
+                                    keySource={
+                                        provider.apiKey?.trim()
+                                            ? "user"
+                                            : serverKeyStatus[provider.id]
+                                              ? "platform"
+                                              : "none"
+                                    }
                                     onKeyChange={(key) => setProviderApiKey(provider.id, key)}
                                     onToggle={(enabled) => setProviderEnabled(provider.id, enabled)}
                                     onRemove={() => removeCustomProvider(provider.id)}
@@ -735,33 +804,80 @@ export default function SettingsPage() {
 
                         <SettingsRow
                             label="Default model"
-                            description="OpenRouter model used in all AI chat sessions."
+                            description={
+                                modelProvider
+                                    ? `${modelProvider.name} model used whenever this provider is selected in AI features.`
+                                    : "Choose the default model for a provider."
+                            }
                         >
-                            <div className="relative">
-                                <select
-                                    value={selectedModel}
-                                    onChange={(e) => setSelectedModel(e.target.value)}
-                                    disabled={isLoadingModels}
-                                    className="w-full bg-secondary border border-main rounded-lg py-2.5 pl-4 pr-10 text-[13px] focus:outline-none focus:ring-1 focus:ring-accent/30 appearance-none disabled:opacity-60"
-                                >
-                                    {models.length === 0 ? (
-                                        <option value={selectedModel}>{selectedModel} (loading…)</option>
-                                    ) : (
-                                        models.map((m) => (
-                                            <option key={m.id} value={m.id}>{m.name || m.id}</option>
-                                        ))
-                                    )}
-                                    {models.length > 0 && !models.find((m) => m.id === selectedModel) && (
-                                        <option value={selectedModel}>{selectedModel}</option>
-                                    )}
-                                </select>
-                                <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                                    {isLoadingModels ? (
-                                        <span className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                        <Sparkles size={13} className="text-muted" />
-                                    )}
+                            <div className="space-y-3">
+                                <div className="relative">
+                                    <select
+                                        value={modelProviderId}
+                                        onChange={(e) =>
+                                            setModelProviderId(e.target.value as AIProviderId)
+                                        }
+                                        className="w-full bg-secondary border border-main rounded-lg py-2.5 pl-4 pr-10 text-[13px] focus:outline-none focus:ring-1 focus:ring-accent/30 appearance-none"
+                                    >
+                                        {modelProviderOptions.map((provider) => (
+                                            <option key={provider.id} value={provider.id}>
+                                                {provider.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                                        <ChevronDown size={13} className="text-muted" />
+                                    </div>
                                 </div>
+
+                                <div className="relative">
+                                    <select
+                                        value={modelSelectionValue}
+                                        onChange={(e) =>
+                                            setSelectedModel(
+                                                e.target.value,
+                                                modelProvider?.id ?? activeProviderId,
+                                            )
+                                        }
+                                        disabled={isLoadingModels}
+                                        className="w-full bg-secondary border border-main rounded-lg py-2.5 pl-4 pr-10 text-[13px] focus:outline-none focus:ring-1 focus:ring-accent/30 appearance-none disabled:opacity-60"
+                                    >
+                                        {models.length === 0 ? (
+                                            <option value={modelSelectionValue}>
+                                                {modelSelectionValue} (loading…)
+                                            </option>
+                                        ) : (
+                                            models.map((m) => (
+                                                <option key={m.id} value={m.id}>
+                                                    {m.name || m.id}
+                                                </option>
+                                            ))
+                                        )}
+                                        {models.length > 0 &&
+                                            !models.find(
+                                                (m) => m.id === modelSelectionValue,
+                                            ) && (
+                                                <option value={modelSelectionValue}>
+                                                    {modelSelectionValue}
+                                                </option>
+                                            )}
+                                    </select>
+                                    <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                                        {isLoadingModels ? (
+                                            <span className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                                        ) : (
+                                            <Sparkles size={13} className="text-muted" />
+                                        )}
+                                    </div>
+                                </div>
+
+                                <p className="text-[11px] text-muted">
+                                    {modelKeySource === "user"
+                                        ? "Model list is loaded with your personal API key."
+                                        : modelKeySource === "platform"
+                                          ? "Model list is loaded with the FinTrace platform key."
+                                          : "No key is available for this provider, so FinTrace is showing a curated fallback list."}
+                                </p>
                             </div>
                         </SettingsRow>
 

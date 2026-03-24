@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getGroqApiKey } from '../../../../lib/getGroqKey';
 
 const GROQ_MODELS_URL = 'https://api.groq.com/openai/v1/models';
 
@@ -14,7 +15,14 @@ function extractApiKey(req: Request): string | null {
 export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
-  const apiKey = extractApiKey(request);
+  let apiKey = extractApiKey(request);
+  if (!apiKey) {
+    try {
+      apiKey = await getGroqApiKey();
+    } catch {
+      apiKey = null;
+    }
+  }
   if (!apiKey) {
     return NextResponse.json({ error: 'Missing Groq API key' }, { status: 401 });
   }

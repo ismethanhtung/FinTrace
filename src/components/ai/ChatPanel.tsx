@@ -7,6 +7,7 @@ import { useAppSettings } from "../../context/AppSettingsContext";
 import { useCoinNews } from "../../hooks/useCoinNews";
 import { newsService } from "../../services/newsService";
 import { aiProviderService, ModelInfo } from "../../services/aiProviderService";
+import { getFallbackModelsForProvider } from "../../lib/aiModelDefaults";
 import {
     Send,
     Bot,
@@ -26,23 +27,6 @@ import { cn } from "../../lib/utils";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "motion/react";
 
-// ─── Fallback models for when API fetch fails ─────────────────────────────────
-const FALLBACK_OPENROUTER_MODELS: ModelInfo[] = [
-    {
-        id: "arcee-ai/trinity-large-preview:free",
-        name: "Arcee Trinity Large (Free)",
-    },
-    { id: "google/gemini-2.0-flash-lite-001", name: "Gemini 2.0 Flash Lite" },
-    { id: "google/gemini-2.0-flash-001", name: "Gemini 2.0 Flash" },
-    { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku" },
-    { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet" },
-    { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
-    { id: "openai/gpt-4o", name: "GPT-4o" },
-    { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B Instruct" },
-    { id: "meta-llama/llama-3.1-8b-instruct", name: "Llama 3.1 8B Instruct" },
-    { id: "mistralai/mistral-7b-instruct", name: "Mistral 7B Instruct" },
-];
-
 // ─── Provider/Model Selector ──────────────────────────────────────────────────
 
 interface ModelSelectorProps {
@@ -51,7 +35,7 @@ interface ModelSelectorProps {
     model: string;
     models: ModelInfo[];
     isLoadingModels: boolean;
-    providers: { id: string; name: string; hasKey: boolean }[];
+    providers: { id: string; name: string; hasKey: boolean; disabled: boolean }[];
     onProviderChange: (id: string) => void;
     onModelChange: (model: string) => void;
 }
@@ -127,6 +111,7 @@ const ModelSelector = ({
                                     <button
                                         key={p.id}
                                         onClick={() => {
+                                            if (p.disabled) return;
                                             onProviderChange(p.id);
                                             setShowProviderMenu(false);
                                         }}
@@ -134,8 +119,11 @@ const ModelSelector = ({
                                             "w-full flex items-center justify-between px-3 py-2 text-[11px] transition-colors",
                                             p.id === providerId
                                                 ? "bg-accent/10 text-accent"
-                                                : "text-main hover:bg-secondary",
+                                                : p.disabled
+                                                  ? "text-muted/60"
+                                                  : "text-main hover:bg-secondary",
                                         )}
+                                        disabled={p.disabled}
                                     >
                                         <div className="flex items-center gap-2">
                                             <Zap
@@ -229,6 +217,7 @@ export const ChatPanel = () => {
         activeProviderId,
         setActiveProviderId,
         activeProvider,
+        serverKeyStatus,
         selectedModel,
         setSelectedModel,
         systemPrompt,
@@ -248,18 +237,13 @@ export const ChatPanel = () => {
         aiProviderService
             .getModels(activeProvider.id, activeProvider.apiKey)
             .then((list) => {
-                const effective =
-                    list.length > 0
-                        ? list
-                        : activeProvider.id === "openrouter"
-                          ? FALLBACK_OPENROUTER_MODELS
-                          : [];
+                const effective = list.length > 0 ? list : getFallbackModelsForProvider(activeProvider.id);
                 setModels(effective);
                 if (
                     effective.length > 0 &&
                     !effective.find((m) => m.id === selectedModel)
                 ) {
-                    setSelectedModel(effective[0].id);
+                    setSelectedModel(effective[0].id, activeProvider.id);
                 }
             })
             .catch((err) => {
@@ -268,16 +252,13 @@ export const ChatPanel = () => {
                     err,
                 );
                 // Use fallback models so UI still works even when API fails
-                const fallback =
-                    activeProvider.id === "openrouter"
-                        ? FALLBACK_OPENROUTER_MODELS
-                        : [];
+                const fallback = getFallbackModelsForProvider(activeProvider.id);
                 setModels(fallback);
                 if (
                     fallback.length > 0 &&
                     !fallback.find((m) => m.id === selectedModel)
                 ) {
-                    setSelectedModel(fallback[0].id);
+                    setSelectedModel(fallback[0].id, activeProvider.id);
                 }
             })
             .finally(() => setIsLoadingModels(false));
@@ -397,7 +378,13 @@ ${
     // Provider list for selector (only enabled ones)
     const providerOptions = aiProviders
         .filter((p) => p.enabled)
-        .map((p) => ({ id: p.id, name: p.name, hasKey: !!p.apiKey }));
+        .map((p) => ({
+            id: p.id,
+            name: p.name,
+            hasKey: Boolean(p.apiKey?.trim()) || Boolean(serverKeyStatus[p.id]),
+            disabled:
+                !Boolean(p.apiKey?.trim()) && !Boolean(serverKeyStatus[p.id]),
+        }));
 
     return (
         <div className="h-full flex flex-col relative bg-main">

@@ -49,15 +49,6 @@ function buildHeaders(providerId: string, apiKey: string): Record<string, string
 
 async function getModels(providerId: string, apiKey: string): Promise<ModelInfo[]> {
   const base = getProxyBase(providerId);
-  const trimmedKey = apiKey?.trim() ?? '';
-
-  // Không gọi API khi chưa cấu hình khóa — tránh 401 và lỗi throw (ChatPanel dùng fallback)
-  if (providerId === 'openrouter' && !trimmedKey) {
-    return [];
-  }
-  if (providerId === 'groq' && !trimmedKey) {
-    return [];
-  }
 
   const headers = buildHeaders(providerId, apiKey);
 

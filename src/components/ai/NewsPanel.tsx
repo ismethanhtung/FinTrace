@@ -6,13 +6,13 @@ import { useMarket } from '../../context/MarketContext';
 import { useCoinNews } from '../../hooks/useCoinNews';
 import { useAppSettings } from '../../context/AppSettingsContext';
 import { NewsItem } from '../../services/newsService';
+import { aiProviderService } from '../../services/aiProviderService';
 import { cn } from '../../lib/utils';
-import { openrouterService } from '../../services/openrouterService';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
 const NewsItemCard = ({ item }: { item: NewsItem }) => {
-  const { openrouterApiKey, selectedModel } = useAppSettings();
+  const { activeProviderId, activeProvider, selectedModel } = useAppSettings();
   const [summary, setSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,11 @@ const NewsItemCard = ({ item }: { item: NewsItem }) => {
     setError(null);
     
     try {
-      const summaryText = await openrouterService.chat(openrouterApiKey, selectedModel, [
+      const summaryText = await aiProviderService.chat(
+        activeProviderId,
+        activeProvider?.apiKey ?? '',
+        selectedModel,
+        [
         {
           role: 'system',
           content:
@@ -35,7 +39,8 @@ const NewsItemCard = ({ item }: { item: NewsItem }) => {
           role: 'user',
           content: `Title: ${item.title}\nContent: ${item.description || 'No additional content.'}`,
         },
-      ]);
+      ],
+      );
 
       setSummary(summaryText);
     } catch (err: any) {

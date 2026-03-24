@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getOpenRouterApiKey } from '../../../../../lib/getOpenRouterKey';
 
 const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -13,11 +14,6 @@ function extractApiKeyFromHeaders(req: Request): string | null {
   if (!auth) return null;
   const m = auth.match(/^Bearer\s+(.+)$/i);
   return m?.[1]?.trim() ? m[1].trim() : null;
-}
-
-function getFallbackApiKey(): string | null {
-  const v = process.env.OPENROUTER_FALLBACK_API_KEY;
-  return v && v.trim() ? v.trim() : null;
 }
 
 export const runtime = 'nodejs';
@@ -48,7 +44,15 @@ export async function POST(request: Request) {
   }
 
   const apiKeyFromUser = extractApiKeyFromHeaders(request);
-  const apiKey = apiKeyFromUser ?? getFallbackApiKey();
+  let apiKey = apiKeyFromUser;
+
+  if (!apiKey) {
+    try {
+      apiKey = await getOpenRouterApiKey();
+    } catch {
+      apiKey = null;
+    }
+  }
 
   if (!apiKey) {
     return NextResponse.json({ error: 'Missing OpenRouter API key' }, { status: 401 });
