@@ -748,44 +748,53 @@ export const NewsPageClient = () => {
                                         key={article.id}
                                         className="flex flex-col gap-2 group cursor-pointer hover:opacity-70 transition-opacity"
                                     >
-                                        <a
-                                            href={article.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block"
-                                            aria-label={article.title}
-                                        >
-                                            <div className="w-full aspect-video grayscale border border-black shrink-0 overflow-hidden bg-black/5">
-                                                <img
-                                                    src={`https://picsum.photos/seed/${article.id}-thumb/200/120`}
-                                                    alt={article.title}
-                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                                                    referrerPolicy="no-referrer"
-                                                />
+                                        <div className="flex gap-3">
+                                            <a
+                                                href={article.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="block shrink-0"
+                                                aria-label={article.title}
+                                            >
+                                                <div className="w-28 h-28 grayscale border border-black overflow-hidden bg-black/5">
+                                                    <img
+                                                        src={`https://picsum.photos/seed/${article.id}-thumb/200/120`}
+                                                        alt={article.title}
+                                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                                        referrerPolicy="no-referrer"
+                                                    />
+                                                </div>
+                                            </a>
+                                            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                                <a
+                                                    href={article.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="block"
+                                                    aria-label={article.title}
+                                                >
+                                                    <h5 className="text-sm font-bold leading-tight group-hover:underline line-clamp-3">
+                                                        {article.title}
+                                                    </h5>
+                                                </a>
+                                                {article.description && (
+                                                    <p className="text-[10px] leading-relaxed opacity-70 line-clamp-2">
+                                                        {article.description}
+                                                    </p>
+                                                )}
                                             </div>
-                                        </a>
-                                        <a
-                                            href={article.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block"
-                                            aria-label={article.title}
-                                        >
-                                            <h5 className="text-xs font-bold leading-tight group-hover:underline">
-                                                {article.title}
-                                            </h5>
-                                        </a>
-                                        <div className="text-[8px] news-font-mono text-gray-600">
-                                            {article.source} • {article.relativeTime}
                                         </div>
-                                        <a
-                                            href={article.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-[9px] text-blue-600 hover:underline"
-                                        >
-                                            Read →
-                                        </a>
+                                        <div className="flex items-center justify-between text-[9px] news-font-mono text-gray-600">
+                                            <span>{article.source} • {article.relativeTime}</span>
+                                            <a
+                                                href={article.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-[10px] text-blue-600 hover:underline font-medium"
+                                            >
+                                                Read →
+                                            </a>
+                                        </div>
                                     </article>
                                 ))}
                             </div>
@@ -885,7 +894,7 @@ export const NewsPageClient = () => {
                         </div>
                         <div className="md:col-span-1">
                             <h5 className="text-[10px] font-bold uppercase tracking-widest mb-4">
-                                Follow Us
+                                Follow Me
                             </h5>
                             <div className="flex gap-4">
                                 {["FB", "TW", "IG"].map((social) => (
