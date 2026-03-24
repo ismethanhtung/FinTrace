@@ -8,6 +8,7 @@ import {
     MarketType,
 } from "../services/binanceService";
 import { enrichAssetsWithLogos } from "../services/tokenLogoService";
+import { isLeveragedToken } from "../lib/tokenFilters";
 
 interface MarketContextType {
     selectedSymbol: string;
@@ -45,7 +46,11 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const tickers: BinanceTicker[] = await binanceService.getTickers();
             const allUSDT = tickers
-                .filter((t) => t.symbol.endsWith("USDT"))
+                .filter(
+                    (t) =>
+                        t.symbol.endsWith("USDT") &&
+                        !isLeveragedToken(t.symbol.slice(0, -4)),
+                )
                 .sort(
                     (a, b) =>
                         parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume),
@@ -74,7 +79,10 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
             // Keep only USDT-M perpetuals (exclude quarterly contracts like BTCUSDT_230630)
             const allUSDT = tickers
                 .filter(
-                    (t) => t.symbol.endsWith("USDT") && !t.symbol.includes("_"),
+                    (t) =>
+                        t.symbol.endsWith("USDT") &&
+                        !t.symbol.includes("_") &&
+                        !isLeveragedToken(t.symbol.slice(0, -4)),
                 )
                 .sort(
                     (a, b) =>

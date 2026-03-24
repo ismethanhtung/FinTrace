@@ -25,6 +25,15 @@ import { useRouter } from "next/navigation";
 import { WatchlistDropdown } from "../../components/AssetList";
 import { UserMenu } from "../../components/UserMenu";
 import { cn } from "../../lib/utils";
+import {
+    NetworkMapPayload,
+    shouldKeepByNetwork,
+} from "../../lib/marketNetwork";
+import {
+    MoreSortKey,
+    sortMarketRowsBySubTab,
+    type MarketSubTabKey,
+} from "../../lib/marketSort";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -64,7 +73,19 @@ const statCardSparks = [
 type Trend = "up" | "down" | "flat";
 type Sentiment = "Positive" | "Negative" | "Neutral";
 
-const SUB_TABS = ["Top", "Trending", "New", "Most Visited", "Gainers", "More"];
+const SUB_TABS: MarketSubTabKey[] = [
+    "Top",
+    "Trending",
+    "New",
+    "Most Visited",
+    "Gainers",
+    "More",
+];
+const MORE_SORT_OPTIONS: MoreSortKey[] = [
+    "Highest Volume",
+    "Losers",
+    "Most Volatile",
+];
 const FILTER_CHIPS = [
     "All Network",
     "Highlights",
@@ -171,7 +192,7 @@ function AltcoinSeasonCard() {
                 <ChevronDown size={11} className="opacity-60" />
             </div>
             <div className="text-[20px] font-bold tracking-tight">
-                37
+                ???
                 <span className="text-[13px] text-muted font-normal">/150</span>
             </div>
             <div className="mt-2">
@@ -197,7 +218,7 @@ function AvgRsiCard() {
                 Average Crypto RSI
                 <ChevronDown size={11} className="opacity-60" />
             </div>
-            <div className="text-[20px] font-bold tracking-tight">74.53</div>
+            <div className="text-[20px] font-bold tracking-tight">???</div>
             <div className="mt-2">
                 <div className="w-full h-1 bg-main rounded-full relative">
                     <div
@@ -215,7 +236,7 @@ function AvgRsiCard() {
 }
 
 function FearGreedCard() {
-    const val = 75;
+    const val = 20;
     const circumference = 2 * Math.PI * 36;
     const filled = (val / 100) * circumference * 0.5;
     return (
@@ -268,6 +289,73 @@ function SentimentBadge({ v }: { v: Sentiment }) {
         >
             {v}
         </span>
+    );
+}
+
+function PaginationNumbers({
+    current,
+    total,
+    onChange,
+}: {
+    current: number;
+    total: number;
+    onChange: (p: number) => void;
+}) {
+    const range: (number | string)[] = [];
+
+    if (total <= 7) {
+        // Show all if total is small
+        for (let i = 1; i <= total; i++) range.push(i);
+    } else {
+        // Always show first page
+        range.push(1);
+
+        if (current > 3) {
+            range.push("...");
+        }
+
+        // Show pages around current
+        const start = Math.max(2, current - 1);
+        const end = Math.min(total - 1, current + 1);
+
+        for (let i = start; i <= end; i++) {
+            if (!range.includes(i)) range.push(i);
+        }
+
+        if (current < total - 2) {
+            range.push("...");
+        }
+
+        // Always show last page
+        if (!range.includes(total)) range.push(total);
+    }
+
+    return (
+        <>
+            {range.map((item, idx) =>
+                typeof item === "string" ? (
+                    <span
+                        key={`ellipsis-${idx}`}
+                        className="w-8 h-8 flex items-center justify-center text-muted text-[12px]"
+                    >
+                        ...
+                    </span>
+                ) : (
+                    <button
+                        key={item}
+                        onClick={() => onChange(item)}
+                        className={cn(
+                            "w-8 h-8 rounded-full text-[12px] font-semibold transition-all",
+                            current === item
+                                ? "bg-accent text-white"
+                                : "text-muted hover:bg-main hover:text-main",
+                        )}
+                    >
+                        {item}
+                    </button>
+                ),
+            )}
+        </>
     );
 }
 
@@ -356,7 +444,9 @@ export default function MarketPage() {
         setSelectedSymbol(symbol);
         router.push("/");
     };
-    const [activeSubTab, setActiveSubTab] = useState("Top");
+    const [activeSubTab, setActiveSubTab] = useState<MarketSubTabKey>("Top");
+    const [moreSort, setMoreSort] = useState<MoreSortKey>("Highest Volume");
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [activeFilter, setActiveFilter] = useState("All Network");
     const [activeMarket, setActiveMarket] = useState(
         marketType === "futures" ? "Futures" : "Spot",
@@ -364,6 +454,11 @@ export default function MarketPage() {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [networkMap, setNetworkMap] = useState<NetworkMapPayload>({
+        updatedAt: 0,
+        bySymbol: {},
+        bySymbolPrimary: {},
+    });
 
     const meta = THEME_META[theme];
 
@@ -373,24 +468,53 @@ export default function MarketPage() {
 
     useEffect(() => {
         setPage(1);
-    }, [search, activeMarket]);
+    }, [search, activeMarket, activeFilter, activeSubTab, moreSort]);
+
+    useEffect(() => {
+        let alive = true;
+        async function loadNetworkMap() {
+            try {
+                const res = await fetch("/api/market/network-map");
+                if (!res.ok) return;
+                const data = (await res.json()) as NetworkMapPayload;
+                if (!alive) return;
+                setNetworkMap(data);
+            } catch {
+                // Keep empty map fallback: chips still work with overrides.
+            }
+        }
+        loadNetworkMap();
+        return () => {
+            alive = false;
+        };
+    }, []);
 
     const filteredData = useMemo(() => {
         const q = search.toLowerCase().trim();
-        if (!q) return rows;
-        return rows.filter(
-            (c) =>
+        return rows.filter((c) => {
+            if (
+                !shouldKeepByNetwork(
+                    activeFilter,
+                    c.symbol,
+                    networkMap.bySymbol,
+                    networkMap.bySymbolPrimary,
+                )
+            )
+                return false;
+            if (!q) return true;
+            return (
                 c.name.toLowerCase().includes(q) ||
-                c.symbol.toLowerCase().includes(q),
-        );
-    }, [search, rows]);
+                c.symbol.toLowerCase().includes(q)
+            );
+        });
+    }, [search, rows, activeFilter, networkMap.bySymbol]);
 
     const statCards = useMemo(
         () => [
             {
                 title: "Market Cap",
                 value: stats.marketCap,
-                change: "+0.47%",
+                change: "+???%",
                 positive: true,
             },
             {
@@ -409,14 +533,19 @@ export default function MarketPage() {
         [stats],
     );
 
+    const sortedData = useMemo(
+        () => sortMarketRowsBySubTab(filteredData, activeSubTab, moreSort),
+        [filteredData, activeSubTab, moreSort],
+    );
+
     const pagedData = useMemo(() => {
         const pageSize = 20;
         const start = (page - 1) * pageSize;
-        return filteredData.slice(start, start + pageSize);
-    }, [filteredData, page]);
+        return sortedData.slice(start, start + pageSize);
+    }, [sortedData, page]);
     const totalPages = useMemo(
-        () => Math.max(1, Math.ceil(filteredData.length / 20)),
-        [filteredData.length],
+        () => Math.max(1, Math.ceil(sortedData.length / 20)),
+        [sortedData.length],
     );
 
     function handleRefresh() {
@@ -520,19 +649,46 @@ export default function MarketPage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar">
                         {SUB_TABS.map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveSubTab(tab)}
-                                className={cn(
-                                    "px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors flex items-center gap-1",
-                                    activeSubTab === tab
-                                        ? "bg-secondary text-main border border-main"
-                                        : "text-muted hover:text-main hover:bg-secondary/60",
-                                )}
-                            >
-                                {tab}
-                                {tab === "More" && <ChevronDown size={11} />}
-                            </button>
+                            <div key={tab} className="relative">
+                                <button
+                                    onClick={() => {
+                                        setActiveSubTab(tab);
+                                        setShowMoreMenu(tab === "More");
+                                    }}
+                                    className={cn(
+                                        "px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors flex items-center gap-1",
+                                        activeSubTab === tab
+                                            ? "bg-secondary text-main border border-main"
+                                            : "text-muted hover:text-main hover:bg-secondary/60",
+                                    )}
+                                >
+                                    {tab}
+                                    {tab === "More" && <ChevronDown size={11} />}
+                                </button>
+                                {tab === "More" &&
+                                    activeSubTab === "More" &&
+                                    showMoreMenu && (
+                                        <div className="absolute left-0 top-full mt-1 z-10 min-w-[170px] bg-secondary border border-main rounded-md shadow-md p-1">
+                                            {MORE_SORT_OPTIONS.map((option) => (
+                                                <button
+                                                    key={option}
+                                                    onClick={() => {
+                                                        setMoreSort(option);
+                                                        setShowMoreMenu(false);
+                                                    }}
+                                                    className={cn(
+                                                        "w-full text-left px-2.5 py-1.5 text-[11px] rounded transition-colors",
+                                                        moreSort === option
+                                                            ? "bg-accent/10 text-accent"
+                                                            : "text-muted hover:text-main hover:bg-main",
+                                                    )}
+                                                >
+                                                    {option}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                            </div>
                         ))}
                     </div>
 
@@ -746,23 +902,11 @@ export default function MarketPage() {
                         >
                             <ChevronLeft size={15} />
                         </button>
-                        {Array.from(
-                            { length: totalPages },
-                            (_, i) => i + 1,
-                        ).map((p) => (
-                            <button
-                                key={p}
-                                onClick={() => setPage(p)}
-                                className={cn(
-                                    "w-8 h-8 rounded-full text-[12px] font-semibold transition-all",
-                                    page === p
-                                        ? "bg-accent text-white"
-                                        : "text-muted hover:bg-main hover:text-main",
-                                )}
-                            >
-                                {p}
-                            </button>
-                        ))}
+                        <PaginationNumbers
+                            current={page}
+                            total={totalPages}
+                            onChange={setPage}
+                        />
                         <button
                             onClick={() =>
                                 setPage((p) => Math.min(totalPages, p + 1))

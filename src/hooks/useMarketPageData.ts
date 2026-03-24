@@ -18,6 +18,7 @@ export type MarketTableRow = {
     d7: number | null;
     marketCap: string;
     volume: string;
+    volumeRaw: number;
     supply: string;
     sentiment: Sentiment;
     trend: Trend;
@@ -34,13 +35,18 @@ type MarketStats = {
 const METRIC_CACHE_TTL_MS = 2 * 60 * 1000;
 const metricCache = new Map<
     string,
-    { expiresAt: number; value: Awaited<ReturnType<typeof fetchMarketRowMetrics>> }
+    {
+        expiresAt: number;
+        value: Awaited<ReturnType<typeof fetchMarketRowMetrics>>;
+    }
 >();
 
 function formatCompactUsd(value: number): string {
     if (!Number.isFinite(value) || value <= 0) return "-";
-    if (value >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
-    if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
+    if (value >= 1_000_000_000_000)
+        return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
+    if (value >= 1_000_000_000)
+        return `$${(value / 1_000_000_000).toFixed(2)}B`;
     if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
     return `$${value.toFixed(0)}`;
 }
@@ -84,29 +90,43 @@ async function fetchMetricCached(
     const cached = metricCache.get(key);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
     const value = await fetchMarketRowMetrics(marketType, symbol);
-    metricCache.set(key, { value, expiresAt: Date.now() + METRIC_CACHE_TTL_MS });
+    metricCache.set(key, {
+        value,
+        expiresAt: Date.now() + METRIC_CACHE_TTL_MS,
+    });
     return value;
 }
 
 export function useMarketPageData() {
-    const { marketType, assets, spotAssets, futuresAssets, isLoading, isFuturesLoading } =
-        useMarket();
+    const {
+        marketType,
+        assets,
+        spotAssets,
+        futuresAssets,
+        isLoading,
+        isFuturesLoading,
+    } = useMarket();
     const [rows, setRows] = useState<MarketTableRow[]>([]);
     const [refreshSeed, setRefreshSeed] = useState(0);
 
-    const currentLoading = marketType === "futures" ? isFuturesLoading : isLoading;
+    const currentLoading =
+        marketType === "futures" ? isFuturesLoading : isLoading;
     const sourceAssets = marketType === "futures" ? futuresAssets : spotAssets;
 
     const stats: MarketStats = useMemo(() => {
-        const totalQuoteVol = sourceAssets.reduce((sum, a) => sum + (a.quoteVolumeRaw || 0), 0);
+        const totalQuoteVol = sourceAssets.reduce(
+            (sum, a) => sum + (a.quoteVolumeRaw || 0),
+            0,
+        );
         const btc = sourceAssets.find((a) => a.id === "BTCUSDT");
-        const btcDominance = totalQuoteVol > 0 && btc
-            ? `${((btc.quoteVolumeRaw / totalQuoteVol) * 100).toFixed(2)}%`
-            : "-";
+        const btcDominance =
+            totalQuoteVol > 0 && btc
+                ? `${((btc.quoteVolumeRaw / totalQuoteVol) * 100).toFixed(2)}%`
+                : "-";
 
         return {
             // Binance public 24h ticker does not include market cap.
-            marketCap: "$7.27T",
+            marketCap: "$???",
             volume24h: formatCompactUsd(totalQuoteVol),
             btcDominance,
         };
@@ -135,6 +155,7 @@ export function useMarketPageData() {
                 d7: null,
                 marketCap: "-",
                 volume: formatCompactUsd(asset.quoteVolumeRaw),
+                volumeRaw: asset.quoteVolumeRaw || 0,
                 supply: "-",
                 sentiment: pickSentiment(asset.changePercent),
                 trend: pickTrend(asset.changePercent),
@@ -162,7 +183,9 @@ export function useMarketPageData() {
                 }
             }
 
-            await Promise.all(Array.from({ length: concurrency }, () => worker()));
+            await Promise.all(
+                Array.from({ length: concurrency }, () => worker()),
+            );
         }
 
         run();
