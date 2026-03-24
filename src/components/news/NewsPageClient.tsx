@@ -23,6 +23,17 @@ import {
 } from "next/font/google";
 import { useMarket } from "../../context/MarketContext";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface NewsArticle {
+    id: string;
+    title: string;
+    url: string;
+    source: string;
+    publishedAt: string;
+    relativeTime: string;
+    description?: string;
+}
+
 const displayFont = Playfair_Display({
     subsets: ["latin"],
     variable: "--font-news-display",
@@ -42,6 +53,10 @@ const monoFont = JetBrains_Mono({
     variable: "--font-news-mono",
     weight: ["400", "700"],
 });
+
+// ─── Constants ─────────────────────────────────────────────────────────────────
+const ARTICLES_PER_PAGE = 8; // 2 left + 3 center + 3 right
+const REFRESH_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 function formatCompactUsd(value: number): string {
     if (!Number.isFinite(value) || value <= 0) return "-";
@@ -91,11 +106,6 @@ const fallbackCryptoPrices = [
     },
 ];
 
-const trendingStories = [
-    { title: "The brand new Hollywood horror movie is here!", imgSeed: "h1" },
-    { title: "The smoking hero of Vela and Gobson!", imgSeed: "h2" },
-    { title: "Elizabeth Taylor's Life In Front Of The Camera", imgSeed: "h3" },
-];
 
 export const NewsPageClient = () => {
     const router = useRouter();
@@ -104,6 +114,79 @@ export const NewsPageClient = () => {
     const [marketQuery, setMarketQuery] = useState("");
     const marketMenuRef = useRef<HTMLDivElement>(null);
 
+    // ─── News State ────────────────────────────────────────────────────────────
+    const [articles, setArticles] = useState<NewsArticle[]>([]);
+    const [currentPage, setCurrentPage] = useState(0);
+    const [isLoadingNews, setIsLoadingNews] = useState(true);
+    const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    // ─── Fetch news from API ───────────────────────────────────────────────────
+    const fetchNews = async () => {
+        try {
+            const res = await fetch("/api/general-news");
+            if (!res.ok) throw new Error(`API Error: ${res.status}`);
+            const data = await res.json();
+            if (data.articles && Array.isArray(data.articles)) {
+                setArticles(data.articles);
+                setCurrentPage(0); // Reset to first page on refresh
+            }
+        } catch (error) {
+            console.error("Failed to fetch news:", error);
+            // Fallback: keep existing articles if API fails
+        } finally {
+            setIsLoadingNews(false);
+        }
+    };
+
+    // ─── Setup news fetching and auto-refresh ──────────────────────────────────
+    useEffect(() => {
+        // Fetch on mount
+        fetchNews();
+
+        // Setup auto-refresh every 30 minutes
+        refreshIntervalRef.current = setInterval(() => {
+            fetchNews();
+        }, REFRESH_INTERVAL_MS);
+
+        return () => {
+            if (refreshIntervalRef.current) {
+                clearInterval(refreshIntervalRef.current);
+            }
+        };
+    }, []);
+
+    // ─── Pagination helpers ────────────────────────────────────────────────────
+    const totalPages = Math.ceil(articles.length / ARTICLES_PER_PAGE);
+    const startIdx = currentPage * ARTICLES_PER_PAGE;
+    const endIdx = startIdx + ARTICLES_PER_PAGE;
+    const currentArticles = articles.slice(startIdx, endIdx);
+
+    // Split articles into columns
+    const leftArticles = currentArticles.slice(0, 2); // 2 articles
+    const centerArticles = currentArticles.slice(2, 5); // 3 articles
+    const rightArticles = currentArticles.slice(5, 8); // 3 articles
+
+    const handlePrevious = () => {
+        setCurrentPage((prev) => Math.max(0, prev - 1));
+    };
+
+    const handleNext = () => {
+        setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1));
+    };
+
+    // ─── Format time helper ────────────────────────────────────────────────────
+    const formatTimeAgo = (isoDate: string): string => {
+        const diff = Date.now() - new Date(isoDate).getTime();
+        const mins = Math.floor(diff / 60_000);
+        const hours = Math.floor(diff / 3_600_000);
+        const days = Math.floor(diff / 86_400_000);
+        if (mins < 2) return "just now";
+        if (mins < 60) return `${mins}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        return `${days}d ago`;
+    };
+
+    // ─── Existing market menu logic ─────────────────────────────────────────────
     useEffect(() => {
         const handlePointerDown = (event: MouseEvent) => {
             if (
@@ -405,55 +488,35 @@ export const NewsPageClient = () => {
 
                             <div className="news-newspaper-divider" />
 
-                            <article className="group cursor-pointer">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="bg-black text-white px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest">
-                                        Analysis
-                                    </span>
-                                    <span className="text-[9px] news-font-mono text-gray-500">
-                                        22h ago
-                                    </span>
-                                </div>
-                                <h3 className="news-font-display font-bold text-xl leading-[1.1] mb-3 group-hover:underline">
-                                    Bitcoin Is Headed to $500,000 According to
-                                    This Wall Street Analyst and the Reasoning
-                                    Is Hard to Dismiss
-                                </h3>
-                                <p className="text-xs leading-relaxed opacity-70 mb-3 italic">
-                                    "The mathematical certainty of scarcity
-                                    combined with institutional adoption creates
-                                    a pressure cooker for valuation," says
-                                    senior strategist.
-                                </p>
-                                <div className="flex items-center justify-between text-[9px] news-font-mono uppercase border-t border-black/10 pt-2">
-                                    <span className="font-bold">
-                                        Yahoo Finance
-                                    </span>
-                                    <ArrowRight size={10} />
-                                </div>
-                            </article>
-
-                            <div className="news-newspaper-divider" />
-
-                            <article className="group cursor-pointer">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="border border-black px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest">
-                                        Breaking
-                                    </span>
-                                    <span className="text-[9px] news-font-mono text-gray-500">
-                                        4h ago
-                                    </span>
-                                </div>
-                                <h3 className="news-font-display font-bold text-lg leading-tight mb-2 group-hover:underline">
-                                    Federal Reserve Signals Potential Rate Cut
-                                    in Q3
-                                </h3>
-                                <p className="text-xs leading-snug opacity-80">
-                                    Inflation data shows cooling trends,
-                                    prompting a shift in monetary policy stance
-                                    that has markets rallying across the board.
-                                </p>
-                            </article>
+                            {/* Left column articles */}
+                            <div className="space-y-8">
+                                {leftArticles.map((article, idx) => (
+                                    <article key={article.id} className="group cursor-pointer hover:opacity-80 transition-opacity">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className={`${idx === 0 ? "bg-black text-white" : "border border-black"} px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest`}>
+                                                {idx === 0 ? "Analysis" : "Breaking"}
+                                            </span>
+                                            <span className="text-[9px] news-font-mono text-gray-500">
+                                                {article.relativeTime}
+                                            </span>
+                                        </div>
+                                        <h3 className="news-font-display font-bold text-lg leading-tight mb-2 group-hover:underline">
+                                            {article.title}
+                                        </h3>
+                                        {article.description && (
+                                            <p className="text-xs leading-snug opacity-70">
+                                                {article.description.substring(0, 100)}...
+                                            </p>
+                                        )}
+                                        <div className="flex items-center justify-between text-[9px] news-font-mono uppercase border-t border-black/10 pt-2 mt-2">
+                                            <span className="font-bold">
+                                                {article.source}
+                                            </span>
+                                            <ArrowRight size={10} />
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
 
                             <div className="bg-black text-white p-6 text-center mt-4">
                                 <p className="text-[10px] news-font-mono uppercase tracking-[0.3em] mb-4">
@@ -472,117 +535,133 @@ export const NewsPageClient = () => {
                         </aside>
 
                         <section className="lg:col-span-6 order-1 lg:order-2 border-x-0 lg:border-x border-black lg:px-8">
-                            <article className="group">
-                                <div className="aspect-video overflow-hidden mb-6 grayscale contrast-110 border border-black relative">
-                                    <img
-                                        src="https://picsum.photos/seed/vintage-main/800/450"
-                                        alt="Main News"
-                                        className="w-full h-full object-cover"
-                                        referrerPolicy="no-referrer"
-                                    />
-                                    <div className="absolute top-4 left-4 bg-black text-white px-2 py-1 text-[9px] uppercase tracking-widest font-bold">
-                                        Must Read
-                                    </div>
-                                </div>
-
-                                <h2 className="news-font-display font-black text-4xl md:text-5xl lg:text-6xl leading-[0.9] mb-6 tracking-tight">
-                                    Hollywood goes Ga-ga over the thin man, just
-                                    released!
-                                </h2>
-
-                                <div className="flex items-center gap-4 mb-8 pb-4 border-b border-black/10">
-                                    <div className="w-12 h-12 rounded-full grayscale border border-black overflow-hidden">
+                            {/* Main featured article (first center article or a featured article) */}
+                            {centerArticles.length > 0 && (
+                                <article className="group mb-8 pb-8 border-b border-black">
+                                    <div className="aspect-video overflow-hidden mb-6 grayscale contrast-110 border border-black relative bg-black/5">
                                         <img
-                                            src="https://picsum.photos/seed/author/100/100"
-                                            alt="Author"
+                                            src={`https://picsum.photos/seed/${centerArticles[0].id}/800/450`}
+                                            alt={centerArticles[0].title}
+                                            className="w-full h-full object-cover"
                                             referrerPolicy="no-referrer"
                                         />
+                                        <div className="absolute top-4 left-4 bg-black text-white px-2 py-1 text-[9px] uppercase tracking-widest font-bold">
+                                            Must Read
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-xs font-bold uppercase tracking-tighter">
-                                            Tim William Petre
-                                        </p>
-                                        <p className="text-[10px] news-font-mono text-gray-500">
-                                            March 22, 1966
-                                        </p>
-                                    </div>
-                                    <div className="ml-auto flex gap-2">
-                                        <button className="p-2 border border-black/20 rounded-full hover:bg-black hover:text-white transition-colors">
-                                            <Share2 size={14} />
-                                        </button>
-                                    </div>
-                                </div>
 
-                                <div className="space-y-4 text-lg leading-relaxed news-drop-cap">
-                                    <p>
-                                        A few of these women had tried analysis,
-                                        but none had ever been given
-                                        prescriptions from their psychiatrists.
-                                        Yet LSD was seen as a powerful tool to
-                                        break through confusion and inhibition.
-                                    </p>
-                                    <p>
-                                        The cinematic landscape is shifting
-                                        beneath our feet as the latest
-                                        production from the studio system
-                                        challenges every convention we've held
-                                        dear for decades. Critics are divided,
-                                        but the public is mesmerized by the
-                                        sheer audacity of the vision presented
-                                        on the silver screen.
-                                    </p>
-                                </div>
+                                    <h2 className="news-font-display font-black text-3xl md:text-4xl lg:text-5xl leading-[0.9] mb-6 tracking-tight group-hover:underline">
+                                        {centerArticles[0].title}
+                                    </h2>
 
+                                    <div className="flex items-center gap-4 mb-4 pb-4 border-b border-black/10">
+                                        <div className="w-12 h-12 rounded-full grayscale border border-black overflow-hidden bg-black/5">
+                                            <img
+                                                src={`https://picsum.photos/seed/author-${centerArticles[0].id}/100/100`}
+                                                alt="Author"
+                                                referrerPolicy="no-referrer"
+                                            />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold uppercase tracking-tighter">
+                                                {centerArticles[0].source}
+                                            </p>
+                                            <p className="text-[10px] news-font-mono text-gray-500">
+                                                {new Date(centerArticles[0].publishedAt).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                        <div className="ml-auto flex gap-2">
+                                            <a
+                                                href={centerArticles[0].url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-2 border border-black/20 rounded-full hover:bg-black hover:text-white transition-colors"
+                                            >
+                                                <Share2 size={14} />
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 text-base leading-relaxed">
+                                        {centerArticles[0].description && (
+                                            <p>{centerArticles[0].description}</p>
+                                        )}
+                                        <p className="text-[13px]">
+                                            <a
+                                                href={centerArticles[0].url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:underline"
+                                            >
+                                                Read full article →
+                                            </a>
+                                        </p>
+                                    </div>
+                                </article>
+                            )}
+
+                            {/* Remaining center articles in grid */}
+                            {centerArticles.length > 1 && (
                                 <div className="news-newspaper-divider-thick my-8" />
+                            )}
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <article className="group cursor-pointer">
-                                        <h4 className="news-font-display font-bold text-xl mb-2 group-hover:underline italic">
-                                            The Future of Decentralized Finance
-                                        </h4>
-                                        <p className="text-sm leading-relaxed opacity-80">
-                                            As traditional banking systems face
-                                            unprecedented scrutiny, a new wave
-                                            of digital protocols is emerging to
-                                            redefine how we store and transfer
-                                            value.
-                                        </p>
-                                        <div className="mt-2 text-[9px] news-font-mono uppercase text-gray-500">
-                                            By Sarah Jenkins • 6 min read
-                                        </div>
-                                    </article>
-                                    <article className="group cursor-pointer">
-                                        <h4 className="news-font-display font-bold text-xl mb-2 group-hover:underline italic">
-                                            Regulatory Storm Clouds Gather
-                                        </h4>
-                                        <p className="text-sm leading-relaxed opacity-80">
-                                            Global regulators are meeting in
-                                            Basel this week to discuss a unified
-                                            framework for digital assets, with
-                                            implications for every major
-                                            exchange.
-                                        </p>
-                                        <div className="mt-2 text-[9px] news-font-mono uppercase text-gray-500">
-                                            By Marcus Thorne • 4 min read
-                                        </div>
-                                    </article>
+                            {centerArticles.length > 1 && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-black">
+                                    {centerArticles.slice(1).map((article) => (
+                                        <article key={article.id} className="group cursor-pointer">
+                                            <h4 className="news-font-display font-bold text-lg mb-2 group-hover:underline italic">
+                                                {article.title}
+                                            </h4>
+                                            {article.description && (
+                                                <p className="text-xs leading-relaxed opacity-80">
+                                                    {article.description.substring(0, 120)}...
+                                                </p>
+                                            )}
+                                            <div className="mt-3 flex items-center justify-between text-[9px] news-font-mono uppercase text-gray-500">
+                                                <span>{article.source}</span>
+                                                <a
+                                                    href={article.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="hover:text-black"
+                                                >
+                                                    Read →
+                                                </a>
+                                            </div>
+                                        </article>
+                                    ))}
                                 </div>
+                            )}
 
-                                <div className="mt-12 flex justify-between items-center py-4 border-y-2 border-black">
-                                    <div className="flex gap-4">
-                                        <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:italic">
-                                            <ChevronLeft size={14} />
-                                            Previous
-                                        </button>
-                                    </div>
-                                    <div className="flex gap-4">
-                                        <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:italic">
-                                            Next
-                                            <ChevronRight size={14} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </article>
+                            {/* Pagination section */}
+                            <div className="flex justify-between items-center py-4">
+                                <button
+                                    type="button"
+                                    onClick={handlePrevious}
+                                    disabled={currentPage === 0}
+                                    className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${
+                                        currentPage === 0
+                                            ? "opacity-50 cursor-not-allowed"
+                                            : "hover:italic"
+                                    }`}
+                                >
+                                    <ChevronLeft size={14} />
+                                    Previous
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleNext}
+                                    disabled={currentPage >= totalPages - 1}
+                                    className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${
+                                        currentPage >= totalPages - 1
+                                            ? "opacity-50 cursor-not-allowed"
+                                            : "hover:italic"
+                                    }`}
+                                >
+                                    Next
+                                    <ChevronRight size={14} />
+                                </button>
+                            </div>
                         </section>
 
                         <aside className="lg:col-span-3 order-3 flex flex-col gap-8">
@@ -626,27 +705,39 @@ export const NewsPageClient = () => {
                                 </div>
                             </div>
 
+                            {/* Right column articles */}
                             <div className="space-y-6">
                                 <h4 className="text-[10px] news-font-mono uppercase tracking-[0.2em] border-b border-black pb-2">
-                                    Trending Stories
+                                    Trending News
                                 </h4>
 
-                                {trendingStories.map((item, i) => (
+                                {rightArticles.map((article) => (
                                     <article
-                                        key={item.imgSeed}
-                                        className="flex gap-3 group cursor-pointer"
+                                        key={article.id}
+                                        className="flex flex-col gap-2 group cursor-pointer hover:opacity-70 transition-opacity"
                                     >
-                                        <div className="w-20 h-16 grayscale border border-black shrink-0 overflow-hidden">
+                                        <div className="w-full aspect-video grayscale border border-black shrink-0 overflow-hidden bg-black/5">
                                             <img
-                                                src={`https://picsum.photos/seed/${item.imgSeed}/100/100`}
-                                                alt={`Trending story ${i + 1}`}
+                                                src={`https://picsum.photos/seed/${article.id}-thumb/200/120`}
+                                                alt={article.title}
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                                                 referrerPolicy="no-referrer"
                                             />
                                         </div>
                                         <h5 className="text-xs font-bold leading-tight group-hover:underline">
-                                            {item.title}
+                                            {article.title}
                                         </h5>
+                                        <div className="text-[8px] news-font-mono text-gray-600">
+                                            {article.source} • {article.relativeTime}
+                                        </div>
+                                        <a
+                                            href={article.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-[9px] text-blue-600 hover:underline"
+                                        >
+                                            Read →
+                                        </a>
                                     </article>
                                 ))}
                             </div>
@@ -680,39 +771,39 @@ export const NewsPageClient = () => {
                                 FinTrace
                             </h2>
                             <p className="text-[10px] news-font-mono uppercase leading-relaxed opacity-60">
-                                The world's premier source for news, culture,
-                                and editorial excellence since 1851.
+                                Your trusted companion for crypto market insights,
+                                real-time analytics, and tomorrow's investment edge.
                             </p>
                         </div>
                         <div className="grid grid-cols-2 gap-4 md:col-span-2">
                             <div className="space-y-2">
                                 <h5 className="text-[10px] font-bold uppercase tracking-widest mb-4">
-                                    Sections
+                                    Navigate
                                 </h5>
-                                <a
-                                    href="#"
+                                <Link
+                                    href="/"
                                     className="block text-xs hover:italic"
                                 >
-                                    World News
-                                </a>
-                                <a
-                                    href="#"
+                                    Dashboard
+                                </Link>
+                                <Link
+                                    href="/market"
                                     className="block text-xs hover:italic"
                                 >
-                                    Politics
-                                </a>
-                                <a
-                                    href="#"
+                                    Market
+                                </Link>
+                                <Link
+                                    href="/heatmap"
                                     className="block text-xs hover:italic"
                                 >
-                                    Economy
-                                </a>
-                                <a
-                                    href="#"
+                                    Heatmap
+                                </Link>
+                                <Link
+                                    href="/news"
                                     className="block text-xs hover:italic"
                                 >
-                                    Society
-                                </a>
+                                    News
+                                </Link>
                             </div>
                             <div className="space-y-2">
                                 <h5 className="text-[10px] font-bold uppercase tracking-widest mb-4">
