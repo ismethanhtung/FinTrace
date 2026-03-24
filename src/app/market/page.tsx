@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -17,62 +17,16 @@ import {
     Sun,
     Palette,
 } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { LineChart, Line, YAxis, ResponsiveContainer } from "recharts";
 import { useAppSettings, AppTheme } from "../../context/AppSettingsContext";
+import { useMarket } from "../../context/MarketContext";
+import { useMarketPageData } from "../../hooks/useMarketPageData";
+import { useRouter } from "next/navigation";
 import { WatchlistDropdown } from "../../components/AssetList";
 import { UserMenu } from "../../components/UserMenu";
 import { cn } from "../../lib/utils";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const upSparkline = [
-    { v: 10 },
-    { v: 14 },
-    { v: 12 },
-    { v: 18 },
-    { v: 15 },
-    { v: 22 },
-    { v: 20 },
-    { v: 25 },
-    { v: 24 },
-    { v: 28 },
-    { v: 26 },
-    { v: 31 },
-    { v: 30 },
-    { v: 36 },
-];
-const downSparkline = [
-    { v: 36 },
-    { v: 30 },
-    { v: 31 },
-    { v: 26 },
-    { v: 28 },
-    { v: 24 },
-    { v: 25 },
-    { v: 20 },
-    { v: 22 },
-    { v: 15 },
-    { v: 18 },
-    { v: 12 },
-    { v: 14 },
-    { v: 10 },
-];
-const flatSparkline = [
-    { v: 20 },
-    { v: 22 },
-    { v: 19 },
-    { v: 21 },
-    { v: 20 },
-    { v: 22 },
-    { v: 21 },
-    { v: 20 },
-    { v: 22 },
-    { v: 20 },
-    { v: 21 },
-    { v: 22 },
-    { v: 20 },
-    { v: 21 },
-];
 
 const statCardSparks = [
     [
@@ -107,162 +61,8 @@ const statCardSparks = [
     ],
 ];
 
-const CRYPTO_DATA = [
-    {
-        id: 1,
-        name: "Bitcoin",
-        symbol: "BTC",
-        price: 67420.35,
-        h1: 0.12,
-        h24: 2.35,
-        d7: 4.18,
-        marketCap: "$1.33T",
-        volume: "$35.6B",
-        supply: "19.7M BTC",
-        sentiment: "Positive" as const,
-        trend: "up" as const,
-    },
-    {
-        id: 2,
-        name: "Ethereum",
-        symbol: "ETH",
-        price: 3182.64,
-        h1: 0.08,
-        h24: 1.1,
-        d7: 3.72,
-        marketCap: "$382.4B",
-        volume: "$17.1B",
-        supply: "120.4M ETH",
-        sentiment: "Positive" as const,
-        trend: "up" as const,
-    },
-    {
-        id: 3,
-        name: "Binance Coin",
-        symbol: "BNB",
-        price: 585.74,
-        h1: 0.0,
-        h24: 0.01,
-        d7: 0.0,
-        marketCap: "$114.2B",
-        volume: "$58.1B",
-        supply: "147.9M BNB",
-        sentiment: "Neutral" as const,
-        trend: "flat" as const,
-    },
-    {
-        id: 4,
-        name: "Solana",
-        symbol: "SOL",
-        price: 174.18,
-        h1: 0.05,
-        h24: 0.88,
-        d7: 2.41,
-        marketCap: "$85.4B",
-        volume: "$1.2B",
-        supply: "467.3M SOL",
-        sentiment: "Positive" as const,
-        trend: "up" as const,
-    },
-    {
-        id: 5,
-        name: "Monero",
-        symbol: "XMR",
-        price: 182.9,
-        h1: 0.22,
-        h24: 3.54,
-        d7: 0.95,
-        marketCap: "$81.2B",
-        volume: "$2.9B",
-        supply: "18M XMR",
-        sentiment: "Positive" as const,
-        trend: "up" as const,
-    },
-    {
-        id: 6,
-        name: "USDC",
-        symbol: "USDC",
-        price: 1.0002,
-        h1: -0.09,
-        h24: -0.35,
-        d7: 0.0,
-        marketCap: "$35.1B",
-        volume: "$1.1B",
-        supply: "34.5B USDC",
-        sentiment: "Negative" as const,
-        trend: "down" as const,
-    },
-    {
-        id: 7,
-        name: "Pepe",
-        symbol: "PEPE",
-        price: 0.00001724,
-        h1: 0.0,
-        h24: 0.0,
-        d7: 2.87,
-        marketCap: "$34.6B",
-        volume: "$4.3B",
-        supply: "420T PEPE",
-        sentiment: "Positive" as const,
-        trend: "up" as const,
-    },
-    {
-        id: 8,
-        name: "XRP",
-        symbol: "XRP",
-        price: 0.5246,
-        h1: 0.03,
-        h24: -1.96,
-        d7: -1.2,
-        marketCap: "$15.3B",
-        volume: "$512M",
-        supply: "54.5B XRP",
-        sentiment: "Negative" as const,
-        trend: "down" as const,
-    },
-    {
-        id: 9,
-        name: "Cardano",
-        symbol: "ADA",
-        price: 0.4521,
-        h1: 0.02,
-        h24: 0.45,
-        d7: 4.58,
-        marketCap: "$24.2B",
-        volume: "$826M",
-        supply: "35.8B ADA",
-        sentiment: "Positive" as const,
-        trend: "up" as const,
-    },
-    {
-        id: 10,
-        name: "Dogecoin",
-        symbol: "DOGE",
-        price: 0.1274,
-        h1: 0.1,
-        h24: 2.21,
-        d7: 5.24,
-        marketCap: "$14.6B",
-        volume: "$422M",
-        supply: "139.3B DOGE",
-        sentiment: "Positive" as const,
-        trend: "up" as const,
-    },
-];
-
 type Trend = "up" | "down" | "flat";
 type Sentiment = "Positive" | "Negative" | "Neutral";
-
-const STAT_CARDS = [
-    { title: "Market Cap", value: "$7.27T", change: "+0.47%", positive: true },
-    { title: "24h Volume", value: "$142.5B", change: "+12.3%", positive: true },
-    {
-        title: "BTC Dominance",
-        value: "54.3%",
-        change: "-0.8%",
-        positive: false,
-    },
-];
 
 const SUB_TABS = ["Top", "Trending", "New", "Most Visited", "Gainers", "More"];
 const FILTER_CHIPS = [
@@ -294,10 +94,18 @@ function MiniSparkline({
     data: { v: number }[];
     positive: boolean;
 }) {
+    if (!data || data.length < 2) {
+        return (
+            <div className="h-10 w-28 flex items-center justify-center text-[11px] text-muted">
+                --
+            </div>
+        );
+    }
     return (
-        <div className="h-10 w-24">
+        <div className="h-10 w-28">
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data}>
+                    <YAxis hide domain={["dataMin", "dataMax"]} />
                     <Line
                         type="monotone"
                         dataKey="v"
@@ -463,7 +271,14 @@ function SentimentBadge({ v }: { v: Sentiment }) {
     );
 }
 
-function PctCell({ v }: { v: number }) {
+function PctCell({ v }: { v: number | null }) {
+    if (v === null || Number.isNaN(v)) {
+        return (
+            <td className="px-4 py-4 text-[13px] font-medium text-right text-muted">
+                --
+            </td>
+        );
+    }
     const pos = v >= 0;
     return (
         <td
@@ -491,7 +306,7 @@ function priceFmt(v: number): string {
     return v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
-function CoinAvatar({ symbol }: { symbol: string }) {
+function CoinAvatar({ symbol, logoUrl }: { symbol: string; logoUrl?: string }) {
     const colors: Record<string, string> = {
         BTC: "#F7931A",
         ETH: "#627EEA",
@@ -507,42 +322,107 @@ function CoinAvatar({ symbol }: { symbol: string }) {
     const bg = colors[symbol] ?? "#6B7280";
     return (
         <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 overflow-hidden"
             style={{
                 backgroundColor: bg + "33",
                 border: `1.5px solid ${bg}55`,
             }}
         >
-            <span style={{ color: bg }}>{symbol[0]}</span>
+            {logoUrl ? (
+                <img
+                    src={logoUrl}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                />
+            ) : (
+                <span style={{ color: bg }}>{symbol[0]}</span>
+            )}
         </div>
     );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function MarketPage() {
+    const router = useRouter();
     const { theme, toggleTheme } = useAppSettings();
+    const { marketType, setMarketType, setSelectedSymbol } = useMarket();
+    const { rows, stats, isLoading, refetch } = useMarketPageData();
+
+    const handleRowClick = (symbol: string) => {
+        setSelectedSymbol(symbol);
+        router.push("/");
+    };
     const [activeSubTab, setActiveSubTab] = useState("Top");
     const [activeFilter, setActiveFilter] = useState("All Network");
-    const [activeMarket, setActiveMarket] = useState("Spot");
+    const [activeMarket, setActiveMarket] = useState(
+        marketType === "futures" ? "Futures" : "Spot",
+    );
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const meta = THEME_META[theme];
 
+    useEffect(() => {
+        setActiveMarket(marketType === "futures" ? "Futures" : "Spot");
+    }, [marketType]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [search, activeMarket]);
+
     const filteredData = useMemo(() => {
         const q = search.toLowerCase().trim();
-        if (!q) return CRYPTO_DATA;
-        return CRYPTO_DATA.filter(
+        if (!q) return rows;
+        return rows.filter(
             (c) =>
                 c.name.toLowerCase().includes(q) ||
                 c.symbol.toLowerCase().includes(q),
         );
-    }, [search]);
+    }, [search, rows]);
+
+    const statCards = useMemo(
+        () => [
+            {
+                title: "Market Cap",
+                value: stats.marketCap,
+                change: "+0.47%",
+                positive: true,
+            },
+            {
+                title: "24h Volume",
+                value: stats.volume24h,
+                change: "+0.00%",
+                positive: true,
+            },
+            {
+                title: "BTC Dominance",
+                value: stats.btcDominance,
+                change: "0.00%",
+                positive: true,
+            },
+        ],
+        [stats],
+    );
+
+    const pagedData = useMemo(() => {
+        const pageSize = 20;
+        const start = (page - 1) * pageSize;
+        return filteredData.slice(start, start + pageSize);
+    }, [filteredData, page]);
+    const totalPages = useMemo(
+        () => Math.max(1, Math.ceil(filteredData.length / 20)),
+        [filteredData.length],
+    );
 
     function handleRefresh() {
         setIsRefreshing(true);
-        setTimeout(() => setIsRefreshing(false), 1000);
+        refetch();
+        setTimeout(() => setIsRefreshing(false), 800);
     }
 
     return (
@@ -569,7 +449,14 @@ export default function MarketPage() {
                             {MARKET_TABS.map((tab) => (
                                 <button
                                     key={tab}
-                                    onClick={() => setActiveMarket(tab)}
+                                    onClick={() => {
+                                        setActiveMarket(tab);
+                                        setMarketType(
+                                            tab === "Futures"
+                                                ? "futures"
+                                                : "spot",
+                                        );
+                                    }}
                                     className={cn(
                                         "px-3 py-1.5 text-[12px] font-medium transition-colors border-r border-main last:border-0",
                                         activeMarket === tab
@@ -673,7 +560,7 @@ export default function MarketPage() {
 
                 {/* ── Stats Grid (6 cards) ─────────────────────────────────── */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    {STAT_CARDS.map((s, i) => (
+                    {statCards.map((s, i) => (
                         <StatCard
                             key={s.title}
                             title={s.title}
@@ -743,9 +630,6 @@ export default function MarketPage() {
                                     <th className="px-5 py-3.5 font-semibold text-right">
                                         24h Volume
                                     </th>
-                                    <th className="px-5 py-3.5 font-semibold text-right">
-                                        Circ. Supply
-                                    </th>
                                     <th className="px-5 py-3.5 font-semibold text-center">
                                         Sentiment
                                     </th>
@@ -755,17 +639,16 @@ export default function MarketPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-main">
-                                {filteredData.map((coin) => {
+                                {pagedData.map((coin, idx) => {
                                     const sparkData: { v: number }[] =
-                                        coin.trend === "up"
-                                            ? upSparkline
-                                            : coin.trend === "down"
-                                              ? downSparkline
-                                              : flatSparkline;
+                                        coin.sparkline7d;
                                     const sparkPositive = coin.trend !== "down";
                                     return (
                                         <tr
                                             key={coin.id}
+                                            onClick={() =>
+                                                handleRowClick(coin.id)
+                                            }
                                             className="hover:bg-main/60 transition-colors cursor-pointer group border-b border-main"
                                         >
                                             {/* # + star */}
@@ -775,7 +658,7 @@ export default function MarketPage() {
                                                         size={13}
                                                         className="hover:text-yellow-400 transition-colors cursor-pointer shrink-0"
                                                     />
-                                                    {coin.id}
+                                                    {(page - 1) * 20 + idx + 1}
                                                 </div>
                                             </td>
 
@@ -784,6 +667,7 @@ export default function MarketPage() {
                                                 <div className="flex items-center gap-3">
                                                     <CoinAvatar
                                                         symbol={coin.symbol}
+                                                        logoUrl={coin.logoUrl}
                                                     />
                                                     <div>
                                                         <div className="text-[13px] font-bold">
@@ -819,11 +703,6 @@ export default function MarketPage() {
                                                 {coin.volume}
                                             </td>
 
-                                            {/* Supply */}
-                                            <td className="px-5 py-4 text-right text-[12px] text-muted">
-                                                {coin.supply}
-                                            </td>
-
                                             {/* Sentiment */}
                                             <td className="px-5 py-4 text-center">
                                                 <SentimentBadge
@@ -843,6 +722,18 @@ export default function MarketPage() {
                                         </tr>
                                     );
                                 })}
+                                {pagedData.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={11}
+                                            className="px-5 py-8 text-center text-[12px] text-muted"
+                                        >
+                                            {isLoading
+                                                ? "Loading market data..."
+                                                : "No data"}
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -855,7 +746,10 @@ export default function MarketPage() {
                         >
                             <ChevronLeft size={15} />
                         </button>
-                        {[1, 2, 3, 4, 5].map((p) => (
+                        {Array.from(
+                            { length: totalPages },
+                            (_, i) => i + 1,
+                        ).map((p) => (
                             <button
                                 key={p}
                                 onClick={() => setPage(p)}
@@ -870,7 +764,9 @@ export default function MarketPage() {
                             </button>
                         ))}
                         <button
-                            onClick={() => setPage((p) => Math.min(5, p + 1))}
+                            onClick={() =>
+                                setPage((p) => Math.min(totalPages, p + 1))
+                            }
                             className="w-8 h-8 flex items-center justify-center text-muted hover:text-main hover:bg-main rounded-md transition-colors"
                         >
                             <ChevronRight size={15} />
