@@ -30,6 +30,7 @@ export default function PageLayout({
                             height={32}
                             className="rounded-sm"
                             unoptimized
+                            priority
                         />
                         <span className="font-bold text-[15px] tracking-tight">
                             FinTrace

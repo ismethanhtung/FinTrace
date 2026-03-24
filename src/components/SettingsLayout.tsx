@@ -74,6 +74,7 @@ function SettingsSidebar({
                         height={36}
                         unoptimized
                         className="rounded-sm"
+                        priority
                     />
                     <span className="font-bold text-[15px] tracking-tight">
                         FinTrace

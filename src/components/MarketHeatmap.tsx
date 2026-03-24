@@ -30,9 +30,8 @@ export function MarketHeatmap({
         widget.className = "tradingview-widget-container__widget h-full";
 
         const credits = document.createElement("div");
-        credits.className = "tradingview-widget-copyright text-[10px] mt-2 text-muted";
-        credits.innerHTML =
-            '<a href="https://www.tradingview.com/markets/cryptocurrencies/prices-all/" rel="noopener noreferrer" target="_blank" class="hover:text-main transition-colors"><span class="blue-text">Crypto heatmap by TradingView</span></a>';
+        credits.className =
+            "tradingview-widget-copyright text-[10px] mt-2 text-muted";
 
         const script = document.createElement("script");
         script.src =

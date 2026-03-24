@@ -19,6 +19,7 @@ import {
     Sun,
     RefreshCw,
     TrendingUp,
+    LayoutGrid,
     Search,
     Palette,
 } from "lucide-react";
@@ -111,6 +112,7 @@ export default function App() {
                             height={36}
                             className="rounded-sm"
                             unoptimized
+                            priority
                         />
                         <span className="font-bold text-[14px] tracking-tight">
                             FinTrace
@@ -125,6 +127,13 @@ export default function App() {
                         >
                             <TrendingUp size={13} />
                             <span>Markets</span>
+                        </Link>
+                        <Link
+                            href="/heatmap"
+                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <LayoutGrid size={13} />
+                            <span>Heatmap</span>
                         </Link>
                         <div className="h-4 w-px bg-main border-l border-main" />
                         <WatchlistDropdown />

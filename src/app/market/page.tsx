@@ -14,8 +14,9 @@ import {
     Moon,
     Sun,
     Palette,
+    LayoutGrid,
 } from "lucide-react";
-import { LineChart, Line, YAxis, ResponsiveContainer } from "recharts";
+import { LineChart, Line, YAxis } from "recharts";
 import { useAppSettings, AppTheme } from "../../context/AppSettingsContext";
 import { useMarket } from "../../context/MarketContext";
 import { useMarketPageData } from "../../hooks/useMarketPageData";
@@ -122,24 +123,22 @@ function MiniSparkline({
         );
     }
     return (
-        <div className="h-10 w-28">
-            <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data}>
-                    <YAxis hide domain={["dataMin", "dataMax"]} />
-                    <Line
-                        type="monotone"
-                        dataKey="v"
-                        stroke={
-                            positive
-                                ? "var(--color-up, #22c55e)"
-                                : "var(--color-down, #ef4444)"
-                        }
-                        strokeWidth={1.5}
-                        dot={false}
-                        isAnimationActive={false}
-                    />
-                </LineChart>
-            </ResponsiveContainer>
+        <div className="h-10 w-28 min-w-[112px] min-h-10 shrink-0">
+            <LineChart width={112} height={40} data={data}>
+                <YAxis hide domain={["dataMin", "dataMax"]} />
+                <Line
+                    type="monotone"
+                    dataKey="v"
+                    stroke={
+                        positive
+                            ? "var(--color-up, #22c55e)"
+                            : "var(--color-down, #ef4444)"
+                    }
+                    strokeWidth={1.5}
+                    dot={false}
+                    isAnimationActive={false}
+                />
+            </LineChart>
         </div>
     );
 }
@@ -566,6 +565,7 @@ export default function MarketPage() {
                             height={32}
                             unoptimized
                             className=" "
+                            priority
                         />
                         <span className="font-bold text-[14px] tracking-tight">
                             FinTrace
@@ -637,6 +637,13 @@ export default function MarketPage() {
                         className="px-3.5 py-1.5 bg-accent text-white rounded-md text-[11px] font-semibold hover:bg-accent/90 transition-colors"
                     >
                         Open Chart
+                    </Link>
+                    <Link
+                        href="/heatmap"
+                        className="px-3.5 py-1.5 bg-secondary border border-main text-main rounded-md text-[11px] font-semibold hover:border-accent/40 hover:text-accent transition-colors flex items-center gap-1.5"
+                    >
+                        <LayoutGrid size={12} />
+                        Heatmap
                     </Link>
                     <div className="h-4 w-px border-l border-main" />
                     <UserMenu />
@@ -912,6 +919,7 @@ export default function MarketPage() {
                             height={32}
                             unoptimized
                             className="rounded opacity-70"
+                            priority
                         />
                         <span className="text-[12px] text-muted">
                             FinTrace — Market data powered by Tung

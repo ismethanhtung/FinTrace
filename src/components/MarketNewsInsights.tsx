@@ -130,7 +130,7 @@ const ArticlePill = ({ article }: { article: MarketNewsArticle }) => {
                     href={article.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[11px] text-muted hover:text-main transition-colors whitespace-nowrap max-w-[220px] truncate"
+                    className="text-[11px] text-muted hover:text-main transition-colors whitespace-nowrap max-w-[220px] truncate hover:underline"
                     title={article.originalTitle}
                     onClick={(e) => e.stopPropagation()}
                 >

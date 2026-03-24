@@ -109,17 +109,27 @@ Given a news article title and snippet, respond with ONLY a valid JSON object (n
 {
   "shortTitle": "<concise English title ≤60 chars>",
   "sentiment": "<positive|negative|neutral>",
-  "summary": "<2-3 bullet points in Vietnamese Markdown, each on new line starting with '- '>"
+  "summaryPoints": ["<Vietnamese point 1>", "<Vietnamese point 2>", "<Vietnamese point 3 optional>"]
 }
 
 Rules:
 - shortTitle: keep the key information, strip publisher names
 - sentiment: judge from market impact perspective (positive = bullish, negative = bearish)
-- summary: write in Vietnamese, be specific and insightful, no fluff`;
+- summaryPoints: 2-3 short Vietnamese points, no markdown bullets, no numbering`;
+
+  const textFallbackSystemPrompt = `You are a senior crypto market analyst AI.
+Return ONLY one line, no markdown, no extra words, with this exact format:
+shortTitle || sentiment || point1 || point2 || point3
+
+Rules:
+- sentiment must be exactly: positive, negative, or neutral
+- shortTitle must be English and concise (<= 60 chars)
+- points must be Vietnamese and insightful
+- point3 can be empty if not needed`;
 
   const userContent = `Title: ${article.title}\nSnippet: ${article.description || 'N/A'}`;
 
-  const parseAiJson = (text: string): { shortTitle?: string; sentiment?: string; summary?: string } => {
+  const parseAiJson = (text: string): { shortTitle?: string; sentiment?: string; summary?: string; summaryPoints?: unknown } => {
     const cleaned = text
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
@@ -133,11 +143,18 @@ Rules:
     return JSON.parse(cleaned.slice(start, end + 1));
   };
 
-  const normalizeSummary = (summary?: string): string => {
-    if (!summary?.trim()) {
+  const normalizeSummary = (summary?: string | string[]): string => {
+    const mergedSummary = Array.isArray(summary)
+      ? summary
+          .map((s) => String(s).trim())
+          .filter(Boolean)
+          .join('\n')
+      : summary;
+
+    if (!mergedSummary?.trim()) {
       return '- Chưa có đủ dữ liệu để tóm tắt rõ ràng.';
     }
-    const lines = summary
+    const lines = mergedSummary
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean)
@@ -165,34 +182,59 @@ Rules:
     return `- Tin tập trung vào diễn biến ngắn hạn của thị trường crypto.\n- Chi tiết chính: ${firstSentence.substring(0, 160)}.\n- Nên theo dõi phản ứng giá và thanh khoản sau tin.`;
   };
 
+  const callGroq = async (payload: Record<string, unknown>) => {
+    const res = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${groqKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      const error = new Error(`Groq error ${res.status}: ${errText}`);
+      (error as Error & { status?: number; body?: string }).status = res.status;
+      (error as Error & { status?: number; body?: string }).body = errText;
+      throw error;
+    }
+
+    const json = await res.json();
+    return json.choices?.[0]?.message?.content?.trim() ?? '';
+  };
+
+  const parseDelimitedFallback = (text: string): { shortTitle: string; sentiment: 'positive' | 'negative' | 'neutral'; summary: string } => {
+    const cleaned = text.replace(/\r/g, '').trim();
+    const parts = cleaned.split('||').map((p) => p.trim()).filter(Boolean);
+    const shortTitle = (parts[0] || article.title).replace(/\s+/g, ' ').trim().substring(0, 70);
+    const maybeSentiment = (parts[1] || '').toLowerCase();
+    const sentiment = (['positive', 'negative', 'neutral'] as const).includes(
+      maybeSentiment as 'positive' | 'negative' | 'neutral',
+    )
+      ? (maybeSentiment as 'positive' | 'negative' | 'neutral')
+      : heuristicSentiment(`${article.title}\n${article.description}`);
+    const points = parts.slice(2, 5);
+    return {
+      shortTitle,
+      sentiment,
+      summary: normalizeSummary(points.length ? points : fallbackSummary()),
+    };
+  };
+
   let lastError: unknown = null;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      const res = await fetch(GROQ_URL, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${groqKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userContent },
-          ],
-          max_tokens: 300,
-          temperature: 0.2,
-          response_format: { type: 'json_object' },
-        }),
+      const text = await callGroq({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent },
+        ],
+        max_tokens: 300,
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
       });
-
-      if (!res.ok) {
-        const err = await res.text().catch(() => '');
-        throw new Error(`Groq error ${res.status}: ${err}`);
-      }
-
-      const json = await res.json();
-      const text: string = json.choices?.[0]?.message?.content?.trim() ?? '';
       const parsed = parseAiJson(text);
 
       const sentiment = (['positive', 'negative', 'neutral'] as const).includes(
@@ -204,16 +246,46 @@ Rules:
       return {
         shortTitle: (parsed.shortTitle || article.title).replace(/\s+/g, ' ').trim().substring(0, 70),
         sentiment,
-        summary: normalizeSummary(parsed.summary),
+        summary: normalizeSummary(
+          Array.isArray(parsed.summaryPoints)
+            ? (parsed.summaryPoints as string[])
+            : parsed.summary,
+        ),
       };
     } catch (err) {
+      // If JSON validation fails at provider side, retry with looser text format once.
+      const errBody = String((err as Error & { body?: string })?.body || '');
+      const isJsonValidationFailure =
+        errBody.includes('json_validate_failed') ||
+        errBody.includes('Failed to generate JSON');
+      if (isJsonValidationFailure) {
+        try {
+          const textFallback = await callGroq({
+            model: 'llama-3.1-8b-instant',
+            messages: [
+              { role: 'system', content: textFallbackSystemPrompt },
+              { role: 'user', content: userContent },
+            ],
+            max_tokens: 280,
+            temperature: 0.2,
+          });
+          return parseDelimitedFallback(textFallback);
+        } catch (fallbackErr) {
+          lastError = fallbackErr;
+          await new Promise((r) => setTimeout(r, 250 * attempt));
+          continue;
+        }
+      }
+
       lastError = err;
       // brief backoff helps when hitting free-tier burst limits
       await new Promise((r) => setTimeout(r, 250 * attempt));
     }
   }
 
-  console.warn('[market-news] AI enrich fallback:', article.title, lastError);
+  const fallbackErrorMsg =
+    lastError instanceof Error ? lastError.message : String(lastError || 'unknown');
+  console.warn('[market-news] AI enrich fallback:', article.title, fallbackErrorMsg);
   return {
     shortTitle: article.title.replace(/\s+/g, ' ').trim().substring(0, 70),
     sentiment: heuristicSentiment(`${article.title}\n${article.description}`),
