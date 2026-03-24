@@ -232,7 +232,7 @@ export const TickerBar = () => {
                                 </span>
                                 <span
                                     className={cn(
-                                        "text-[9px] font-bold",
+                                        "text-[10px] font-bold",
                                         asset.changePercent >= 0
                                             ? "text-emerald-500"
                                             : "text-rose-500",
@@ -249,7 +249,8 @@ export const TickerBar = () => {
                     </div>
                 ) : (
                     <div className="h-full flex items-center px-4 text-[10px] text-muted">
-                        Danh sach coin yeu thich se duoc bo sung o buoc tiep theo.
+                        Danh sach coin yeu thich se duoc bo sung o buoc tiep
+                        theo.
                     </div>
                 )}
             </div>

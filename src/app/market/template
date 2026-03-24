@@ -78,7 +78,7 @@ const blogPosts = [
 
 const Sparkline = ({ data, color = "#00FF00" }: { data: any[], color?: string }) => (
   <div className="h-8 w-24">
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" minWidth={96} minHeight={32}>
       <LineChart data={data}>
         <Line 
           type="monotone" 
@@ -101,7 +101,7 @@ const Gauge = ({ value, label, color = "#00FF00" }: { value: number, label: stri
   return (
     <div className="flex flex-col items-center">
       <div className="relative h-20 w-32">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={128} minHeight={80}>
           <PieChart>
             <Pie
               data={data}
@@ -140,7 +140,7 @@ const StatCard = ({ title, value, change, data }: { title: string, value: string
         <div className="text-[10px] text-green-400">{change}</div>
       </div>
       <div className="h-12 w-24">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={96} minHeight={48}>
           <LineChart data={data}>
             <Line type="monotone" dataKey="value" stroke="#00FF00" strokeWidth={2} dot={false} />
           </LineChart>

@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useMarket } from "../context/MarketContext";
 import { Asset } from "../services/binanceService";
 import { TokenAvatar } from "./TokenAvatar";
+import { usePathname, useRouter } from "next/navigation";
 
 const RECENTS_KEY = "fintrace_recent_symbols";
 const MAX_RECENTS = 5;
@@ -111,6 +112,8 @@ const AssetRow = ({
 
 // ─── WatchlistDropdown ────────────────────────────────────────────────────────
 export const WatchlistDropdown = () => {
+    const router = useRouter();
+    const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
     const [filter, setFilter] = useState("");
     const [recents, setRecents] = useState<string[]>([]);
@@ -148,6 +151,11 @@ export const WatchlistDropdown = () => {
             setSelectedSymbol(id);
             setIsOpen(false);
             setFilter("");
+            // Keep behavior consistent across pages:
+            // selecting a market pair from this dropdown should open chart page.
+            if (pathname !== "/") {
+                router.push("/");
+            }
             // Push to recents
             setRecents((prev) => {
                 const next = [id, ...prev.filter((s) => s !== id)].slice(
@@ -158,7 +166,7 @@ export const WatchlistDropdown = () => {
                 return next;
             });
         },
-        [setSelectedSymbol],
+        [pathname, router, setSelectedSymbol],
     );
 
     const filteredAssets = assets.filter(

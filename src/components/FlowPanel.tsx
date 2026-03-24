@@ -30,9 +30,10 @@ const PERIOD_LABELS: Record<FlowPeriod, string> = {
 };
 
 const numFmt = (n: number, decimals = 2) => {
-    if (!Number.isFinite(n)) return '—';
+    if (!Number.isFinite(n)) return "—";
     const abs = Math.abs(n);
-    if (abs >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(decimals)}B`;
+    if (abs >= 1_000_000_000)
+        return `${(n / 1_000_000_000).toFixed(decimals)}B`;
     if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(decimals)}M`;
     if (abs >= 1_000) return `${(n / 1_000).toFixed(decimals)}K`;
     return n.toFixed(decimals);
@@ -53,7 +54,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         rows.push({ k: raw.name, v: numFmt(raw.value, 2) });
     }
     // Taker flow bar tooltip
-    else if (typeof raw?.buyVol === "number" && typeof raw?.sellVol === "number") {
+    else if (
+        typeof raw?.buyVol === "number" &&
+        typeof raw?.sellVol === "number"
+    ) {
         const net = raw?.net ?? raw.buyVol - raw.sellVol;
         rows.push({
             k: "Mua",
@@ -105,7 +109,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         // Fallback: show first payload keys
         payload.slice(0, 6).forEach((p: any, i: number) => {
             const v =
-                typeof p.value === "number" ? numFmt(p.value, 4) : String(p.value);
+                typeof p.value === "number"
+                    ? numFmt(p.value, 4)
+                    : String(p.value);
             rows.push({ k: p.name ?? `v${i}`, v, valueClass: p.color });
         });
     }
@@ -120,7 +126,14 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             {rows.map((r, i) => (
                 <p key={i}>
                     <span className="text-muted">{r.k}: </span>
-                    <span className={cn("font-mono text-main", r.valueClass ?? "")}>{r.v}</span>
+                    <span
+                        className={cn(
+                            "font-mono text-main",
+                            r.valueClass ?? "",
+                        )}
+                    >
+                        {r.v}
+                    </span>
                 </p>
             ))}
         </div>
@@ -262,7 +275,7 @@ export const FlowPanel = () => {
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="w-40 h-40 shrink-0">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={160} minHeight={160}>
                                 <PieChart>
                                     <Pie
                                         data={donutData}
@@ -357,7 +370,7 @@ export const FlowPanel = () => {
                                         return (
                                             <tr
                                                 key={row.label}
-                                                className="hover:bg-secondary/10"
+                                                className="hover:bg-secondary/10 border-b border-main    "
                                             >
                                                 <td className="py-1 px-2 text-left text-muted">
                                                     {row.label}
@@ -417,8 +430,16 @@ export const FlowPanel = () => {
                         <Info size={11} className="text-muted" />
                     </div>
                     <div className="h-44">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={takerChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={176}>
+                            <BarChart
+                                data={takerChartData}
+                                margin={{
+                                    top: 8,
+                                    right: 8,
+                                    left: 0,
+                                    bottom: 0,
+                                }}
+                            >
                                 <XAxis dataKey="time" hide />
                                 <Tooltip content={<CustomTooltip />} />
                                 <ReferenceLine
@@ -450,8 +471,16 @@ export const FlowPanel = () => {
                         <Info size={11} className="text-muted" />
                     </div>
                     <div className="h-44">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={oiChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={176}>
+                            <AreaChart
+                                data={oiChartData}
+                                margin={{
+                                    top: 8,
+                                    right: 8,
+                                    left: 0,
+                                    bottom: 0,
+                                }}
+                            >
                                 <XAxis dataKey="time" hide />
                                 <Tooltip content={<CustomTooltip />} />
                                 <Area
@@ -490,8 +519,16 @@ export const FlowPanel = () => {
                             })()}
                     </div>
                     <div className="h-44">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={lsChartData} margin={{ top: 8, right: 40, left: 0, bottom: 0 }}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={176}>
+                            <AreaChart
+                                data={lsChartData}
+                                margin={{
+                                    top: 8,
+                                    right: 40,
+                                    left: 0,
+                                    bottom: 0,
+                                }}
+                            >
                                 <XAxis dataKey="time" hide />
                                 <YAxis
                                     width={35}

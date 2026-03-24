@@ -9,8 +9,6 @@ import {
     ChevronDown,
     ChevronLeft,
     ChevronRight,
-    TrendingUp,
-    TrendingDown,
     Filter,
     RefreshCw,
     Moon,
@@ -34,6 +32,7 @@ import {
     sortMarketRowsBySubTab,
     type MarketSubTabKey,
 } from "../../lib/marketSort";
+import { MarketNewsInsights } from "../../components/MarketNewsInsights";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -663,7 +662,9 @@ export default function MarketPage() {
                                     )}
                                 >
                                     {tab}
-                                    {tab === "More" && <ChevronDown size={11} />}
+                                    {tab === "More" && (
+                                        <ChevronDown size={11} />
+                                    )}
                                 </button>
                                 {tab === "More" &&
                                     activeSubTab === "More" &&
@@ -692,26 +693,7 @@ export default function MarketPage() {
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-4 text-[11px] text-muted overflow-x-auto no-scrollbar">
-                        <span className="flex items-center gap-1.5 whitespace-nowrap hover:text-main cursor-pointer transition-colors">
-                            <TrendingUp
-                                size={12}
-                                className="text-emerald-500"
-                            />
-                            Why is the market up today?
-                        </span>
-                        <span className="flex items-center gap-1.5 whitespace-nowrap hover:text-main cursor-pointer transition-colors">
-                            <TrendingDown size={12} className="text-rose-500" />
-                            What are the trending narratives?
-                        </span>
-                        <span className="flex items-center gap-1.5 whitespace-nowrap hover:text-main cursor-pointer transition-colors">
-                            <TrendingUp
-                                size={12}
-                                className="text-emerald-500"
-                            />
-                            Are altcoins outperforming Bitcoin?
-                        </span>
-                    </div>
+                    <MarketNewsInsights />
                 </div>
 
                 {/* ── Stats Grid (6 cards) ─────────────────────────────────── */}
