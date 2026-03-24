@@ -26,9 +26,10 @@ export default function PageLayout({
                         <Image
                             src="/logo.gif"
                             alt="FinTrace logo"
-                            width={18}
-                            height={18}
+                            width={32}
+                            height={32}
                             className="rounded-sm"
+                            unoptimized
                         />
                         <span className="font-bold text-[15px] tracking-tight">
                             FinTrace

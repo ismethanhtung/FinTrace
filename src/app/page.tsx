@@ -23,6 +23,7 @@ import {
     Palette,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 const BOTTOM_MIN = 100;
 const BOTTOM_MAX = 460;
@@ -109,6 +110,7 @@ export default function App() {
                             width={36}
                             height={36}
                             className="rounded-sm"
+                            unoptimized
                         />
                         <span className="font-bold text-[14px] tracking-tight">
                             FinTrace
@@ -117,6 +119,14 @@ export default function App() {
 
                     {/* Nav: watchlist dropdown + quick search */}
                     <nav className="flex items-center space-x-2">
+                        <Link
+                            href="/market"
+                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <TrendingUp size={13} />
+                            <span>Markets</span>
+                        </Link>
+                        <div className="h-4 w-px bg-main border-l border-main" />
                         <WatchlistDropdown />
                         <div className="h-4 w-px bg-main border-l border-main" />
                         <div className="relative group">

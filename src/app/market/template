@@ -1,0 +1,493 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from 'react';
+import { 
+  Search, 
+  Star, 
+  ChevronDown, 
+  TrendingUp, 
+  TrendingDown, 
+  Filter, 
+  LayoutDashboard, 
+  Coins, 
+  ArrowRightLeft, 
+  Users, 
+  Package, 
+  BookOpen, 
+  Mail,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  X
+} from 'lucide-react';
+import { 
+  LineChart, 
+  Line, 
+  ResponsiveContainer, 
+  PieChart, 
+  Pie, 
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip
+} from 'recharts';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+// Utility for tailwind classes
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+// --- Mock Data ---
+
+const sparklineData = [
+  { value: 10 }, { value: 15 }, { value: 12 }, { value: 18 }, { value: 14 }, { value: 22 }, { value: 20 },
+  { value: 25 }, { value: 23 }, { value: 28 }, { value: 26 }, { value: 32 }, { value: 30 }, { value: 35 }
+];
+
+const negativeSparklineData = [
+  { value: 35 }, { value: 30 }, { value: 32 }, { value: 26 }, { value: 28 }, { value: 23 }, { value: 25 },
+  { value: 20 }, { value: 22 }, { value: 14 }, { value: 18 }, { value: 12 }, { value: 15 }, { value: 10 }
+];
+
+const cryptoData = [
+  { id: 1, name: 'Bitcoin', symbol: 'BTC', price: 67420.35, h1: 0.12, h24: 2.35, d7: 4.18, marketCap: '1.33T', volume: '35.6B', supply: '19.7M BTC', sentiment: 'Positive', trend: 'up' },
+  { id: 2, name: 'Ethereum', symbol: 'ETH', price: 3182.64, h1: 0.08, h24: 1.10, d7: 3.72, marketCap: '382.4B', volume: '17.1B', supply: '120.4M ETH', sentiment: 'Positive', trend: 'up' },
+  { id: 3, name: 'Binance Coin', symbol: 'BNB', price: 585.74, h1: 0.00, h24: 0.01, d7: 0.00, marketCap: '114.2B', volume: '58.1B', supply: '147.9M BNB', sentiment: 'Neutral', trend: 'neutral' },
+  { id: 4, name: 'Solana', symbol: 'SOL', price: 174.18, h1: 0.05, h24: 0.88, d7: 2.41, marketCap: '85.4B', volume: '1.2B', supply: '467.3M SOL', sentiment: 'Positive', trend: 'up' },
+  { id: 5, name: 'Monero', symbol: 'XMR', price: 0.6472, h1: 0.22, h24: 3.54, d7: 0.95, marketCap: '$81.2B', volume: '$2.9B', supply: '18M XMR', sentiment: 'Positive', trend: 'up' },
+  { id: 6, name: 'USDC', symbol: 'USDC', price: 0.4258, h1: -0.09, h24: -0.35, d7: 0.00, marketCap: '35.1B', volume: '1.1B', supply: '34.5B USDC', sentiment: 'Negative', trend: 'down' },
+  { id: 7, name: 'Pepe', symbol: 'PEPE', price: 0.1724, h1: 0.00, h24: 0.00, d7: 2.87, marketCap: '34.6B', volume: '4.3B', supply: '420T PEPE', sentiment: 'Positive', trend: 'up' },
+  { id: 8, name: 'XRP', symbol: 'XRP', price: 37.46, h1: 0.03, h24: 1.96, d7: 1.20, marketCap: '15.3B', volume: '512M', supply: '54.5B XRP', sentiment: 'Negative', trend: 'down' },
+  { id: 9, name: 'Cardano', symbol: 'ADA', price: 7.41, h1: 0.02, h24: 0.45, d7: 4.58, marketCap: '24.2B', volume: '826M', supply: '35.8B ADA', sentiment: 'Positive', trend: 'up' },
+  { id: 10, name: 'Dogecoin', symbol: 'DOGE', price: 0.00002741, h1: 0.10, h24: 2.21, d7: 5.24, marketCap: '14.6B', volume: '422M', supply: '139.3B DOGE', sentiment: 'Positive', trend: 'up' },
+];
+
+const blogPosts = [
+  { id: 1, title: 'The Future of AI in Crypto Trading', image: 'https://picsum.photos/seed/crypto1/400/250' },
+  { id: 2, title: 'Bitcoin Halving: What to Expect in 2024', image: 'https://picsum.photos/seed/crypto2/400/250' },
+  { id: 3, title: 'Understanding DEX vs CEX Liquidity', image: 'https://picsum.photos/seed/crypto3/400/250' },
+  { id: 4, title: 'Top 10 Altcoins to Watch This Season', image: 'https://picsum.photos/seed/crypto4/400/250' },
+];
+
+// --- Components ---
+
+const Sparkline = ({ data, color = "#00FF00" }: { data: any[], color?: string }) => (
+  <div className="h-8 w-24">
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data}>
+        <Line 
+          type="monotone" 
+          dataKey="value" 
+          stroke={color} 
+          strokeWidth={2} 
+          dot={false} 
+          isAnimationActive={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+);
+
+const Gauge = ({ value, label, color = "#00FF00" }: { value: number, label: string, color?: string }) => {
+  const data = [
+    { name: 'value', value: value },
+    { name: 'rest', value: 100 - value },
+  ];
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative h-20 w-32">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="100%"
+              startAngle={180}
+              endAngle={0}
+              innerRadius={40}
+              outerRadius={55}
+              paddingAngle={0}
+              dataKey="value"
+              stroke="none"
+            >
+              <Cell fill={color} />
+              <Cell fill="#1F1E2E" />
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-center">
+          <span className="text-xl font-bold text-white">{value}</span>
+          <p className="text-[10px] text-gray-400 uppercase">{label}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const StatCard = ({ title, value, change, data }: { title: string, value: string, change: string, data: any[] }) => (
+  <div className="bg-[#151425] border border-[#2A293E] rounded-xl p-4 flex flex-col justify-between min-w-[200px] flex-1">
+    <div className="flex justify-between items-start mb-2">
+      <div>
+        <div className="flex items-center gap-1 text-gray-400 text-xs mb-1">
+          {title} <ChevronDown size={12} />
+        </div>
+        <div className="text-lg font-bold text-white">{value}</div>
+        <div className="text-[10px] text-green-400">{change}</div>
+      </div>
+      <div className="h-12 w-24">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <Line type="monotone" dataKey="value" stroke="#00FF00" strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  </div>
+);
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('Dashboards');
+  const [activeFilter, setActiveFilter] = useState('All Network');
+
+  return (
+    <div className="min-h-screen bg-[#0F0E1E] text-white font-sans selection:bg-green-500/30">
+      {/* --- Navigation --- */}
+      <header className="border-b border-[#2A293E] px-6 py-4 flex items-center justify-between sticky top-0 bg-[#0F0E1E]/80 backdrop-blur-md z-50">
+        <div className="flex items-center gap-10">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+              <Coins className="text-black" size={20} />
+            </div>
+            <span className="text-xl font-bold tracking-tight">Crypto<span className="text-green-500">Wall</span></span>
+          </div>
+          
+          <nav className="hidden lg:flex items-center gap-6">
+            {['Cryptocurrencies', 'Dashboards', 'Exchanges', 'Community', 'Products', 'Blogs', 'Contact'].map((item) => (
+              <button 
+                key={item} 
+                onClick={() => setActiveTab(item)}
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-green-500",
+                  activeTab === item ? "text-green-500" : "text-gray-400"
+                )}
+              >
+                {item}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+            <Star size={16} />
+            <span className="hidden sm:inline">Watchlist</span>
+          </button>
+          
+          <div className="relative hidden md:block">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+            <input 
+              type="text" 
+              placeholder="Search Here" 
+              className="bg-[#151425] border border-[#2A293E] rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-green-500 w-64 transition-all"
+            />
+          </div>
+
+          <button className="bg-green-500 text-black px-6 py-2 rounded-full text-sm font-bold hover:bg-green-400 transition-colors">
+            Login
+          </button>
+          
+          <button className="lg:hidden text-gray-400">
+            <Menu size={24} />
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-[1600px] mx-auto px-6 py-6">
+        {/* --- Sub Header Tabs --- */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+            {['Top', 'Trending', 'New', 'Most Visited', 'Gainers', 'More'].map((tab) => (
+              <button key={tab} className="text-sm text-gray-400 hover:text-white whitespace-nowrap flex items-center gap-1">
+                {tab} {tab === 'More' && <ChevronDown size={14} />}
+              </button>
+            ))}
+          </div>
+          
+          <div className="flex items-center gap-6 text-[11px] text-gray-500 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-2 whitespace-nowrap hover:text-gray-300 cursor-pointer">
+              <TrendingUp size={12} className="text-green-500" /> Why is the market up today?
+            </div>
+            <div className="flex items-center gap-2 whitespace-nowrap hover:text-gray-300 cursor-pointer">
+              <TrendingDown size={12} className="text-red-500" /> What are the trending narratives?
+            </div>
+            <div className="flex items-center gap-2 whitespace-nowrap hover:text-gray-300 cursor-pointer">
+              <TrendingUp size={12} className="text-green-500" /> Are altcoins outperforming Bitcoin?
+            </div>
+          </div>
+        </div>
+
+        {/* --- Stats Grid --- */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+          <StatCard title="Market Cap" value="$7.27T" change="▲ 0.47%" data={sparklineData} />
+          <StatCard title="CMC20" value="$4,845.58" change="▲ 0.47%" data={sparklineData} />
+          <StatCard title="EVAA Protocol" value="$12.45" change="▲ 21.6%" data={sparklineData} />
+          
+          <div className="bg-[#151425] border border-[#2A293E] rounded-xl p-4 flex flex-col items-center justify-center min-w-[200px] flex-1">
+            <Gauge value={75} label="Fear" color="#00FF00" />
+          </div>
+
+          <div className="bg-[#151425] border border-[#2A293E] rounded-xl p-4 flex flex-col justify-between min-w-[200px] flex-1">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400 text-xs flex items-center gap-1">Altcoin Season <ChevronDown size={12} /></span>
+            </div>
+            <div className="text-lg font-bold text-white mb-2">37<span className="text-xs text-gray-500">/150</span></div>
+            <div className="w-full h-1.5 bg-[#1F1E2E] rounded-full relative overflow-hidden">
+              <div className="absolute left-0 top-0 h-full bg-green-500" style={{ width: '37%' }}></div>
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+              <span>Bitcoin</span>
+              <span>Altcoin</span>
+            </div>
+          </div>
+
+          <div className="bg-[#151425] border border-[#2A293E] rounded-xl p-4 flex flex-col justify-between min-w-[200px] flex-1">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-400 text-xs flex items-center gap-1">Average Crypto RSI <ChevronDown size={12} /></span>
+            </div>
+            <div className="text-lg font-bold text-white mb-2">74.53</div>
+            <div className="w-full h-1.5 bg-[#1F1E2E] rounded-full relative">
+              <div className="absolute left-[74%] top-1/2 -translate-y-1/2 w-3 h-3 bg-green-500 rounded-full border-2 border-[#151425]"></div>
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+              <span>Oversold</span>
+              <span>Overbought</span>
+            </div>
+          </div>
+        </div>
+
+        {/* --- Filters --- */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
+            {['All Network', 'Highlights', 'BSC', 'Base', 'Solana', 'Ethereum', 'More'].map((filter) => (
+              <button 
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap",
+                  activeFilter === filter 
+                    ? "bg-green-500 text-black" 
+                    : "bg-[#151425] text-gray-400 border border-[#2A293E] hover:border-gray-500"
+                )}
+              >
+                {filter === 'More' ? <span className="flex items-center gap-1">More <ChevronDown size={12} /></span> : filter}
+              </button>
+            ))}
+          </div>
+          <button className="flex items-center gap-2 bg-[#151425] border border-[#2A293E] px-4 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white transition-colors">
+            <Filter size={14} /> Filter
+          </button>
+        </div>
+
+        {/* --- Table --- */}
+        <div className="bg-[#151425] border border-[#2A293E] rounded-2xl overflow-hidden mb-12">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-[#2A293E] text-[11px] text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 font-medium">#</th>
+                  <th className="px-6 py-4 font-medium">Name</th>
+                  <th className="px-6 py-4 font-medium">Price</th>
+                  <th className="px-6 py-4 font-medium">1h%</th>
+                  <th className="px-6 py-4 font-medium">24h%</th>
+                  <th className="px-6 py-4 font-medium">7d%</th>
+                  <th className="px-6 py-4 font-medium">Market Cap</th>
+                  <th className="px-6 py-4 font-medium">24h Volume</th>
+                  <th className="px-6 py-4 font-medium">Circulating Supply</th>
+                  <th className="px-6 py-4 font-medium">Sentiment</th>
+                  <th className="px-6 py-4 font-medium">Last 7 Days</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {cryptoData.map((coin) => (
+                  <tr key={coin.id} className="border-b border-[#2A293E]/50 hover:bg-[#1F1E2E] transition-colors group cursor-pointer">
+                    <td className="px-6 py-4 text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <Star size={14} className="hover:text-yellow-500 transition-colors" />
+                        {coin.id}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold">
+                          {coin.symbol[0]}
+                        </div>
+                        <div>
+                          <div className="font-bold text-white">{coin.name}</div>
+                          <div className="text-[10px] text-gray-500">{coin.symbol}</div>
+                        </div>
+                        <button className="bg-green-500/10 text-green-500 text-[10px] px-2 py-0.5 rounded font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                          Buy
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-medium">${coin.price.toLocaleString()}</td>
+                    <td className={cn("px-6 py-4", coin.h1 >= 0 ? "text-green-400" : "text-red-400")}>
+                      {coin.h1 >= 0 ? '▲' : '▼'} {Math.abs(coin.h1)}%
+                    </td>
+                    <td className={cn("px-6 py-4", coin.h24 >= 0 ? "text-green-400" : "text-red-400")}>
+                      {coin.h24 >= 0 ? '▲' : '▼'} {Math.abs(coin.h24)}%
+                    </td>
+                    <td className={cn("px-6 py-4", coin.d7 >= 0 ? "text-green-400" : "text-red-400")}>
+                      {coin.d7 >= 0 ? '▲' : '▼'} {Math.abs(coin.d7)}%
+                    </td>
+                    <td className="px-6 py-4 text-gray-300">${coin.marketCap}</td>
+                    <td className="px-6 py-4 text-gray-300">${coin.volume}</td>
+                    <td className="px-6 py-4 text-gray-300">{coin.supply}</td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "px-2 py-1 rounded text-[10px] font-bold uppercase",
+                        coin.sentiment === 'Positive' ? "bg-green-500/10 text-green-500" :
+                        coin.sentiment === 'Neutral' ? "bg-yellow-500/10 text-yellow-500" :
+                        "bg-red-500/10 text-red-500"
+                      )}>
+                        {coin.sentiment}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Sparkline 
+                        data={coin.trend === 'down' ? negativeSparklineData : sparklineData} 
+                        color={coin.trend === 'down' ? "#FF4444" : "#00FF00"} 
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* --- Pagination --- */}
+          <div className="flex items-center justify-center gap-2 py-6 border-t border-[#2A293E]">
+            <button className="p-2 text-gray-500 hover:text-white transition-colors">
+              <ChevronLeft size={18} />
+            </button>
+            {[1, 2, 3, 4, 5].map((page) => (
+              <button 
+                key={page}
+                className={cn(
+                  "w-8 h-8 rounded-full text-sm font-medium transition-all",
+                  page === 1 ? "bg-green-500 text-black" : "text-gray-500 hover:bg-[#1F1E2E] hover:text-white"
+                )}
+              >
+                {page}
+              </button>
+            ))}
+            <button className="p-2 text-gray-500 hover:text-white transition-colors">
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* --- Blog Section --- */}
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold tracking-tight">Featured Blog Articles</h2>
+            <button className="bg-green-500/10 text-green-500 px-6 py-2 rounded-full text-sm font-bold hover:bg-green-500/20 transition-all">
+              See More Articles
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {blogPosts.map((post) => (
+              <div key={post.id} className="group cursor-pointer">
+                <div className="relative overflow-hidden rounded-2xl aspect-[16/10] mb-4">
+                  <img 
+                    src={post.image} 
+                    alt={post.title} 
+                    className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                    <span className="text-white text-xs font-bold flex items-center gap-1">Read More <ChevronRight size={14} /></span>
+                  </div>
+                </div>
+                <h3 className="font-bold text-lg leading-tight group-hover:text-green-500 transition-colors">
+                  {post.title}
+                </h3>
+                <p className="text-gray-500 text-sm mt-2 line-clamp-2">
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      {/* --- Footer --- */}
+      <footer className="border-t border-[#2A293E] bg-[#0F0E1E] px-6 py-12">
+        <div className="max-w-[1600px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+          <div>
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                <Coins className="text-black" size={20} />
+              </div>
+              <span className="text-xl font-bold tracking-tight">Crypto<span className="text-green-500">Wall</span></span>
+            </div>
+            <p className="text-gray-500 text-sm leading-relaxed">
+              CryptoWall is the world's most-referenced price-tracking website for cryptoassets in the rapidly growing cryptocurrency space.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-bold mb-6 text-white uppercase text-xs tracking-widest">Products</h4>
+            <ul className="space-y-4 text-sm text-gray-500">
+              <li className="hover:text-green-500 cursor-pointer transition-colors">Blockchain Explorer</li>
+              <li className="hover:text-green-500 cursor-pointer transition-colors">Crypto API</li>
+              <li className="hover:text-green-500 cursor-pointer transition-colors">Crypto Indices</li>
+              <li className="hover:text-green-500 cursor-pointer transition-colors">Doodles</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-bold mb-6 text-white uppercase text-xs tracking-widest">Company</h4>
+            <ul className="space-y-4 text-sm text-gray-500">
+              <li className="hover:text-green-500 cursor-pointer transition-colors">About us</li>
+              <li className="hover:text-green-500 cursor-pointer transition-colors">Terms of use</li>
+              <li className="hover:text-green-500 cursor-pointer transition-colors">Privacy Policy</li>
+              <li className="hover:text-green-500 cursor-pointer transition-colors">Community Rules</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-bold mb-6 text-white uppercase text-xs tracking-widest">Newsletter</h4>
+            <p className="text-gray-500 text-sm mb-4">Get the latest crypto news and market updates.</p>
+            <div className="flex gap-2">
+              <input 
+                type="email" 
+                placeholder="Email Address" 
+                className="bg-[#151425] border border-[#2A293E] rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-green-500 flex-1"
+              />
+              <button className="bg-green-500 text-black p-2 rounded-lg hover:bg-green-400 transition-colors">
+                <Mail size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="max-w-[1600px] mx-auto mt-12 pt-8 border-t border-[#2A293E] flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-500">
+          <p>© 2024 CryptoWall. All rights reserved.</p>
+          <div className="flex gap-6">
+            <span>Facebook</span>
+            <span>Twitter</span>
+            <span>Instagram</span>
+            <span>LinkedIn</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
