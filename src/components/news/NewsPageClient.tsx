@@ -500,9 +500,17 @@ export const NewsPageClient = () => {
                                                 {article.relativeTime}
                                             </span>
                                         </div>
-                                        <h3 className="news-font-display font-bold text-lg leading-tight mb-2 group-hover:underline">
-                                            {article.title}
-                                        </h3>
+                                        <a
+                                            href={article.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block"
+                                            aria-label={article.title}
+                                        >
+                                            <h3 className="news-font-display font-bold text-lg leading-tight mb-2 group-hover:underline">
+                                                {article.title}
+                                            </h3>
+                                        </a>
                                         {article.description && (
                                             <p className="text-xs leading-snug opacity-70">
                                                 {article.description.substring(0, 100)}...
@@ -538,21 +546,37 @@ export const NewsPageClient = () => {
                             {/* Main featured article (first center article or a featured article) */}
                             {centerArticles.length > 0 && (
                                 <article className="group mb-8 pb-8 border-b border-black">
-                                    <div className="aspect-video overflow-hidden mb-6 grayscale contrast-110 border border-black relative bg-black/5">
-                                        <img
-                                            src={`https://picsum.photos/seed/${centerArticles[0].id}/800/450`}
-                                            alt={centerArticles[0].title}
-                                            className="w-full h-full object-cover"
-                                            referrerPolicy="no-referrer"
-                                        />
-                                        <div className="absolute top-4 left-4 bg-black text-white px-2 py-1 text-[9px] uppercase tracking-widest font-bold">
-                                            Must Read
+                                    <a
+                                        href={centerArticles[0].url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block"
+                                        aria-label={centerArticles[0].title}
+                                    >
+                                        <div className="aspect-video overflow-hidden mb-6 grayscale contrast-110 border border-black relative bg-black/5">
+                                            <img
+                                                src={`https://picsum.photos/seed/${centerArticles[0].id}/800/450`}
+                                                alt={centerArticles[0].title}
+                                                className="w-full h-full object-cover"
+                                                referrerPolicy="no-referrer"
+                                            />
+                                            <div className="absolute top-4 left-4 bg-black text-white px-2 py-1 text-[9px] uppercase tracking-widest font-bold">
+                                                Must Read
+                                            </div>
                                         </div>
-                                    </div>
+                                    </a>
 
-                                    <h2 className="news-font-display font-black text-3xl md:text-4xl lg:text-5xl leading-[0.9] mb-6 tracking-tight group-hover:underline">
-                                        {centerArticles[0].title}
-                                    </h2>
+                                    <a
+                                        href={centerArticles[0].url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block"
+                                        aria-label={centerArticles[0].title}
+                                    >
+                                        <h2 className="news-font-display font-black text-3xl md:text-4xl lg:text-5xl leading-[0.9] mb-6 tracking-tight group-hover:underline">
+                                            {centerArticles[0].title}
+                                        </h2>
+                                    </a>
 
                                     <div className="flex items-center gap-4 mb-4 pb-4 border-b border-black/10">
                                         <div className="w-12 h-12 rounded-full grayscale border border-black overflow-hidden bg-black/5">
@@ -609,9 +633,17 @@ export const NewsPageClient = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-black">
                                     {centerArticles.slice(1).map((article) => (
                                         <article key={article.id} className="group cursor-pointer">
-                                            <h4 className="news-font-display font-bold text-lg mb-2 group-hover:underline italic">
-                                                {article.title}
-                                            </h4>
+                                            <a
+                                                href={article.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="block"
+                                                aria-label={article.title}
+                                            >
+                                                <h4 className="news-font-display font-bold text-lg mb-2 group-hover:underline italic">
+                                                    {article.title}
+                                                </h4>
+                                            </a>
                                             {article.description && (
                                                 <p className="text-xs leading-relaxed opacity-80">
                                                     {article.description.substring(0, 120)}...
@@ -716,17 +748,33 @@ export const NewsPageClient = () => {
                                         key={article.id}
                                         className="flex flex-col gap-2 group cursor-pointer hover:opacity-70 transition-opacity"
                                     >
-                                        <div className="w-full aspect-video grayscale border border-black shrink-0 overflow-hidden bg-black/5">
-                                            <img
-                                                src={`https://picsum.photos/seed/${article.id}-thumb/200/120`}
-                                                alt={article.title}
-                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                                                referrerPolicy="no-referrer"
-                                            />
-                                        </div>
-                                        <h5 className="text-xs font-bold leading-tight group-hover:underline">
-                                            {article.title}
-                                        </h5>
+                                        <a
+                                            href={article.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block"
+                                            aria-label={article.title}
+                                        >
+                                            <div className="w-full aspect-video grayscale border border-black shrink-0 overflow-hidden bg-black/5">
+                                                <img
+                                                    src={`https://picsum.photos/seed/${article.id}-thumb/200/120`}
+                                                    alt={article.title}
+                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                                    referrerPolicy="no-referrer"
+                                                />
+                                            </div>
+                                        </a>
+                                        <a
+                                            href={article.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block"
+                                            aria-label={article.title}
+                                        >
+                                            <h5 className="text-xs font-bold leading-tight group-hover:underline">
+                                                {article.title}
+                                            </h5>
+                                        </a>
                                         <div className="text-[8px] news-font-mono text-gray-600">
                                             {article.source} • {article.relativeTime}
                                         </div>
