@@ -14,11 +14,14 @@ export function SpeedMeter({ eventRate10s }: { eventRate10s: number }) {
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-[10px] text-muted uppercase tracking-widest font-bold">
                     Speed
-                    <QuestionTooltip
-                        text="Số sự kiện trade (bao gồm highlight) mỗi giây trong ~10 giây gần nhất. Cao => thị trường biến động nhanh."
-                    />
+                    <QuestionTooltip text="Số sự kiện trade (bao gồm highlight) mỗi giây trong ~10 giây gần nhất. Cao => thị trường biến động nhanh. " />
                 </div>
-                <div className={cn("text-[12px] font-mono font-semibold tabular-nums", hot ? "text-rose-500" : "text-main")}>
+                <div
+                    className={cn(
+                        "text-[12px] font-mono font-semibold tabular-nums",
+                        hot ? "text-rose-500" : "text-main",
+                    )}
+                >
                     {speed.toFixed(1)}/s
                 </div>
             </div>
@@ -39,4 +42,3 @@ export function SpeedMeter({ eventRate10s }: { eventRate10s: number }) {
         </div>
     );
 }
-

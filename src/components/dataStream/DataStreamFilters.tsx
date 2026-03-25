@@ -39,38 +39,46 @@ export function DataStreamFilters({
                     </div>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={onToggleSoundEnabled}
-                    className={cn(
-                        "px-3 py-2 rounded-md border text-[12px] font-medium flex items-center gap-2 transition-colors",
-                        soundEnabled
-                            ? "bg-accent/10 border-accent/30 text-accent"
-                            : "bg-main hover:bg-secondary",
-                    )}
-                    title={
-                        soundArmed
-                            ? soundEnabled
-                                ? "Tắt âm thanh highlight"
-                                : "Bật âm thanh highlight"
-                            : "Bật âm thanh (cần click để cho phép trình duyệt)"
-                    }
-                >
-                    <Bell
-                        size={14}
-                        className={cn(
-                            soundArmed ? "text-accent" : "text-muted",
-                        )}
-                    />
-                    Highlight Alert
-                    <span className="text-[10px] text-muted ml-1">
-                        {!soundArmed
-                            ? "Click để On"
-                            : soundEnabled
-                              ? "On"
-                              : "Off"}
+                <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2 shrink-0">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted leading-none">
+                        Highlight Alert
                     </span>
-                </button>
+                    <button
+                        type="button"
+                        onClick={onToggleSoundEnabled}
+                        aria-pressed={soundArmed && soundEnabled}
+                        className={cn(
+                            "rounded-md border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1.5",
+                            !soundArmed
+                                ? "border-main bg-secondary/25 text-main hover:bg-secondary"
+                                : soundEnabled
+                                  ? "border-accent/30 bg-accent/15 text-accent"
+                                  : "border-transparent text-muted hover:bg-secondary hover:text-main",
+                        )}
+                        title={
+                            soundArmed
+                                ? soundEnabled
+                                    ? "Tắt âm thanh highlight"
+                                    : "Bật âm thanh highlight"
+                                : "Nhấn để cho phép trình duyệt phát âm thanh cảnh báo"
+                        }
+                    >
+                        <Bell
+                            size={11}
+                            className={cn(
+                                "shrink-0",
+                                !soundArmed && "text-muted",
+                                soundArmed && soundEnabled && "text-accent",
+                                soundArmed && !soundEnabled && "text-muted",
+                            )}
+                        />
+                        {!soundArmed
+                            ? "Kích hoạt"
+                            : soundEnabled
+                              ? "Bật"
+                              : "Tắt"}
+                    </button>
+                </div>
             </div>
 
             {/* Hàng 1: chỉ Min Volume + Highlight (cùng hàng trên md+) */}

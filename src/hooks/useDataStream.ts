@@ -16,9 +16,8 @@ import {
     normalizeBinanceSpotTradeEvent,
 } from "../services/dataStream/normalizeBinanceEvent";
 
-
 const DEFAULT_CONFIG: DataStreamConfig = {
-    minVolumeUsd: 10_000,
+    minVolumeUsd: 1_000,
     highlightUsd: 50_000,
     showBuy: true,
     showSell: true,
@@ -35,7 +34,8 @@ function tokenFromPair(pair: string): string {
 function beepTing() {
     // Short "ting" using WebAudio (no external asset).
     try {
-        const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        const AudioCtx =
+            (window as any).AudioContext || (window as any).webkitAudioContext;
         if (!AudioCtx) return;
         const ctx = new AudioCtx();
         const osc = ctx.createOscillator();
@@ -90,7 +90,9 @@ export function useDataStream() {
     });
 
     const [highlightSeq, setHighlightSeq] = useState(0);
-    const [lastHighlightRecordId, setLastHighlightRecordId] = useState<string | undefined>(undefined);
+    const [lastHighlightRecordId, setLastHighlightRecordId] = useState<
+        string | undefined
+    >(undefined);
 
     const [connectionStatus, setConnectionStatus] =
         useState<DataStreamConnectionStatus>("connecting");
@@ -99,6 +101,12 @@ export function useDataStream() {
     const workerRef = useRef<Worker | null>(null);
     const wsRef = useRef<DataStreamWsController>({});
     const backoffRef = useRef(1000);
+    // Prevent reconnect loops when we intentionally close sockets (or during
+    // React remount). Handlers from old WebSocket instances should be ignored.
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+        null,
+    );
+    const connectionAttemptIdRef = useRef(0);
     const mountedRef = useRef(true);
 
     const [soundEnabled, setSoundEnabled] = useState(false);
@@ -125,6 +133,10 @@ export function useDataStream() {
         mountedRef.current = true;
         return () => {
             mountedRef.current = false;
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             wsRef.current.tradesWs?.close();
             wsRef.current.fundingWs?.close();
             workerRef.current?.terminate();
@@ -142,7 +154,9 @@ export function useDataStream() {
             );
             workerRef.current = worker;
 
-            worker.onmessage = (event: MessageEvent<DataStreamWorkerStateMessage>) => {
+            worker.onmessage = (
+                event: MessageEvent<DataStreamWorkerStateMessage>,
+            ) => {
                 const msg = event.data;
                 if (!msg || msg.type !== "STATE") return;
                 setRecords(msg.records);
@@ -151,12 +165,17 @@ export function useDataStream() {
                 setLastHighlightRecordId(msg.lastHighlightRecordId);
             };
 
-            const initMsg: DataStreamWorkerClientMessage = { type: "INIT", config };
+            const initMsg: DataStreamWorkerClientMessage = {
+                type: "INIT",
+                config,
+            };
             worker.postMessage(initMsg);
         } catch (err: unknown) {
             console.error("[useDataStream] Failed to init worker:", err);
             setConnectionStatus("error");
-            setError("Không khởi tạo được Web Worker. Hãy thử reload hoặc kiểm tra build config.");
+            setError(
+                "Không khởi tạo được Web Worker. Hãy thử reload hoặc kiểm tra build config.",
+            );
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -186,6 +205,14 @@ export function useDataStream() {
     }, [highlightSeq, soundEnabled]);
 
     const connect = useCallback(() => {
+        // New connection attempt: clear any pending reconnect first.
+        if (reconnectTimerRef.current) {
+            clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
+        }
+        connectionAttemptIdRef.current += 1;
+        const attemptId = connectionAttemptIdRef.current;
+
         // Close any existing sockets.
         wsRef.current.tradesWs?.close();
         wsRef.current.fundingWs?.close();
@@ -196,16 +223,24 @@ export function useDataStream() {
 
         const onOpen = () => {
             if (!mountedRef.current) return;
+            if (attemptId !== connectionAttemptIdRef.current) return;
             setConnectionStatus("connected");
         };
 
         const onError = () => {
             if (!mountedRef.current) return;
+            if (attemptId !== connectionAttemptIdRef.current) return;
             setConnectionStatus("error");
         };
 
         const scheduleReconnect = () => {
             if (!mountedRef.current) return;
+            if (attemptId !== connectionAttemptIdRef.current) return;
+
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = null;
+            }
             setConnectionStatus("disconnected");
             // Reconnect with backoff for better UX.
             const wait = backoffRef.current;
@@ -214,8 +249,10 @@ export function useDataStream() {
                 Math.round(backoffRef.current * 1.5),
             );
 
-            setTimeout(() => {
+            reconnectTimerRef.current = setTimeout(() => {
                 if (!mountedRef.current) return;
+                // If a newer attempt started while we were waiting, ignore.
+                if (attemptId !== connectionAttemptIdRef.current) return;
                 connect();
             }, wait);
         };
@@ -247,7 +284,8 @@ export function useDataStream() {
 
         tradesWs.onmessage = (ev) => {
             try {
-                const msg = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
+                const msg =
+                    typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
                 if (!msg) return;
 
                 if (market === "spot") {
@@ -277,7 +315,10 @@ export function useDataStream() {
 
             fundingWs.onmessage = (ev) => {
                 try {
-                    const msg = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data;
+                    const msg =
+                        typeof ev.data === "string"
+                            ? JSON.parse(ev.data)
+                            : ev.data;
                     const e = normalizeBinanceFuturesMarkPriceEvent(msg, pair);
                     if (e) postEventToWorker(e);
                 } catch {
@@ -351,4 +392,3 @@ export function useDataStream() {
         ],
     );
 }
-

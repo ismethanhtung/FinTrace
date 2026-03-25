@@ -28,7 +28,7 @@ const NET_WINDOW_MS = 30_000;
 const AGG_WINDOW_MS = 2 * 60_000; // 2m
 
 let config: DataStreamConfig = {
-    minVolumeUsd: 10_000,
+    minVolumeUsd: 1_000,
     highlightUsd: 50_000,
     showBuy: true,
     showSell: true,
