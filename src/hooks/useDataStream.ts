@@ -22,6 +22,7 @@ const DEFAULT_CONFIG: DataStreamConfig = {
     showBuy: true,
     showSell: true,
     showFunding: true,
+    showHighlightOnly: false,
     maxRecords: 100,
 };
 
@@ -350,6 +351,10 @@ export function useDataStream() {
         wsRef.current.fundingWs?.close();
     }, []);
 
+    const reconnect = useCallback(() => {
+        connect();
+    }, [connect]);
+
     const resume = useCallback(() => {
         connect();
     }, [connect]);
@@ -366,6 +371,7 @@ export function useDataStream() {
             lastHighlightRecordId,
             reset,
             pause,
+            reconnect,
             resume,
             soundEnabled,
             soundArmed,
@@ -383,6 +389,7 @@ export function useDataStream() {
             lastHighlightRecordId,
             reset,
             pause,
+            reconnect,
             resume,
             soundEnabled,
             soundArmed,

@@ -33,6 +33,7 @@ let config: DataStreamConfig = {
     showBuy: true,
     showSell: true,
     showFunding: true,
+    showHighlightOnly: false,
     maxRecords: MAX_RECORDS_FALLBACK,
 };
 
@@ -191,6 +192,7 @@ function pushTradeEventToWindows(e: DataStreamTradeEvent, isHighlight: boolean) 
 }
 
 function shouldShowTrade(e: DataStreamTradeEvent): boolean {
+    if (config.showHighlightOnly) return false;
     if (e.side === "buy" && !config.showBuy) return false;
     if (e.side === "sell" && !config.showSell) return false;
     if (e.usdValue < config.minVolumeUsd) return false;
@@ -198,8 +200,15 @@ function shouldShowTrade(e: DataStreamTradeEvent): boolean {
 }
 
 function shouldHighlight(e: DataStreamTradeEvent): boolean {
-    // Highlight is a subset of BUY events, so it should obey showBuy toggle.
-    return config.showBuy && e.side === "buy" && e.usdValue >= config.highlightUsd;
+    // Highlight is a subset of BUY events.
+    // - Normal mode: highlight obeys showBuy
+    // - Highlight-only mode: highlight can show even if showBuy is off
+    //   (because user explicitly wants highlight view).
+    return (
+        e.side === "buy" &&
+        e.usdValue >= config.highlightUsd &&
+        (config.showBuy || config.showHighlightOnly)
+    );
 }
 
 function pushRecord(rec: StreamRecord) {
@@ -248,6 +257,7 @@ function handleEvent(event: DataStreamEvent) {
     }
 
     if (event.kind === "funding") {
+        if (config.showHighlightOnly) return;
         if (!config.showFunding) return;
         pushRecord(makeFundingRecord(event));
         dirty = true;
@@ -271,7 +281,15 @@ self.onmessage = (e: MessageEvent<WorkerIncoming>) => {
     }
 
     if (msg.type === "CONFIG") {
+        const prevHighlightOnly = config.showHighlightOnly;
         config = msg.config;
+
+        // UX: when enabling "Highlight only", immediately hide non-highlight
+        // records already present in the list.
+        if (!prevHighlightOnly && config.showHighlightOnly) {
+            records = records.filter((r) => r.action === "HIGHLIGHT");
+        }
+
         dirty = true;
         return;
     }

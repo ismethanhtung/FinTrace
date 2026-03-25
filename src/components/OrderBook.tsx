@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { cn } from "../lib/utils";
 import { useMarket } from "../context/MarketContext";
 import {
@@ -44,11 +45,19 @@ const RecentTrades = ({
     return (
         <div className="flex flex-col flex-1 min-h-0">
             {/* Header */}
-            <div className="px-3 py-3 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-between">
+            <div className="px-3 py-1.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-main">
                     Market Trades
                 </span>
-                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                    <Link
+                        href="/transactions"
+                        className="px-2 py-1 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-semibold"
+                    >
+                        View details
+                    </Link>
+                </div>
             </div>
             {/* Column headers */}
             <div className="grid grid-cols-3 px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-muted border-b border-main bg-secondary/10 shrink-0">
@@ -350,7 +359,7 @@ export const OrderBook = () => {
 
                 <div className="w-[20%] min-w-[200px] max-w-[280px] flex flex-col bg-secondary/10 shrink-0">
                     {/* Header */}
-                    <div className="px-3 py-3 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-center">
+                    <div className="px-3 py-2.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-center">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-main">
                             Depth
                         </span>

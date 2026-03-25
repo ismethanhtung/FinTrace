@@ -12,6 +12,7 @@ import {
     TrendingUp,
     ShoppingCart,
     Palette,
+    Database,
 } from "lucide-react";
 import { MarketHeatmap } from "../../components/MarketHeatmap";
 import { TickerBar } from "../../components/TickerBar";
@@ -73,6 +74,13 @@ export default function HeatmapPage() {
                         >
                             <BookOpenText size={13} />
                             <span>News</span>
+                        </Link>
+                        <Link
+                            href="/data-stream"
+                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <Database size={13} />
+                            <span>Data Streams</span>
                         </Link>
 
                         <div className="h-4 w-px bg-main border-l border-main" />

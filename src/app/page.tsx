@@ -21,6 +21,7 @@ import {
     ShoppingCart,
     LayoutGrid,
     BookOpenText,
+    Database,
     Search,
     Palette,
 } from "lucide-react";
@@ -135,6 +136,13 @@ export default function App() {
                         >
                             <LayoutGrid size={13} />
                             <span>Heatmap</span>
+                        </Link>
+                        <Link
+                            href="/data-stream"
+                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <Database size={13} />
+                            <span>Data Streams</span>
                         </Link>
                         <Link
                             href="/news"

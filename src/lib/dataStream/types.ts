@@ -61,6 +61,8 @@ export type DataStreamConfig = {
     showBuy: boolean;
     showSell: boolean;
     showFunding: boolean;
+    // If true, only HIGHLIGHT records will be shown (no BUY/SELL/FUNDING records).
+    showHighlightOnly: boolean;
     maxRecords: number;
 };
 

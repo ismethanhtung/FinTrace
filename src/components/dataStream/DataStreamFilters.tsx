@@ -22,7 +22,9 @@ export function DataStreamFilters({
         onChange({ ...config, [key]: v });
     };
 
-    const onToggle = (key: "showBuy" | "showSell" | "showFunding") => {
+    const onToggle = (
+        key: "showBuy" | "showSell" | "showFunding" | "showHighlightOnly",
+    ) => {
         onChange({ ...config, [key]: !config[key] });
     };
 
@@ -130,6 +132,7 @@ export function DataStreamFilters({
                             { key: "showBuy", label: "BUY" },
                             { key: "showSell", label: "SELL" },
                             { key: "showFunding", label: "FUNDING" },
+                            { key: "showHighlightOnly", label: "HIGHLIGHT ONLY" },
                         ] as const
                     ).map((t) => (
                         <button

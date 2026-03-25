@@ -1,15 +1,32 @@
 "use client";
 
-import React from "react";
-import PageLayout from "../../components/PageLayout";
+import React, { useMemo, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { LeftSidebar } from "../../components/LeftSidebar";
 import { DataStreamTape } from "../../components/dataStream/DataStreamTape";
 import { DataStreamFilters } from "../../components/dataStream/DataStreamFilters";
 import { SpeedMeter } from "../../components/dataStream/SpeedMeter";
 import { PanicFomoMeter } from "../../components/dataStream/PanicFomoMeter";
+import { TickerBar } from "../../components/TickerBar";
+import { UserMenu } from "../../components/UserMenu";
+import { WatchlistDropdown } from "../../components/AssetList";
 import { useDataStream } from "../../hooks/useDataStream";
-import { RefreshCw, AlertCircle } from "lucide-react";
+import {
+    RefreshCw,
+    AlertCircle,
+    Trash2,
+    Database,
+    ShoppingCart,
+    LayoutGrid,
+    BookOpenText,
+    Search,
+    Moon,
+    Sun,
+    Palette,
+} from "lucide-react";
 import { QuestionTooltip } from "../../components/ui/QuestionTooltip";
+import { useAppSettings, AppTheme } from "../../context/AppSettingsContext";
 
 function netLabel(buyUsd30s: number, sellUsd30s: number): string {
     const net = buyUsd30s - sellUsd30s;
@@ -18,6 +35,15 @@ function netLabel(buyUsd30s: number, sellUsd30s: number): string {
     const sign = net >= 0 ? "+" : "";
     return `${sign}${pct.toFixed(1)}%`;
 }
+
+const THEME_META: Record<AppTheme, { icon: React.ReactNode; label: string }> = {
+    light: { icon: <Sun size={14} />, label: "Light" },
+    dark1: { icon: <Moon size={14} />, label: "Dark I" },
+    dark2: { icon: <Moon size={14} />, label: "Dark II" },
+    dark3: { icon: <Palette size={14} />, label: "Dark III" },
+    dark4: { icon: <Palette size={14} />, label: "Dark IV" },
+    dark5: { icon: <Moon size={14} />, label: "Dark V" },
+};
 
 export default function DataStreamPage() {
     const {
@@ -28,6 +54,7 @@ export default function DataStreamPage() {
         connectionStatus,
         error,
         reset,
+        reconnect,
         soundEnabled,
         soundArmed,
         toggleSoundEnabled,
@@ -35,10 +62,117 @@ export default function DataStreamPage() {
         marketType,
     } = useDataStream();
 
+    const { theme, toggleTheme } = useAppSettings();
+    const meta = useMemo(() => THEME_META[theme], [theme]);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        reconnect();
+        setTimeout(() => setIsRefreshing(false), 800);
+    };
+
     return (
-        <PageLayout title="Data Streams" wide>
-            <div className="flex flex-col gap-4">
-                <div className="flex min-h-0 h-[calc(100dvh-9.5rem)] w-full rounded-xl border border-main overflow-hidden bg-main">
+        <div className="flex flex-col h-screen w-full bg-main text-main overflow-hidden">
+            {/* Global topbar */}
+            <header className="h-12 border-b border-main flex items-center justify-between px-4 bg-main z-50 shrink-0">
+                <div className="flex items-center space-x-6">
+                    <div className="flex items-center space-x-2">
+                        <Image
+                            src="/logo.gif"
+                            alt="FinTrace logo"
+                            width={36}
+                            height={36}
+                            className="rounded-sm"
+                            unoptimized
+                            priority
+                        />
+                        <span className="font-bold text-[14px] tracking-tight">
+                            FinTrace
+                        </span>
+                    </div>
+
+                    <nav className="flex items-center space-x-2">
+                        <Link
+                            href="/market"
+                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <ShoppingCart size={13} />
+                            <span>Markets</span>
+                        </Link>
+                        <Link
+                            href="/heatmap"
+                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <LayoutGrid size={13} />
+                            <span>Heatmap</span>
+                        </Link>
+                        <Link
+                            href="/data-stream"
+                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <Database size={13} />
+                            <span>Data Streams</span>
+                        </Link>
+                        <Link
+                            href="/news"
+                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <BookOpenText size={13} />
+                            <span>News</span>
+                        </Link>
+                        <div className="h-4 w-px bg-main border-l border-main" />
+                        <WatchlistDropdown />
+                        <div className="h-4 w-px bg-main border-l border-main" />
+                        <div className="relative group">
+                            <Search
+                                size={13}
+                                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
+                            />
+                            <input
+                                type="text"
+                                placeholder="Quick search..."
+                                className="bg-secondary border border-transparent hover:border-main rounded-md py-1.5 pl-8 pr-3 text-[12px] w-44 focus:w-60 focus:outline-none focus:ring-1 focus:ring-accent/30 transition-all"
+                            />
+                        </div>
+                    </nav>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-1">
+                        <button
+                            onClick={toggleTheme}
+                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main"
+                            title={`Current: ${meta.label} — click to cycle theme`}
+                        >
+                            {meta.icon}
+                            <span className="text-[11px] font-medium hidden sm:inline">
+                                {meta.label}
+                            </span>
+                        </button>
+                        <button
+                            onClick={handleRefresh}
+                            className={`p-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary ${
+                                isRefreshing ? "animate-spin" : ""
+                            }`}
+                            title="Reconnect websocket"
+                            aria-label="Reconnect websocket"
+                        >
+                            <RefreshCw size={14} />
+                        </button>
+                    </div>
+
+                    <button className="px-4 py-1.5 bg-accent text-white rounded-md text-[11px] font-semibold hover:bg-accent/90 transition-colors shadow-sm">
+                        Trade
+                    </button>
+
+                    <div className="h-5 w-px border-l border-main" />
+                    <UserMenu />
+                </div>
+            </header>
+
+            <main className="flex-1 min-h-0 flex flex-col overflow-hidden p-6 sm:p-8 mx-auto w-full max-w-[1600px]">
+                <div className="flex min-h-0 flex-1 w-full rounded-xl border border-main overflow-hidden bg-main">
                     <LeftSidebar embedded />
 
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-main">
@@ -51,7 +185,7 @@ export default function DataStreamPage() {
                                                 connectionStatus === "connected"
                                                     ? "bg-emerald-500 animate-pulse"
                                                     : connectionStatus ===
-                                                        "error"
+                                                          "error"
                                                       ? "bg-rose-500"
                                                       : "bg-amber-400 animate-pulse"
                                             }`}
@@ -62,7 +196,8 @@ export default function DataStreamPage() {
                                                 : connectionStatus ===
                                                     "connecting"
                                                   ? "Connecting..."
-                                                  : connectionStatus === "error"
+                                                  : connectionStatus ===
+                                                    "error"
                                                     ? "WS Error"
                                                     : "Disconnected"}
                                         </div>
@@ -79,8 +214,17 @@ export default function DataStreamPage() {
                                         onClick={() => reset()}
                                         className="px-3 py-2 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[12px] font-semibold flex items-center gap-2"
                                     >
+                                        <Trash2 size={14} />
+                                        Clear
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={reconnect}
+                                        className="px-3 py-2 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[12px] font-semibold flex items-center gap-2"
+                                        title="Reconnect websocket"
+                                    >
                                         <RefreshCw size={14} />
-                                        Reset
+                                        Reconnect
                                     </button>
                                 </div>
                             </div>
@@ -115,9 +259,7 @@ export default function DataStreamPage() {
                                     <div className="rounded-lg border border-main bg-main/50 p-3">
                                         <div className="flex items-center gap-2 text-[10px] text-muted uppercase tracking-widest font-bold">
                                             30s Imbalance
-                                            <QuestionTooltip
-                                                text="Chênh lệch tổng giá trị BUY - SELL trong ~30 giây gần nhất. Net dương => phe mua mạnh hơn; net âm => phe bán mạnh hơn."
-                                            />
+                                            <QuestionTooltip text="Chênh lệch tổng giá trị BUY - SELL trong ~30 giây gần nhất. Net dương => phe mua mạnh hơn; net âm => phe bán mạnh hơn." />
                                         </div>
                                         <div className="mt-2 flex items-center justify-between gap-3">
                                             <div className="text-[12px] font-mono text-main">
@@ -150,7 +292,9 @@ export default function DataStreamPage() {
                         </div>
                     </div>
                 </div>
-            </div>
-        </PageLayout>
+            </main>
+
+            <TickerBar />
+        </div>
     );
 }

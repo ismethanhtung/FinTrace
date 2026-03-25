@@ -17,6 +17,7 @@ import {
     LayoutGrid,
     BookOpenText,
     TrendingUp,
+    Database,
 } from "lucide-react";
 import { LineChart, Line, YAxis } from "recharts";
 import { useAppSettings, AppTheme } from "../../context/AppSettingsContext";
@@ -653,6 +654,13 @@ export default function MarketPage() {
                         >
                             <BookOpenText size={13} />
                             <span>News</span>
+                        </Link>
+                        <Link
+                            href="/data-stream"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
+                        >
+                            <Database size={13} />
+                            <span>Data Streams</span>
                         </Link>
                         <div className="h-4 w-px border-l border-main mx-2" />
                         <WatchlistDropdown />
