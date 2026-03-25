@@ -35,7 +35,12 @@ interface ModelSelectorProps {
     model: string;
     models: ModelInfo[];
     isLoadingModels: boolean;
-    providers: { id: string; name: string; hasKey: boolean; disabled: boolean }[];
+    providers: {
+        id: string;
+        name: string;
+        hasKey: boolean;
+        disabled: boolean;
+    }[];
     onProviderChange: (id: string) => void;
     onModelChange: (model: string) => void;
 }
@@ -237,7 +242,10 @@ export const ChatPanel = () => {
         aiProviderService
             .getModels(activeProvider.id, activeProvider.apiKey)
             .then((list) => {
-                const effective = list.length > 0 ? list : getFallbackModelsForProvider(activeProvider.id);
+                const effective =
+                    list.length > 0
+                        ? list
+                        : getFallbackModelsForProvider(activeProvider.id);
                 setModels(effective);
                 if (
                     effective.length > 0 &&
@@ -252,7 +260,9 @@ export const ChatPanel = () => {
                     err,
                 );
                 // Use fallback models so UI still works even when API fails
-                const fallback = getFallbackModelsForProvider(activeProvider.id);
+                const fallback = getFallbackModelsForProvider(
+                    activeProvider.id,
+                );
                 setModels(fallback);
                 if (
                     fallback.length > 0 &&
