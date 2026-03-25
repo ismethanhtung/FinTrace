@@ -53,6 +53,13 @@ export const BUILT_IN_PROVIDERS: Omit<AIProviderConfig, "apiKey" | "enabled">[] 
         placeholder: "gsk_...",
         description: "Ultra-fast LPU inference for open-source models",
     },
+    {
+        id: "huggingface",
+        name: "Hugging Face",
+        websiteUrl: "https://huggingface.co/settings/tokens",
+        placeholder: "hf_...",
+        description: "Hugging Face Inference Providers (OpenAI-compatible router)",
+    },
 ];
 
 export const FONT_STACKS: Record<AppFont, string> = {
@@ -264,6 +271,7 @@ export const AppSettingsProvider = ({
                 setServerKeyStatus({
                     openrouter: Boolean(keyMap.openrouter),
                     groq: Boolean(keyMap.groq),
+                    huggingface: Boolean(keyMap.huggingface),
                 });
             })
             .catch(() => {

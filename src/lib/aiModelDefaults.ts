@@ -6,6 +6,8 @@ export type AIModelOption = {
 export const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
   openrouter: 'arcee-ai/trinity-large-preview:free',
   groq: 'llama-3.3-70b-versatile',
+  // Hugging Face Inference Providers (router) OpenAI-compatible Chat Completions
+  huggingface: 'openai/gpt-oss-120b:cerebras',
 };
 
 const FALLBACK_OPENROUTER_MODELS: AIModelOption[] = [
@@ -32,6 +34,12 @@ const FALLBACK_GROQ_MODELS: AIModelOption[] = [
   { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B' },
 ];
 
+const FALLBACK_HUGGINGFACE_MODELS: AIModelOption[] = [
+  { id: 'openai/gpt-oss-120b:cerebras', name: 'gpt-oss 120B (cerebras)' },
+  { id: 'openai/gpt-oss-120b:fireworks-ai', name: 'gpt-oss 120B (fireworks-ai)' },
+  { id: 'openai/gpt-oss-20b:cerebras', name: 'gpt-oss 20B (cerebras)' },
+];
+
 export function getDefaultModelForProvider(providerId: string): string {
   return DEFAULT_MODEL_BY_PROVIDER[providerId] ?? DEFAULT_MODEL_BY_PROVIDER.openrouter;
 }
@@ -40,6 +48,8 @@ export function getFallbackModelsForProvider(providerId: string): AIModelOption[
   switch (providerId) {
     case 'groq':
       return FALLBACK_GROQ_MODELS;
+    case 'huggingface':
+      return FALLBACK_HUGGINGFACE_MODELS;
     case 'openrouter':
     default:
       return FALLBACK_OPENROUTER_MODELS;

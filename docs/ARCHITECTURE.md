@@ -232,6 +232,7 @@ Nguyên tắc khi gọi AI:
 2. Các route proxy server `src/app/api/*/chat/completions` sẽ **tự fallback** sang key hệ thống:
    - Groq: `src/lib/getGroqKey.ts` (env/AWS Secrets Manager)
    - OpenRouter: `src/lib/getOpenRouterKey.ts` (env/AWS Secrets Manager)
+   - Hugging Face: `src/lib/getHuggingFaceKey.ts` (env/AWS Secrets Manager)
 3. Vì vậy, UI không nên hiển thị lỗi kiểu "Chưa có API key — thêm trong Settings" ngay lập tức khi `activeProvider.apiKey` rỗng. Chỉ show lỗi nếu server vẫn trả về 401/403 sau khi fallback.
 
 ---

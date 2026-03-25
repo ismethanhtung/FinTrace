@@ -22,6 +22,8 @@ function getProxyBase(providerId: string): string {
       return '/api/openrouter';
     case 'groq':
       return '/api/groq';
+    case 'huggingface':
+      return '/api/huggingface';
     default:
       // Custom providers fall back to openrouter proxy (user manages routing externally)
       return '/api/openrouter';
@@ -38,6 +40,11 @@ function buildHeaders(providerId: string, apiKey: string): Record<string, string
       break;
     case 'groq':
       headers['x-groq-api-key'] = apiKey.trim();
+      break;
+    case 'huggingface':
+      // Hugging Face router expects OpenAI-compatible Authorization header:
+      //   Authorization: Bearer hf_...
+      headers['authorization'] = `Bearer ${apiKey.trim()}`;
       break;
     default:
       headers['x-openrouter-api-key'] = apiKey.trim();
