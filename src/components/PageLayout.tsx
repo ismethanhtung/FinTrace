@@ -46,7 +46,7 @@ export default function PageLayout({
             </header>
             <main
                 className={cn(
-                    "flex-1 p-6 sm:p-8 mx-auto w-full",
+                    "flex-1 min-h-0 flex flex-col p-6 sm:p-8 mx-auto w-full",
                     wide ? "max-w-[1600px]" : "max-w-6xl",
                 )}
             >

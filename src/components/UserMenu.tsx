@@ -36,7 +36,7 @@ export const UserMenu = () => {
         {
             group: "Analysis",
             items: [
-                { icon: Database, label: "Data Streams (Soon)", href: "/data" },
+                { icon: Database, label: "Data Streams", href: "/data-stream" },
                 {
                     icon: Terminal,
                     label: "Query Engine",
