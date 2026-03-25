@@ -209,7 +209,15 @@ const MIN_WIDTH = 220;
 const MAX_WIDTH = 420;
 const DEFAULT_WIDTH = 260;
 
-export const LeftSidebar = () => {
+export type LeftSidebarProps = {
+    /**
+     * Dùng trên trang con (vd. /transactions): cùng UI coin list + MarketBar,
+     * luôn mở, không nút thu gọn như trang chủ.
+     */
+    embedded?: boolean;
+};
+
+export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     const { assets, selectedSymbol, setSelectedSymbol } = useMarket();
     const [isOpen, setIsOpen] = useState(true);
     const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -220,13 +228,18 @@ export const LeftSidebar = () => {
     const startX = useRef(0);
     const startWidth = useRef(DEFAULT_WIDTH);
 
-    // Filtered then sorted
+    const q = search.toLowerCase();
+    // Filtered then sorted (symbol hoặc pair id)
     const displayAssets = sortAssets(
-        assets.filter((a) =>
-            a.symbol.toLowerCase().includes(search.toLowerCase()),
+        assets.filter(
+            (a) =>
+                a.symbol.toLowerCase().includes(q) ||
+                a.id.toLowerCase().includes(q),
         ),
         sortMode,
     );
+
+    const panelOpen = embedded || isOpen;
 
     // ── Resize drag ──────────────────────────────────────────────────────────────
     const onMouseDown = useCallback(
@@ -264,85 +277,103 @@ export const LeftSidebar = () => {
         };
     }, []);
 
+    const sidebarBody = (
+        <>
+            {/* Market status + toggle */}
+            <MarketBar />
+
+            {/* Search */}
+            <div className="p-2 border-b border-main shrink-0">
+                <div className="relative">
+                    <Search
+                        size={11}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Search coins..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full bg-secondary border border-main rounded-md py-1.5 pl-7 pr-3 text-[11px] focus:outline-none focus:ring-1 focus:ring-accent/30"
+                    />
+                </div>
+            </div>
+
+            {/* Column headers — "Price / 24h" is clickable to sort */}
+            <div className="px-3 py-1.5 grid grid-cols-2 text-[9px] font-semibold text-muted uppercase tracking-wider border-b border-main bg-secondary/30 shrink-0">
+                <span>Symbol</span>
+                <button
+                    onClick={() => setSortMode(nextSortMode(sortMode))}
+                    className="flex items-center justify-end gap-1 hover:text-main transition-colors"
+                    title={
+                        sortMode === "volume"
+                            ? "Sort by 24h Change ↓"
+                            : sortMode === "change_desc"
+                              ? "Sort by 24h Change ↑"
+                              : "Back to Volume sort"
+                    }
+                >
+                    Price / 24h
+                    <SortIcon mode={sortMode} />
+                </button>
+            </div>
+
+            {/* Coin list */}
+            <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar">
+                {displayAssets.length === 0 ? (
+                    <div className="p-6 text-center text-muted text-[11px]">
+                        No coins found
+                    </div>
+                ) : (
+                    displayAssets.map((asset) => (
+                        <CoinRow
+                            key={asset.id}
+                            asset={asset}
+                            isSelected={selectedSymbol === asset.id}
+                            onClick={() => setSelectedSymbol(asset.id)}
+                        />
+                    ))
+                )}
+            </div>
+        </>
+    );
+
+    const panelStyle = {
+        width,
+        minWidth: width,
+        maxWidth: width,
+    } as const;
+
+    const panelShellClass =
+        "h-full min-h-0 flex flex-col bg-main border-r border-main overflow-hidden relative";
+
     return (
         <div className="relative flex h-full min-h-0 shrink-0">
-            {/* Sidebar Panel */}
-            <AnimatePresence initial={false}>
-                {isOpen && (
-                    <motion.div
-                        initial={{ width: 0, opacity: 0 }}
-                        animate={{ width, opacity: 1 }}
-                        exit={{ width: 0, opacity: 0 }}
-                        transition={{ duration: 0.25, ease: "easeInOut" }}
-                        style={{ width, minWidth: width, maxWidth: width }}
-                        className="h-full min-h-0 flex flex-col bg-main border-r border-main overflow-hidden"
-                    >
-                        {/* Market status + toggle */}
-                        <MarketBar />
-
-                        {/* Search */}
-                        <div className="p-2 border-b border-main shrink-0">
-                            <div className="relative">
-                                <Search
-                                    size={11}
-                                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
-                                />
-                                <input
-                                    type="text"
-                                    placeholder="Search coins..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full bg-secondary border border-main rounded-md py-1.5 pl-7 pr-3 text-[11px] focus:outline-none focus:ring-1 focus:ring-accent/30"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Column headers — "Price / 24h" is clickable to sort */}
-                        <div className="px-3 py-1.5 grid grid-cols-2 text-[9px] font-semibold text-muted uppercase tracking-wider border-b border-main bg-secondary/30 shrink-0">
-                            <span>Symbol</span>
-                            <button
-                                onClick={() =>
-                                    setSortMode(nextSortMode(sortMode))
-                                }
-                                className="flex items-center justify-end gap-1 hover:text-main transition-colors"
-                                title={
-                                    sortMode === "volume"
-                                        ? "Sort by 24h Change ↓"
-                                        : sortMode === "change_desc"
-                                          ? "Sort by 24h Change ↑"
-                                          : "Back to Volume sort"
-                                }
-                            >
-                                Price / 24h
-                                <SortIcon mode={sortMode} />
-                            </button>
-                        </div>
-
-                        {/* Coin list */}
-                        <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar">
-                            {displayAssets.length === 0 ? (
-                                <div className="p-6 text-center text-muted text-[11px]">
-                                    No coins found
-                                </div>
-                            ) : (
-                                displayAssets.map((asset) => (
-                                    <CoinRow
-                                        key={asset.id}
-                                        asset={asset}
-                                        isSelected={selectedSymbol === asset.id}
-                                        onClick={() =>
-                                            setSelectedSymbol(asset.id)
-                                        }
-                                    />
-                                ))
-                            )}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {embedded ? (
+                panelOpen && (
+                    <div style={panelStyle} className={panelShellClass}>
+                        {sidebarBody}
+                    </div>
+                )
+            ) : (
+                <AnimatePresence initial={false}>
+                    {isOpen && (
+                        <motion.div
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ width, opacity: 1 }}
+                            exit={{ width: 0, opacity: 0 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            style={panelStyle}
+                            className={panelShellClass}
+                        >
+                            {sidebarBody}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            )}
 
             {/* Resize handle */}
-            {isOpen && (
+            {panelOpen && (
                 <div
                     onMouseDown={onMouseDown}
                     className="absolute right-0 top-0 w-1 h-full cursor-col-resize z-20 bg-transparent hover:bg-accent/30 transition-colors group"
@@ -351,21 +382,23 @@ export const LeftSidebar = () => {
                 </div>
             )}
 
-            {/* Collapse / expand toggle */}
-            <button
-                onClick={() => setIsOpen((v) => !v)}
-                className={cn(
-                    "absolute z-30 flex items-center justify-center w-5 h-10 bg-main border border-main rounded-r-md shadow-sm transition-all hover:bg-secondary top-1/2 -translate-y-1/2",
-                    isOpen ? "right-[-20px]" : "right-[-20px] left-0",
-                )}
-                title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-            >
-                {isOpen ? (
-                    <ChevronLeft size={12} className="text-muted" />
-                ) : (
-                    <ChevronRight size={12} className="text-muted" />
-                )}
-            </button>
+            {/* Collapse / expand toggle — chỉ trang chủ */}
+            {!embedded && (
+                <button
+                    onClick={() => setIsOpen((v) => !v)}
+                    className={cn(
+                        "absolute z-30 flex items-center justify-center w-5 h-10 bg-main border border-main rounded-r-md shadow-sm transition-all hover:bg-secondary top-1/2 -translate-y-1/2",
+                        isOpen ? "right-[-20px]" : "right-[-20px] left-0",
+                    )}
+                    title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+                >
+                    {isOpen ? (
+                        <ChevronLeft size={12} className="text-muted" />
+                    ) : (
+                        <ChevronRight size={12} className="text-muted" />
+                    )}
+                </button>
+            )}
         </div>
     );
 };

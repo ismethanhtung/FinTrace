@@ -4,13 +4,17 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
+import { cn } from "../lib/utils";
 
 export default function PageLayout({
     title,
     children,
+    wide,
 }: {
     title: string;
     children: React.ReactNode;
+    /** Bố cục rộng (vd. /transactions: sidebar + tape) */
+    wide?: boolean;
 }) {
     return (
         <div className="min-h-screen bg-main text-main flex flex-col">
@@ -40,7 +44,12 @@ export default function PageLayout({
                     <h1 className="text-[14px] font-semibold">{title}</h1>
                 </div>
             </header>
-            <main className="flex-1 p-8 max-w-6xl mx-auto w-full">
+            <main
+                className={cn(
+                    "flex-1 p-6 sm:p-8 mx-auto w-full",
+                    wide ? "max-w-[1600px]" : "max-w-6xl",
+                )}
+            >
                 {children}
             </main>
         </div>
