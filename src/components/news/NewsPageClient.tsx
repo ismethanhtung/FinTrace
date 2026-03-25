@@ -22,6 +22,7 @@ import {
     Playfair_Display,
 } from "next/font/google";
 import { useMarket } from "../../context/MarketContext";
+import { NewsPageAiSummaryTooltip } from "./NewsPageAiSummaryTooltip";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface NewsArticle {
@@ -492,13 +493,16 @@ export const NewsPageClient = () => {
                             <div className="space-y-8">
                                 {leftArticles.map((article, idx) => (
                                     <article key={article.id} className="group cursor-pointer hover:opacity-80 transition-opacity">
-                                        <div className="flex items-center gap-2 mb-2">
+                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                            <div className="flex items-center gap-2 flex-wrap min-w-0">
                                             <span className={`${idx === 0 ? "bg-black text-white" : "border border-black"} px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest`}>
                                                 {idx === 0 ? "Analysis" : "Breaking"}
                                             </span>
                                             <span className="text-[9px] news-font-mono text-gray-500">
                                                 {article.relativeTime}
                                             </span>
+                                            </div>
+                                            <NewsPageAiSummaryTooltip article={article} />
                                         </div>
                                         <a
                                             href={article.url}
@@ -528,17 +532,24 @@ export const NewsPageClient = () => {
 
                             <div className="bg-black text-white p-6 text-center mt-4">
                                 <p className="text-[10px] news-font-mono uppercase tracking-[0.3em] mb-4">
-                                    Advertisement
+                                    Open to opportunities
                                 </p>
-                                <h4 className="news-font-display italic text-3xl mb-2">
-                                    Dream Lover
+                                <h4 className="news-font-display italic text-2xl md:text-3xl mb-2 leading-tight">
+                                    Nguyen Thanh Tung
                                 </h4>
-                                <p className="text-[10px] news-font-mono uppercase mb-4">
-                                    The Bobby Darin Story
+                                <p className="text-[10px] news-font-mono uppercase mb-1 opacity-90">
+                                    Software engineer
                                 </p>
-                                <button className="border border-white/30 px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-white hover:text-black transition-colors">
-                                    Book Now
-                                </button>
+                                <p className="text-[9px] news-font-mono leading-relaxed opacity-75 mb-4 max-w-[14rem] mx-auto">
+                                    Product-minded builder · reliable systems &
+                                    clear ship velocity.
+                                </p>
+                                <a
+                                    href="mailto:?subject=Opportunity%20%E2%80%94%20Nguyen%20Thanh%20Tung&body=Hi%20Tung%2C%0A%0AWe%27d%20like%20to%20discuss%20a%20role%20with%20you.%0A%0A"
+                                    className="inline-block border border-white/30 px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-white hover:text-black transition-colors"
+                                >
+                                    Hire me
+                                </a>
                             </div>
                         </aside>
 
@@ -591,10 +602,17 @@ export const NewsPageClient = () => {
                                                 {centerArticles[0].source}
                                             </p>
                                             <p className="text-[10px] news-font-mono text-gray-500">
-                                                {new Date(centerArticles[0].publishedAt).toLocaleDateString()}
+                                                {centerArticles[0].relativeTime ||
+                                                    formatTimeAgo(
+                                                        centerArticles[0].publishedAt,
+                                                    )}
                                             </p>
                                         </div>
-                                        <div className="ml-auto flex gap-2">
+                                        <div className="ml-auto flex gap-2 items-center">
+                                            <NewsPageAiSummaryTooltip
+                                                article={centerArticles[0]}
+                                                buttonClassName="p-2 rounded-full border-black/20"
+                                            />
                                             <a
                                                 href={centerArticles[0].url}
                                                 target="_blank"
@@ -649,16 +667,25 @@ export const NewsPageClient = () => {
                                                     {article.description.substring(0, 120)}...
                                                 </p>
                                             )}
-                                            <div className="mt-3 flex items-center justify-between text-[9px] news-font-mono uppercase text-gray-500">
-                                                <span>{article.source}</span>
-                                                <a
-                                                    href={article.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="hover:text-black"
-                                                >
-                                                    Read →
-                                                </a>
+                                            <div className="mt-3 flex items-center justify-between gap-2 text-[9px] news-font-mono uppercase text-gray-500">
+                                                <span className="min-w-0">
+                                                    {article.source} •{" "}
+                                                    {article.relativeTime ||
+                                                        formatTimeAgo(
+                                                            article.publishedAt,
+                                                        )}
+                                                </span>
+                                                <span className="flex items-center gap-2 shrink-0">
+                                                    <NewsPageAiSummaryTooltip article={article} />
+                                                    <a
+                                                        href={article.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="hover:text-black"
+                                                    >
+                                                        Read →
+                                                    </a>
+                                                </span>
                                             </div>
                                         </article>
                                     ))}
@@ -784,16 +811,21 @@ export const NewsPageClient = () => {
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="flex items-center justify-between text-[9px] news-font-mono text-gray-600">
-                                            <span>{article.source} • {article.relativeTime}</span>
-                                            <a
-                                                href={article.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-[10px] text-blue-600 hover:underline font-medium"
-                                            >
-                                                Read →
-                                            </a>
+                                        <div className="flex items-center justify-between gap-2 text-[9px] news-font-mono text-gray-600">
+                                            <span className="min-w-0 truncate">
+                                                {article.source} • {article.relativeTime}
+                                            </span>
+                                            <span className="flex items-center gap-2 shrink-0">
+                                                <NewsPageAiSummaryTooltip article={article} />
+                                                <a
+                                                    href={article.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[10px] text-blue-600 hover:underline font-medium"
+                                                >
+                                                    Read →
+                                                </a>
+                                            </span>
                                         </div>
                                     </article>
                                 ))}

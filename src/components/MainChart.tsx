@@ -901,7 +901,7 @@ export const MainChart = () => {
                             {isPanned && (
                                 <button
                                     onClick={goToLatest}
-                                    className="flex items-center space-x-1 px-2 py-0.5 rounded border border-accent/40 text-accent text-[9px] font-medium hover:bg-accent/10 transition-colors"
+                                    className="flex items-center space-x-1 px-2 py-0.5 rounded border border-accent/40 text-accent text-[10px] font-medium hover:bg-accent/10 transition-colors"
                                 >
                                     <ChevronsRight size={11} />
                                     <span>Latest</span>
@@ -916,7 +916,7 @@ export const MainChart = () => {
                             )}
 
                             {/* Chart type */}
-                            <div className="flex items-center bg-secondary border border-main rounded-md p-0.5">
+                            <div className="flex items-center bg-secondary border border-main rounded-md ">
                                 <button
                                     onClick={() => setChartType("candlestick")}
                                     title="Candlestick"
@@ -955,7 +955,7 @@ export const MainChart = () => {
                                                 : {}
                                         }
                                         className={cn(
-                                            "px-1.5 py-0.5 text-[9px] font-mono font-semibold rounded border transition-all",
+                                            "px-1.5 py-0.5 text-[10px] font-mono font-semibold rounded border transition-all",
                                             activeIndicators.has(key)
                                                 ? "bg-transparent"
                                                 : "border-main text-muted hover:border-main",

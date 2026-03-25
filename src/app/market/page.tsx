@@ -394,6 +394,64 @@ function priceFmt(v: number): string {
     return v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
+function MarketTableSkeletonRows({ count = 12 }: { count?: number }) {
+    return (
+        <>
+            {Array.from({ length: count }, (_, i) => (
+                <tr
+                    key={`market-sk-${i}`}
+                    className="border-b border-main pointer-events-none"
+                >
+                    <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                            <div className="h-3.5 w-3.5 rounded bg-main/45 animate-pulse shrink-0" />
+                            <div className="h-3.5 w-5 bg-main/45 animate-pulse rounded" />
+                        </div>
+                    </td>
+                    <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-main/45 animate-pulse shrink-0" />
+                            <div className="space-y-2 min-w-0 flex-1">
+                                <div
+                                    className="h-3.5 max-w-full bg-main/50 animate-pulse rounded"
+                                    style={{ width: `${68 + (i % 5) * 12}px` }}
+                                />
+                                <div className="h-3 w-14 max-w-full bg-main/40 animate-pulse rounded" />
+                            </div>
+                        </div>
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                        <div className="h-4 w-20 bg-main/45 animate-pulse rounded ml-auto" />
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                        <div className="h-4 w-14 bg-main/45 animate-pulse rounded ml-auto" />
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                        <div className="h-4 w-14 bg-main/45 animate-pulse rounded ml-auto" />
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                        <div className="h-4 w-14 bg-main/45 animate-pulse rounded ml-auto" />
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                        <div className="h-4 w-24 bg-main/45 animate-pulse rounded ml-auto" />
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                        <div className="h-4 w-24 bg-main/45 animate-pulse rounded ml-auto" />
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                        <div className="h-5 w-16 bg-main/45 animate-pulse rounded mx-auto" />
+                    </td>
+                    <td className="px-5 py-4">
+                        <div className="flex justify-center">
+                            <div className="h-10 w-28 bg-main/45 animate-pulse rounded-md" />
+                        </div>
+                    </td>
+                </tr>
+            ))}
+        </>
+    );
+}
+
 function CoinAvatar({ symbol, logoUrl }: { symbol: string; logoUrl?: string }) {
     const colors: Record<string, string> = {
         BTC: "#F7931A",
@@ -796,100 +854,115 @@ export default function MarketPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-main">
-                                {pagedData.map((coin, idx) => {
-                                    const sparkData: { v: number }[] =
-                                        coin.sparkline7d;
-                                    const sparkPositive = coin.trend !== "down";
-                                    return (
-                                        <tr
-                                            key={coin.id}
-                                            onClick={() =>
-                                                handleRowClick(coin.id)
-                                            }
-                                            className="hover:bg-main/60 transition-colors cursor-pointer group border-b border-main"
-                                        >
-                                            {/* # + star */}
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center gap-2 text-muted text-[12px]">
-                                                    <Star
-                                                        size={13}
-                                                        className="hover:text-yellow-400 transition-colors cursor-pointer shrink-0"
-                                                    />
-                                                    {(page - 1) * 20 + idx + 1}
-                                                </div>
-                                            </td>
-
-                                            {/* Name + symbol + buy button (hover) */}
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <CoinAvatar
-                                                        symbol={coin.symbol}
-                                                        logoUrl={coin.logoUrl}
-                                                    />
-                                                    <div>
-                                                        <div className="text-[13px] font-bold">
-                                                            {coin.name}
+                                {isLoading && rows.length === 0 ? (
+                                    <MarketTableSkeletonRows count={12} />
+                                ) : (
+                                    <>
+                                        {pagedData.map((coin, idx) => {
+                                            const sparkData: { v: number }[] =
+                                                coin.sparkline7d;
+                                            const sparkPositive =
+                                                coin.trend !== "down";
+                                            return (
+                                                <tr
+                                                    key={coin.id}
+                                                    onClick={() =>
+                                                        handleRowClick(coin.id)
+                                                    }
+                                                    className="hover:bg-main/60 transition-colors cursor-pointer group border-b border-main"
+                                                >
+                                                    {/* # + star */}
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex items-center gap-2 text-muted text-[12px]">
+                                                            <Star
+                                                                size={13}
+                                                                className="hover:text-yellow-400 transition-colors cursor-pointer shrink-0"
+                                                            />
+                                                            {(page - 1) * 20 +
+                                                                idx +
+                                                                1}
                                                         </div>
-                                                        <div className="text-[10px] text-muted">
-                                                            {coin.symbol}
+                                                    </td>
+
+                                                    {/* Name + symbol + buy button (hover) */}
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <CoinAvatar
+                                                                symbol={
+                                                                    coin.symbol
+                                                                }
+                                                                logoUrl={
+                                                                    coin.logoUrl
+                                                                }
+                                                            />
+                                                            <div>
+                                                                <div className="text-[13px] font-bold">
+                                                                    {coin.name}
+                                                                </div>
+                                                                <div className="text-[10px] text-muted">
+                                                                    {coin.symbol}
+                                                                </div>
+                                                            </div>
+                                                            <button className="ml-1 bg-accent/10 text-accent text-[10px] px-2.5 py-0.5 rounded font-bold opacity-0 group-hover:opacity-100 transition-opacity border border-accent/20">
+                                                                Buy
+                                                            </button>
                                                         </div>
-                                                    </div>
-                                                    <button className="ml-1 bg-accent/10 text-accent text-[10px] px-2.5 py-0.5 rounded font-bold opacity-0 group-hover:opacity-100 transition-opacity border border-accent/20">
-                                                        Buy
-                                                    </button>
-                                                </div>
-                                            </td>
+                                                    </td>
 
-                                            {/* Price */}
-                                            <td className="px-5 py-4 text-right text-[13px] font-mono font-semibold">
-                                                ${priceFmt(coin.price)}
-                                            </td>
+                                                    {/* Price */}
+                                                    <td className="px-5 py-4 text-right text-[13px] font-mono font-semibold">
+                                                        ${priceFmt(coin.price)}
+                                                    </td>
 
-                                            {/* % columns */}
-                                            <PctCell v={coin.h1} />
-                                            <PctCell v={coin.h24} />
-                                            <PctCell v={coin.d7} />
+                                                    {/* % columns */}
+                                                    <PctCell v={coin.h1} />
+                                                    <PctCell v={coin.h24} />
+                                                    <PctCell v={coin.d7} />
 
-                                            {/* Market Cap */}
-                                            <td className="px-5 py-4 text-right text-[13px] text-muted">
-                                                {coin.marketCap}
-                                            </td>
+                                                    {/* Market Cap */}
+                                                    <td className="px-5 py-4 text-right text-[13px] text-muted">
+                                                        {coin.marketCap}
+                                                    </td>
 
-                                            {/* Volume */}
-                                            <td className="px-5 py-4 text-right text-[13px] text-muted">
-                                                {coin.volume}
-                                            </td>
+                                                    {/* Volume */}
+                                                    <td className="px-5 py-4 text-right text-[13px] text-muted">
+                                                        {coin.volume}
+                                                    </td>
 
-                                            {/* Sentiment */}
-                                            <td className="px-5 py-4 text-center">
-                                                <SentimentBadge
-                                                    v={coin.sentiment}
-                                                />
-                                            </td>
+                                                    {/* Sentiment */}
+                                                    <td className="px-5 py-4 text-center">
+                                                        <SentimentBadge
+                                                            v={coin.sentiment}
+                                                        />
+                                                    </td>
 
-                                            {/* 7-day sparkline */}
-                                            <td className="px-5 py-4">
-                                                <div className="flex justify-center">
-                                                    <MiniSparkline
-                                                        data={sparkData}
-                                                        positive={sparkPositive}
-                                                    />
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                                {pagedData.length === 0 && (
-                                    <tr>
-                                        <td
-                                            colSpan={11}
-                                            className="px-5 py-8 text-center text-[12px] text-muted"
-                                        >
-                                            {isLoading
-                                                ? "Loading market data..."
-                                                : "No data"}
-                                        </td>
-                                    </tr>
+                                                    {/* 7-day sparkline */}
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex justify-center">
+                                                            <MiniSparkline
+                                                                data={
+                                                                    sparkData
+                                                                }
+                                                                positive={
+                                                                    sparkPositive
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {pagedData.length === 0 && (
+                                            <tr>
+                                                <td
+                                                    colSpan={10}
+                                                    className="px-5 py-8 text-center text-[12px] text-muted"
+                                                >
+                                                    No data
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </>
                                 )}
                             </tbody>
                         </table>

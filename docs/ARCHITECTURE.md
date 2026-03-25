@@ -223,7 +223,20 @@ Quick reference:
 
 ---
 
-## 10. Future Architecture Considerations
+## 10. AI API Key Fallback (Client vs Server)
+
+FinTrace UI có thể được cấu hình với API key "của người dùng" (lưu trong `AppSettingsContext`), nhưng **không được giả định** rằng luôn có key đó ở client.
+
+Nguyên tắc khi gọi AI:
+1. UI gọi `aiProviderService.chat(...)` (hoặc `chatStream`) và truyền `apiKey` từ Settings nếu có; nếu không có thì truyền `""` (không truyền header `x-*-api-key`).
+2. Các route proxy server `src/app/api/*/chat/completions` sẽ **tự fallback** sang key hệ thống:
+   - Groq: `src/lib/getGroqKey.ts` (env/AWS Secrets Manager)
+   - OpenRouter: `src/lib/getOpenRouterKey.ts` (env/AWS Secrets Manager)
+3. Vì vậy, UI không nên hiển thị lỗi kiểu "Chưa có API key — thêm trong Settings" ngay lập tức khi `activeProvider.apiKey` rỗng. Chỉ show lỗi nếu server vẫn trả về 401/403 sau khi fallback.
+
+---
+
+## 11. Future Architecture Considerations
 
 These are not yet implemented. They require a TASK before implementation:
 
