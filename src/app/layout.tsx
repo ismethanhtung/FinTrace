@@ -3,6 +3,7 @@ import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { MarketProvider } from "../context/MarketContext";
 import { AppSettingsProvider } from "../context/AppSettingsContext";
+import { FaroClient } from "../components/FaroClient";
 
 const jetbrainsMono = JetBrains_Mono({
     subsets: ["latin"],
@@ -28,7 +29,10 @@ export default function RootLayout({
         <html lang="en" suppressHydrationWarning>
             <body className={`${jetbrainsMono.variable} antialiased`}>
                 <AppSettingsProvider>
-                    <MarketProvider>{children}</MarketProvider>
+                    <MarketProvider>
+                        <FaroClient />
+                        {children}
+                    </MarketProvider>
                 </AppSettingsProvider>
             </body>
         </html>
