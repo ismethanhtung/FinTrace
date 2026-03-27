@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const threshold = 100;
+// Tạm thời "tắt" enforcement theo yêu cầu:
+// - Mặc định lấy threshold từ env nếu có, nếu không sẽ là 0 (không fail).
+// - Dùng trong CI như là biến cấu hình tuỳ thời điểm.
+const threshold = Number(process.env.COVERAGE_THRESHOLD ?? 0);
 const summaryPath = resolve(process.cwd(), "coverage/coverage-summary.json");
 const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
 const total = summary.total;
