@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { describe, expect, it } from "vitest";
 
 import {
     buildBinanceLogoCatalog,
@@ -41,7 +40,8 @@ const SAMPLE_ENTRIES: BinanceMarketingSymbolEntry[] = [
     },
 ];
 
-test("resolveBinanceLogoUrl matches exact trading symbol", () => {
+describe("tokenLogoService", () => {
+it("resolveBinanceLogoUrl matches exact trading symbol", () => {
     const catalog = buildBinanceLogoCatalog(SAMPLE_ENTRIES);
 
     const logoUrl = resolveBinanceLogoUrl(
@@ -49,10 +49,10 @@ test("resolveBinanceLogoUrl matches exact trading symbol", () => {
         catalog,
     );
 
-    assert.equal(logoUrl, "https://img.test/btc.png");
+    expect(logoUrl).toBe("https://img.test/btc.png");
 });
 
-test("resolveBinanceLogoUrl falls back from futures id to base asset", () => {
+it("resolveBinanceLogoUrl falls back from futures id to base asset", () => {
     const catalog = buildBinanceLogoCatalog(SAMPLE_ENTRIES);
 
     const logoUrl = resolveBinanceLogoUrl(
@@ -60,10 +60,10 @@ test("resolveBinanceLogoUrl falls back from futures id to base asset", () => {
         catalog,
     );
 
-    assert.equal(logoUrl, "https://img.test/doge-usdt.png");
+    expect(logoUrl).toBe("https://img.test/doge-usdt.png");
 });
 
-test("resolveBinanceLogoUrl preserves exact multiplier assets", () => {
+it("resolveBinanceLogoUrl preserves exact multiplier assets", () => {
     const catalog = buildBinanceLogoCatalog(SAMPLE_ENTRIES);
 
     const logoUrl = resolveBinanceLogoUrl(
@@ -71,10 +71,10 @@ test("resolveBinanceLogoUrl preserves exact multiplier assets", () => {
         catalog,
     );
 
-    assert.equal(logoUrl, "https://img.test/1000sats.png");
+    expect(logoUrl).toBe("https://img.test/1000sats.png");
 });
 
-test("buildBinanceLogoCatalog prefers the stronger USDT candidate", () => {
+it("buildBinanceLogoCatalog prefers the stronger USDT candidate", () => {
     const catalog = buildBinanceLogoCatalog([
         {
             symbol: "DOGEBTC",
@@ -97,10 +97,10 @@ test("buildBinanceLogoCatalog prefers the stronger USDT candidate", () => {
         catalog,
     );
 
-    assert.equal(logoUrl, "https://img.test/doge-usdt.png");
+    expect(logoUrl).toBe("https://img.test/doge-usdt.png");
 });
 
-test("resolveBinanceLogoUrl can fall back to mapperName", () => {
+it("resolveBinanceLogoUrl can fall back to mapperName", () => {
     const catalog = buildBinanceLogoCatalog([
         {
             symbol: "RENUSDT",
@@ -117,21 +117,20 @@ test("resolveBinanceLogoUrl can fall back to mapperName", () => {
         catalog,
     );
 
-    assert.equal(logoUrl, "https://img.test/ren.png");
+    expect(logoUrl).toBe("https://img.test/ren.png");
 });
 
-test("toSafeLogoUrl proxies Binance CDN URLs through same-origin route", () => {
+it("toSafeLogoUrl proxies Binance CDN URLs through same-origin route", () => {
     const logoUrl = toSafeLogoUrl(
         "https://bin.bnbstatic.com/image/admin_mgs_image_upload/example.png",
     );
 
-    assert.equal(
-        logoUrl,
+    expect(logoUrl).toBe(
         "/api/binance/logo?url=https%3A%2F%2Fbin.bnbstatic.com%2Fimage%2Fadmin_mgs_image_upload%2Fexample.png",
     );
 });
 
-test("getCachedBinanceMarketingSymbols deduplicates concurrent fetches", async () => {
+it("getCachedBinanceMarketingSymbols deduplicates concurrent fetches", async () => {
     resetTokenLogoServiceForTests();
 
     const originalFetch = global.fetch;
@@ -151,11 +150,12 @@ test("getCachedBinanceMarketingSymbols deduplicates concurrent fetches", async (
             getCachedBinanceMarketingSymbols(),
         ]);
 
-        assert.equal(fetchCount, 1);
-        assert.deepEqual(first, SAMPLE_ENTRIES);
-        assert.deepEqual(second, SAMPLE_ENTRIES);
+        expect(fetchCount).toBe(1);
+        expect(first).toEqual(SAMPLE_ENTRIES);
+        expect(second).toEqual(SAMPLE_ENTRIES);
     } finally {
         global.fetch = originalFetch;
         resetTokenLogoServiceForTests();
     }
+});
 });

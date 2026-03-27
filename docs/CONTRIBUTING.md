@@ -67,8 +67,34 @@ refactor(utils): TASK-006 extract formatPrice to shared utility
 |---|---|
 | `npm run dev` | Start dev server on port 3000 |
 | `npm run build` | Build for production |
-| `npm run lint` | Run ESLint |
-| `npm run test` | Run Vitest tests |
+| `npm run lint` | Run static check (TypeScript no-emit) |
+| `npm run typecheck` | TypeScript type check (`tsc --noEmit`) |
+| `npm run test` | Run Vitest unit tests |
+| `npm run test:coverage` | Run test suite with coverage gate |
+| `npm run test:integration` | Run integration tests |
+| `npm run test:e2e` | Run E2E smoke tests |
+
+---
+
+## Testing and Quality Gates
+
+All contributions must follow the test strategy in `docs/TEST_MASTER_PLAN.md`.
+
+Before opening a PR, run:
+
+```bash
+npm run typecheck
+npm run lint
+npm run test:coverage
+npm run test:integration
+npm run test:e2e
+```
+
+Your PR should include:
+
+- Updated task file in `tasks/`
+- Test evidence (what was tested and why)
+- Notes for any temporary test exclusions with owner + expiry
 
 ---
 

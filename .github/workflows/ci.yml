@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify:
+    name: verify-node-${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit with Coverage
+        run: npm run test:coverage
+
+      - name: Coverage Gate (100%)
+        run: node ./scripts/check-coverage-threshold.mjs
+
+      - name: Integration Tests
+        run: npm run test:integration
+
+      - name: Contract Tests
+        run: npm run test:contract
+
+      - name: Performance Smoke
+        run: npm run test:perf
+
+      - name: E2E Smoke
+        run: npm run test:e2e
+
+      - name: Upload Coverage Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-node-${{ matrix.node }}
+          path: coverage/

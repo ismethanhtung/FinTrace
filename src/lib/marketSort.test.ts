@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, it } from "vitest";
 
 import { sortMarketRowsBySubTab } from "./marketSort";
 import { isLeveragedToken } from "./tokenFilters";
@@ -29,64 +28,55 @@ function row(
     };
 }
 
-test("Gainers sorts by 24h percent descending", () => {
+it("Gainers sorts by 24h percent descending", () => {
     const out = sortMarketRowsBySubTab(
         [row("AAA", 2, 100), row("BBB", 8, 90), row("CCC", -1, 1000)],
         "Gainers",
         "Highest Volume",
     );
-    assert.deepEqual(
-        out.map((x) => x.symbol),
-        ["BBB", "AAA", "CCC"],
-    );
+    expect(out.map((x) => x.symbol)).toEqual(["BBB", "AAA", "CCC"]);
 });
 
-test("Top sorts by volume descending", () => {
+it("Top sorts by volume descending", () => {
     const out = sortMarketRowsBySubTab(
         [row("AAA", 2, 100), row("BBB", 1, 800), row("CCC", 9, 200)],
         "Top",
         "Highest Volume",
     );
-    assert.deepEqual(
-        out.map((x) => x.symbol),
-        ["BBB", "CCC", "AAA"],
-    );
+    expect(out.map((x) => x.symbol)).toEqual(["BBB", "CCC", "AAA"]);
 });
 
-test("More-Losers sorts by 24h percent ascending", () => {
+it("More-Losers sorts by 24h percent ascending", () => {
     const out = sortMarketRowsBySubTab(
         [row("AAA", 2, 100), row("BBB", -9, 800), row("CCC", -1, 200)],
         "More",
         "Losers",
     );
-    assert.deepEqual(
-        out.map((x) => x.symbol),
-        ["BBB", "CCC", "AAA"],
-    );
+    expect(out.map((x) => x.symbol)).toEqual(["BBB", "CCC", "AAA"]);
 });
 
 // ─── isLeveragedToken ─────────────────────────────────────────────────────────
 
-test("isLeveragedToken detects BEAR/BULL/DOWN/UP leveraged tokens", () => {
-    assert.equal(isLeveragedToken("EOSBEAR"), true);
-    assert.equal(isLeveragedToken("EOSBULL"), true);
-    assert.equal(isLeveragedToken("BTCDOWN"), true);
-    assert.equal(isLeveragedToken("BTCUP"), true);
-    assert.equal(isLeveragedToken("ETHBEAR"), true);
-    assert.equal(isLeveragedToken("LINKDOWN"), true);
-    assert.equal(isLeveragedToken("BNBUP"), true);
+it("isLeveragedToken detects BEAR/BULL/DOWN/UP leveraged tokens", () => {
+    expect(isLeveragedToken("EOSBEAR")).toBe(true);
+    expect(isLeveragedToken("EOSBULL")).toBe(true);
+    expect(isLeveragedToken("BTCDOWN")).toBe(true);
+    expect(isLeveragedToken("BTCUP")).toBe(true);
+    expect(isLeveragedToken("ETHBEAR")).toBe(true);
+    expect(isLeveragedToken("LINKDOWN")).toBe(true);
+    expect(isLeveragedToken("BNBUP")).toBe(true);
 });
 
-test("isLeveragedToken does NOT flag legitimate coins", () => {
-    assert.equal(isLeveragedToken("BTC"), false);
-    assert.equal(isLeveragedToken("ETH"), false);
-    assert.equal(isLeveragedToken("JUP"), false);   // Jupiter, ends with UP but prefix too short
-    assert.equal(isLeveragedToken("SOL"), false);
-    assert.equal(isLeveragedToken("PEPE"), false);
-    assert.equal(isLeveragedToken("TRUMP"), false);
+it("isLeveragedToken does NOT flag legitimate coins", () => {
+    expect(isLeveragedToken("BTC")).toBe(false);
+    expect(isLeveragedToken("ETH")).toBe(false);
+    expect(isLeveragedToken("JUP")).toBe(false);   // Jupiter, ends with UP but prefix too short
+    expect(isLeveragedToken("SOL")).toBe(false);
+    expect(isLeveragedToken("PEPE")).toBe(false);
+    expect(isLeveragedToken("TRUMP")).toBe(false);
 });
 
-test("Trending does not over-rank extreme-pct coins vs large-volume coins", () => {
+it("Trending does not over-rank extreme-pct coins vs large-volume coins", () => {
     // Coin A: massive volume, moderate change (BTC-like)
     const bigVol = row("BTC", 2, 30_000_000_000);
     // Coin B: tiny volume, huge change (meme pump)
@@ -94,13 +84,13 @@ test("Trending does not over-rank extreme-pct coins vs large-volume coins", () =
     const out = sortMarketRowsBySubTab([memeRow, bigVol], "Trending", "Highest Volume");
     // Meme should still rank ahead of BTC in trending (buzz > size) but both accounted
     // The important thing: result is deterministic, not dominated by raw pct difference
-    assert.equal(out.length, 2);
+    expect(out.length).toBe(2);
 });
 
-test("Most Visited ranks large-volume coins above mid-vol volatile coins", () => {
+it("Most Visited ranks large-volume coins above mid-vol volatile coins", () => {
     const btc = row("BTC", 2, 30_000_000_000);
     const midVol = row("ALT", 20, 100_000_000);
     const out = sortMarketRowsBySubTab([midVol, btc], "Most Visited", "Highest Volume");
     // BTC's volume dominance should win Most Visited
-    assert.equal(out[0].symbol, "BTC");
+    expect(out[0].symbol).toBe("BTC");
 });

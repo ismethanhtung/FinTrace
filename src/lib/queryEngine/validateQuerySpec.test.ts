@@ -1,9 +1,8 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, it } from "vitest";
 
 import { validateQuerySpecUnknown } from "./validateQuerySpec";
 
-test("validateQuerySpecUnknown accepts a minimal simple spec", () => {
+it("validateQuerySpecUnknown accepts a minimal simple spec", () => {
     const raw = {
         mode: "simple",
         intent: "tokenAddress",
@@ -11,15 +10,15 @@ test("validateQuerySpecUnknown accepts a minimal simple spec", () => {
     };
 
     const out = validateQuerySpecUnknown(raw);
-    assert.equal(out.ok, true);
+    expect(out.ok).toBe(true);
     if (out.ok) {
-        assert.equal(out.spec.mode, "simple");
-        assert.equal(out.spec.intent, "tokenAddress");
-        assert.equal(out.spec.tokenAddress, raw.tokenAddress);
+        expect(out.spec.mode).toBe("simple");
+        expect(out.spec.intent).toBe("tokenAddress");
+        expect(out.spec.tokenAddress).toBe(raw.tokenAddress);
     }
 });
 
-test("validateQuerySpecUnknown rejects invalid screening op/value", () => {
+it("validateQuerySpecUnknown rejects invalid screening op/value", () => {
     const raw = {
         mode: "filtering",
         intent: "tokenAddress",
@@ -30,9 +29,9 @@ test("validateQuerySpecUnknown rejects invalid screening op/value", () => {
     };
 
     const out = validateQuerySpecUnknown(raw);
-    assert.equal(out.ok, false);
-    if (!out.ok) {
-        assert.ok(out.errors.join(" ").includes("fdv"));
+    expect(out.ok).toBe(false);
+    if (out.ok === false) {
+        expect(out.errors.join(" ")).toContain("fdv");
     }
 });
 

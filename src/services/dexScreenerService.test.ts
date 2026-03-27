@@ -1,12 +1,11 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, it } from "vitest";
 
 import {
     parseDexScreenerSearchResponse,
     type DexScreenerSearchResponse,
 } from "./dexScreenerService";
 
-test("parseDexScreenerSearchResponse parses pairs[].liquidity.usd and volume.h24", () => {
+it("parseDexScreenerSearchResponse parses pairs[].liquidity.usd and volume.h24", () => {
     const raw = {
         pairs: [
             {
@@ -33,17 +32,17 @@ test("parseDexScreenerSearchResponse parses pairs[].liquidity.usd and volume.h24
     };
 
     const out: DexScreenerSearchResponse = parseDexScreenerSearchResponse(raw);
-    assert.equal(out.rawCount, 2);
-    assert.equal(out.pairs.length, 1);
+    expect(out.rawCount).toBe(2);
+    expect(out.pairs.length).toBe(1);
 
     const p = out.pairs[0];
-    assert.equal(p.chainId, "base");
-    assert.equal(p.pairAddress, "0xpair1");
-    assert.equal(p.baseToken.symbol, "ABC");
-    assert.equal(p.priceUsd, 0.12);
-    assert.equal(p.liquidityUsd, 123456.78);
-    assert.equal(p.volumeUsdH24, 98765.43);
-    assert.equal(p.fdvUsd, 1000000);
-    assert.equal(p.priceChangeH24Pct, -12.34);
+    expect(p.chainId).toBe("base");
+    expect(p.pairAddress).toBe("0xpair1");
+    expect(p.baseToken.symbol).toBe("ABC");
+    expect(p.priceUsd).toBe(0.12);
+    expect(p.liquidityUsd).toBe(123456.78);
+    expect(p.volumeUsdH24).toBe(98765.43);
+    expect(p.fdvUsd).toBe(1000000);
+    expect(p.priceChangeH24Pct).toBe(-12.34);
 });
 
