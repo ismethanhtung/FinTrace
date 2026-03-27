@@ -12,6 +12,7 @@
         "test": "vitest run --project unit",
         "test:watch": "vitest --project unit",
         "test:coverage": "vitest run --coverage",
+        "test:coverage:unit": "vitest run --project unit --coverage",
         "test:coverage:gate": "npm run test:coverage && node ./scripts/check-coverage-threshold.mjs",
         "test:integration": "vitest run --project integration",
         "test:contract": "vitest run --project contract",

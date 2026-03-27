@@ -35,7 +35,7 @@ jobs:
               run: npm run lint
 
             - name: Unit with Coverage
-              run: npm run test
+              run: npm run test:coverage:unit
 
             - name: Coverage Gate (100%)
               run: node ./scripts/check-coverage-threshold.mjs
