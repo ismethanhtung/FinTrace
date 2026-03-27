@@ -7,7 +7,7 @@ import { UserMenu } from "../components/UserMenu";
 import { LeftSidebar } from "../components/LeftSidebar";
 import { OrderBook } from "../components/OrderBook";
 import { TickerBar } from "../components/TickerBar";
-import { WatchlistDropdown } from "../components/AssetList";
+import { QuickSearchDropdown } from "../components/AssetList";
 import { useMarket } from "../context/MarketContext";
 import {
     useAppSettings,
@@ -152,19 +152,7 @@ export default function App() {
                             <span>News</span>
                         </Link>
                         <div className="h-4 w-px bg-main border-l border-main" />
-                        <WatchlistDropdown />
-                        <div className="h-4 w-px bg-main border-l border-main" />
-                        <div className="relative group">
-                            <Search
-                                size={13}
-                                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Quick search..."
-                                className="bg-secondary border border-transparent hover:border-main rounded-md py-1.5 pl-8 pr-3 text-[12px] w-44 focus:w-60 focus:outline-none focus:ring-1 focus:ring-accent/30 transition-all"
-                            />
-                        </div>
+                        <QuickSearchDropdown />
                     </nav>
                 </div>
 

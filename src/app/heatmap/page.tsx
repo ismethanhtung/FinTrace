@@ -17,7 +17,7 @@ import {
 import { MarketHeatmap } from "../../components/MarketHeatmap";
 import { TickerBar } from "../../components/TickerBar";
 import { UserMenu } from "../../components/UserMenu";
-import { WatchlistDropdown } from "../../components/AssetList";
+import { QuickSearchDropdown } from "../../components/AssetList";
 import { useAppSettings, AppTheme } from "../../context/AppSettingsContext";
 import { cn } from "../../lib/utils";
 
@@ -84,7 +84,7 @@ export default function HeatmapPage() {
                         </Link>
 
                         <div className="h-4 w-px bg-main border-l border-main" />
-                        <WatchlistDropdown />
+                        <QuickSearchDropdown />
                     </nav>
                 </div>
 

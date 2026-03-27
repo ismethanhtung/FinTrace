@@ -24,7 +24,7 @@ import { useAppSettings, AppTheme } from "../../context/AppSettingsContext";
 import { useMarket } from "../../context/MarketContext";
 import { useMarketPageData } from "../../hooks/useMarketPageData";
 import { useRouter } from "next/navigation";
-import { WatchlistDropdown } from "../../components/AssetList";
+import { QuickSearchDropdown } from "../../components/AssetList";
 import { UserMenu } from "../../components/UserMenu";
 import { cn } from "../../lib/utils";
 import {
@@ -663,7 +663,7 @@ export default function MarketPage() {
                             <span>Data Streams</span>
                         </Link>
                         <div className="h-4 w-px border-l border-main mx-2" />
-                        <WatchlistDropdown />
+                        <QuickSearchDropdown />
                     </nav>
                 </div>
 
