@@ -129,10 +129,18 @@ const CoinRow = ({
 
 // ─── Market bar: status + Spot ↔ Futures toggle ───────────────────────────────
 const MarketBar = () => {
-    const { marketType, setMarketType, assets, isLoading, isFuturesLoading } =
-        useMarket();
+    const {
+        marketType,
+        setMarketType,
+        assets,
+        isLoading,
+        isFuturesLoading,
+        spotStreamStatus,
+        futuresStreamStatus,
+    } = useMarket();
     const isFutures = marketType === "futures";
     const loading = isFutures ? isFuturesLoading : isLoading;
+    const streamStatus = isFutures ? futuresStreamStatus : spotStreamStatus;
 
     const label = isFutures
         ? "USD-M Perpetual · Binance Futures"
@@ -144,15 +152,24 @@ const MarketBar = () => {
                 <span
                     className={cn(
                         "inline-block h-1.5 w-1.5 rounded-full shrink-0",
-                        loading
+                        streamStatus === "connected" && !loading
+                            ? "bg-emerald-500"
+                            : loading || streamStatus === "connecting"
                             ? "animate-pulse bg-amber-400"
-                            : isFutures
-                              ? "bg-amber-400"
-                              : "bg-emerald-500",
+                            : streamStatus === "error"
+                              ? "bg-rose-500"
+                              : "bg-sky-500",
                     )}
                 />
                 <span className="text-[9px] text-muted truncate flex-1">
-                    {label}
+                    {label} ·{" "}
+                    {streamStatus === "connected"
+                        ? "Live"
+                        : streamStatus === "connecting"
+                          ? "Syncing"
+                          : streamStatus === "error"
+                            ? "Error"
+                            : "Reconnecting"}
                 </span>
                 <span className="text-[9px] text-muted tabular-nums">
                     {assets.length.toLocaleString("en-US")} pairs

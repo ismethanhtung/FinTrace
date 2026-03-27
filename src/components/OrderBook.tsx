@@ -17,6 +17,7 @@ import {
     MoreHorizontal,
     Activity,
     Clock,
+    Wifi,
 } from "lucide-react";
 
 const tradePriceFmt = (v: number) =>
@@ -36,7 +37,7 @@ const RecentTrades = ({
     symbol: string;
     marketType: "spot" | "futures";
 }) => {
-    const { trades, isLoading, error } = useRecentTrades(
+    const { trades, isLoading, error, connectionStatus } = useRecentTrades(
         symbol,
         marketType,
         80,
@@ -50,7 +51,25 @@ const RecentTrades = ({
                     Market Trades
                 </span>
                 <div className="flex items-center gap-2 shrink-0">
-                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                    <span
+                        className={cn(
+                            "inline-block h-1.5 w-1.5 rounded-full",
+                            connectionStatus === "connected"
+                                ? "bg-emerald-500"
+                                : connectionStatus === "connecting"
+                                  ? "bg-amber-400 animate-pulse"
+                                  : "bg-rose-500",
+                        )}
+                    />
+                    <span className="text-[9px] text-muted uppercase tracking-wider">
+                        {connectionStatus === "connected"
+                            ? "Live"
+                            : connectionStatus === "connecting"
+                              ? "Syncing"
+                              : connectionStatus === "error"
+                                ? "Error"
+                                : "Reconnecting"}
+                    </span>
                     <Link
                         href="/transactions"
                         className="px-2 py-1 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-semibold"
@@ -222,7 +241,7 @@ export const OrderBook = () => {
         setIsUserGrouping(false);
     }, [selectedSymbol]);
 
-    const { data, isLoading } = useOrderBook(
+    const { data, isLoading, connectionStatus, lastUpdatedAt } = useOrderBook(
         selectedSymbol,
         grouping,
         marketType,
@@ -244,9 +263,30 @@ export const OrderBook = () => {
                 <div className="flex-1 border-r border-main flex flex-col min-h-0 bg-main">
                     {/* Header */}
                     <div className="px-3 py-1.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-main">
-                            Order Book
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-main">
+                                Order Book
+                            </span>
+                            <span className="text-[9px] uppercase tracking-wider text-muted flex items-center gap-1">
+                                <Wifi
+                                    size={9}
+                                    className={cn(
+                                        connectionStatus === "connected"
+                                            ? "text-emerald-500"
+                                            : connectionStatus === "connecting"
+                                              ? "text-amber-400"
+                                              : "text-rose-500",
+                                    )}
+                                />
+                                {connectionStatus === "connected"
+                                    ? "Live"
+                                    : connectionStatus === "connecting"
+                                      ? "Syncing"
+                                      : connectionStatus === "error"
+                                        ? "Error"
+                                        : "Reconnecting"}
+                            </span>
+                        </div>
                         <div className="flex items-center space-x-2">
                             <div className="flex items-center space-x-0.5 bg-secondary border border-main rounded-md p-0.5">
                                 {GROUPING_OPTIONS.map((g) => (
@@ -333,15 +373,27 @@ export const OrderBook = () => {
                                             ↓
                                         </span>
                                     )}
-                                </div>
-                                {data && (
-                                    <span className="text-[9px] text-muted font-mono">
-                                        Spread:{" "}
-                                        {priceFmt(data.spread, grouping)} (
-                                        {data.spreadPercent.toFixed(3)}%)
-                                    </span>
-                                )}
                             </div>
+                            {data && (
+                                <span className="text-[9px] text-muted font-mono">
+                                    Spread:{" "}
+                                    {priceFmt(data.spread, grouping)} (
+                                    {data.spreadPercent.toFixed(3)}%)
+                                </span>
+                            )}
+                            {lastUpdatedAt && (
+                                <span className="text-[9px] text-muted font-mono">
+                                    {new Date(lastUpdatedAt).toLocaleTimeString(
+                                        "en-US",
+                                        {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                            second: "2-digit",
+                                        },
+                                    )}
+                                </span>
+                            )}
+                        </div>
 
                             <div className="flex flex-col">
                                 {(data?.bids ?? []).map((bid) => (

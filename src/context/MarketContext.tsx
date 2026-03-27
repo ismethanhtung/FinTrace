@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
     binanceService,
     Asset,
@@ -9,6 +9,12 @@ import {
 } from "../services/binanceService";
 import { enrichAssetsWithLogos } from "../services/tokenLogoService";
 import { isLeveragedToken } from "../lib/tokenFilters";
+import {
+    mergeMiniTickerArray,
+    subscribeSharedStream,
+    type MarketMiniTicker,
+    type MarketStreamStatus,
+} from "../services/marketStreamService";
 
 interface MarketContextType {
     selectedSymbol: string;
@@ -24,6 +30,10 @@ interface MarketContextType {
     isLoading: boolean;
     isFuturesLoading: boolean;
     error: string | null;
+    spotStreamStatus: MarketStreamStatus;
+    futuresStreamStatus: MarketStreamStatus;
+    lastSpotStreamUpdateAt: number | null;
+    lastFuturesStreamUpdateAt: number | null;
 }
 
 const MarketContext = React.createContext<MarketContextType | undefined>(
@@ -40,8 +50,27 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isFuturesLoading, setIsFuturesLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [spotStreamStatus, setSpotStreamStatus] =
+        useState<MarketStreamStatus>("connecting");
+    const [futuresStreamStatus, setFuturesStreamStatus] =
+        useState<MarketStreamStatus>("connecting");
+    const [lastSpotStreamUpdateAt, setLastSpotStreamUpdateAt] = useState<
+        number | null
+    >(null);
+    const [lastFuturesStreamUpdateAt, setLastFuturesStreamUpdateAt] = useState<
+        number | null
+    >(null);
 
-    // ── Spot fetch ───────────────────────────────────────────────────────────────
+    const mountedRef = useRef(true);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+        };
+    }, []);
+
+    // ── Spot bootstrap ──────────────────────────────────────────────────────────
     const fetchSpotAssets = useCallback(async () => {
         try {
             const tickers: BinanceTicker[] = await binanceService.getTickers();
@@ -57,24 +86,27 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
                 );
             let next = allUSDT.map(binanceService.transformTicker);
             next = await enrichAssetsWithLogos(next);
-            setSpotAssets(next);
-            setError(null);
+            if (mountedRef.current) {
+                setSpotAssets(next);
+                setError(null);
+            }
         } catch (err) {
             console.error("[MarketProvider] Failed to fetch spot assets:", err);
-            setError(
-                err instanceof Error
-                    ? err.message
-                    : "Failed to load spot market data",
-            );
+            if (mountedRef.current) {
+                setError(
+                    err instanceof Error
+                        ? err.message
+                        : "Failed to load spot market data",
+                );
+            }
         } finally {
-            setIsLoading(false);
+            if (mountedRef.current) setIsLoading(false);
         }
     }, []);
 
-    // ── Futures fetch ────────────────────────────────────────────────────────────
+    // ── Futures bootstrap ────────────────────────────────────────────────────────
     const fetchFuturesAssets = useCallback(async () => {
         try {
-            setIsFuturesLoading(true);
             const tickers = await binanceService.getFuturesTickers();
             // Keep only USDT-M perpetuals (exclude quarterly contracts like BTCUSDT_230630)
             const allUSDT = tickers
@@ -91,29 +123,63 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
             const next = await enrichAssetsWithLogos(
                 allUSDT.map(binanceService.transformFuturesTicker),
             );
-            setFuturesAssets(next);
+            if (mountedRef.current) {
+                setFuturesAssets(next);
+                setError(null);
+            }
         } catch (err) {
             console.error(
                 "[MarketProvider] Failed to fetch futures assets:",
                 err,
             );
         } finally {
-            setIsFuturesLoading(false);
+            if (mountedRef.current) setIsFuturesLoading(false);
         }
     }, []);
 
-    // ── Polling (both markets refresh every 30s) ─────────────────────────────────
+    // ── Initial bootstrap only ──────────────────────────────────────────────────
     useEffect(() => {
         fetchSpotAssets();
-        const timer = setInterval(fetchSpotAssets, 30_000);
-        return () => clearInterval(timer);
     }, [fetchSpotAssets]);
 
     useEffect(() => {
         fetchFuturesAssets();
-        const timer = setInterval(fetchFuturesAssets, 30_000);
-        return () => clearInterval(timer);
     }, [fetchFuturesAssets]);
+
+    // ── Live market tickers via websocket ───────────────────────────────────────
+    useEffect(() => {
+        const sub = subscribeSharedStream<MarketMiniTicker[]>({
+            key: "spot-miniTicker",
+            url: "wss://stream.binance.com:9443/ws/!miniTicker@arr",
+            parser: (raw) => (Array.isArray(raw) ? raw : null),
+            onMessage: (payload) => {
+                setSpotAssets((prev) =>
+                    mergeMiniTickerArray(prev, payload, "spot"),
+                );
+                setLastSpotStreamUpdateAt(Date.now());
+            },
+            onStatus: setSpotStreamStatus,
+        });
+
+        return () => sub.unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        const sub = subscribeSharedStream<MarketMiniTicker[]>({
+            key: "futures-miniTicker",
+            url: "wss://fstream.binance.com/ws/!miniTicker@arr",
+            parser: (raw) => (Array.isArray(raw) ? raw : null),
+            onMessage: (payload) => {
+                setFuturesAssets((prev) =>
+                    mergeMiniTickerArray(prev, payload, "futures"),
+                );
+                setLastFuturesStreamUpdateAt(Date.now());
+            },
+            onStatus: setFuturesStreamStatus,
+        });
+
+        return () => sub.unsubscribe();
+    }, []);
 
     // ── Active asset list based on marketType ────────────────────────────────────
     const assets = useMemo<Asset[]>(
@@ -134,6 +200,10 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
                 isLoading,
                 isFuturesLoading,
                 error,
+                spotStreamStatus,
+                futuresStreamStatus,
+                lastSpotStreamUpdateAt,
+                lastFuturesStreamUpdateAt,
             }}
         >
             {children}

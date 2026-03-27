@@ -5,6 +5,7 @@ import { cn } from "../lib/utils";
 import { useMarket } from "../context/MarketContext";
 import { TokenAvatar } from "./TokenAvatar";
 import { Check, Settings2, Wifi } from "lucide-react";
+import type { Asset } from "../services/binanceService";
 
 type TickerMode = "hot" | "gainers" | "favorites";
 
@@ -44,10 +45,31 @@ const modeMeta: Record<
 };
 
 export const TickerBar = () => {
-    const { assets, setSelectedSymbol } = useMarket();
+    const {
+        assets,
+        setSelectedSymbol,
+        marketType,
+        spotStreamStatus,
+        futuresStreamStatus,
+        lastSpotStreamUpdateAt,
+        lastFuturesStreamUpdateAt,
+    } = useMarket();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [tickerMode, setTickerMode] = useState<TickerMode>("hot");
+    const [nowMs, setNowMs] = useState(() => Date.now());
+    const [stableOrderIds, setStableOrderIds] = useState<string[]>([]);
     const settingsRef = useRef<HTMLDivElement>(null);
+    const streamStatus =
+        marketType === "futures" ? futuresStreamStatus : spotStreamStatus;
+    const lastUpdateAt =
+        marketType === "futures"
+            ? lastFuturesStreamUpdateAt
+            : lastSpotStreamUpdateAt;
+
+    useEffect(() => {
+        const id = setInterval(() => setNowMs(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, []);
 
     useEffect(() => {
         const handlePointerDown = (event: MouseEvent) => {
@@ -74,7 +96,7 @@ export const TickerBar = () => {
         };
     }, []);
 
-    const displayAssets = useMemo(() => {
+    const rankedAssets = useMemo(() => {
         if (tickerMode === "gainers") {
             const positiveAssets = assets
                 .filter((asset) => asset.changePercent > 0)
@@ -91,6 +113,36 @@ export const TickerBar = () => {
         return [...assets].sort((a, b) => b.quoteVolumeRaw - a.quoteVolumeRaw);
     }, [assets, tickerMode]);
 
+    // Keep ticker order stable for smooth marquee. Re-rank in short intervals
+    // instead of every websocket tick to avoid visual "jump back" glitches.
+    useEffect(() => {
+        const topIds = rankedAssets.slice(0, 140).map((asset) => asset.id);
+        setStableOrderIds(topIds);
+    }, [tickerMode, marketType]);
+
+    useEffect(() => {
+        const rebalance = () => {
+            const topIds = rankedAssets.slice(0, 140).map((asset) => asset.id);
+            setStableOrderIds(topIds);
+        };
+        rebalance();
+        const id = setInterval(rebalance, 8000);
+        return () => clearInterval(id);
+    }, [rankedAssets]);
+
+    const assetById = useMemo(
+        () => new Map(assets.map((asset) => [asset.id, asset])),
+        [assets],
+    );
+
+    const displayAssets = useMemo<Asset[]>(() => {
+        const ordered = stableOrderIds
+            .map((id) => assetById.get(id))
+            .filter((asset): asset is Asset => Boolean(asset));
+        if (ordered.length) return ordered;
+        return rankedAssets.slice(0, 140);
+    }, [assetById, rankedAssets, stableOrderIds]);
+
     if (assets.length === 0) return null;
 
     const items = [...displayAssets, ...displayAssets];
@@ -99,6 +151,19 @@ export const TickerBar = () => {
         720,
     );
     const activeMode = modeMeta[tickerMode];
+    const staleMs =
+        typeof lastUpdateAt === "number" ? Math.max(0, nowMs - lastUpdateAt) : null;
+    const isLikelyLive =
+        streamStatus === "connected" && staleMs !== null && staleMs < 10_000;
+    const statusLabel = isLikelyLive
+        ? "Stable"
+        : streamStatus === "connecting"
+          ? "Connecting"
+          : streamStatus === "error"
+            ? "Stream error"
+            : streamStatus === "connected"
+              ? "Stale"
+              : "Reconnecting";
 
     return (
         <div className="relative h-8 border-t border-main bg-secondary/40 flex items-center shrink-0">
@@ -107,11 +172,47 @@ export const TickerBar = () => {
                 className="relative flex items-center px-2 border-r border-main h-full shrink-0 gap-2"
             >
                 <div className="flex items-center gap-1.5">
-                    <Wifi size={11} className="text-emerald-500" />
-                    <span className="text-[10px] font-semibold text-emerald-500 whitespace-nowrap">
-                        Kết nối ổn định
+                    <Wifi
+                        size={11}
+                        className={cn(
+                            isLikelyLive
+                                ? "text-emerald-500"
+                                : streamStatus === "connecting" ||
+                                    streamStatus === "connected"
+                                  ? "text-amber-400"
+                                  : "text-rose-500",
+                        )}
+                    />
+                    <span
+                        className={cn(
+                            "text-[10px] font-semibold whitespace-nowrap",
+                            isLikelyLive
+                                ? "text-emerald-500"
+                                : streamStatus === "connecting" ||
+                                    streamStatus === "connected"
+                                  ? "text-amber-400"
+                                  : "text-rose-500",
+                        )}
+                    >
+                        {statusLabel}
                     </span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                    <span
+                        className={cn(
+                            "w-1.5 h-1.5 rounded-full shrink-0",
+                            isLikelyLive
+                                ? "bg-emerald-500"
+                                : "bg-amber-400 animate-pulse",
+                        )}
+                    />
+                    <span className="text-[9px] text-muted tabular-nums">
+                        {lastUpdateAt
+                            ? new Date(lastUpdateAt).toLocaleTimeString("en-US", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  second: "2-digit",
+                              })
+                            : "--:--:--"}
+                    </span>
                 </div>
 
                 <div className="w-px h-3 bg-main" />
@@ -232,7 +333,7 @@ export const TickerBar = () => {
                                 </span>
                                 <span
                                     className={cn(
-                                        "text-[10px] font-bold",
+                                        "text-[10px] font-bold tabular-nums w-[6px] text-right",
                                         asset.changePercent >= 0
                                             ? "text-emerald-500"
                                             : "text-rose-500",
@@ -241,7 +342,7 @@ export const TickerBar = () => {
                                     {asset.changePercent >= 0 ? "+" : ""}
                                     {asset.changePercent.toFixed(2)}%
                                 </span>
-                                <span className="text-[10px] font-mono text-muted whitespace-nowrap">
+                                <span className="text-[10px] font-mono tabular-nums text-muted whitespace-nowrap w-[78px] text-right">
                                     {priceFmt(asset.price)}
                                 </span>
                             </button>

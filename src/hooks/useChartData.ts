@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
     binanceService,
+    INTERVAL_MAP,
     OhlcvPoint,
     MarketType,
 } from "../services/binanceService";
 import { format } from "date-fns";
+import {
+    normalizeKlineStreamEvent,
+    subscribeSharedStream,
+    type KlineStreamEvent,
+    type MarketStreamStatus,
+} from "../services/marketStreamService";
 
 export type ChartType = "candlestick" | "area";
 export type Indicator = "MA7" | "MA25" | "EMA99";
@@ -109,7 +116,9 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
     const [isLoading, setIsLoading] = useState(true);
     const [isFetchingHistory, setIsFetchingHistory] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const pollRef = useRef<ReturnType<typeof globalThis.setInterval> | null>(
+    const [connectionStatus, setConnectionStatus] =
+        useState<MarketStreamStatus>("connecting");
+    const subscriptionRef = useRef<ReturnType<typeof subscribeSharedStream> | null>(
         null,
     );
 
@@ -136,40 +145,6 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
                 );
             } finally {
                 setIsLoading(false);
-            }
-        },
-        [marketType],
-    );
-
-    const fetchLatest = useCallback(
-        async (sym: string, intv: ChartInterval) => {
-            try {
-                const getKlines = marketType === 'futures'
-                    ? binanceService.getFuturesKlines.bind(binanceService)
-                    : binanceService.getKlines.bind(binanceService);
-                const raw = await getKlines(sym, intv, 2);
-                const mapped: OhlcvPoint[] = raw.map((k: any[]) => ({
-                    ...binanceService.mapKline(k),
-                    time: formatTime(k[0], intv),
-                }));
-                setAllData((prev) => {
-                    const copy = [...prev];
-                    mapped.forEach((newPoint) => {
-                        const idx = copy.findIndex(
-                            (p) => p.timestamp === newPoint.timestamp,
-                        );
-                        if (idx >= 0) {
-                            copy[idx] = newPoint;
-                        } else {
-                            copy.push(newPoint);
-                        }
-                    });
-                    const enriched = enrich(copy);
-                    allDataRef.current = enriched;
-                    return enriched;
-                });
-            } catch {
-                // Ignore poll errors silently
             }
         },
         [marketType],
@@ -216,17 +191,46 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
 
     useEffect(() => {
         fetchInitial(symbol, interval);
-
-        if (pollRef.current) clearInterval(pollRef.current);
-        pollRef.current = globalThis.setInterval(
-            () => fetchLatest(symbol, interval),
-            5000,
-        );
+        const streamInterval = INTERVAL_MAP[interval] ?? interval;
+        subscriptionRef.current?.unsubscribe();
+        subscriptionRef.current = subscribeSharedStream<KlineStreamEvent>({
+            key: `kline:${marketType}:${symbol}:${interval}`,
+            url:
+                marketType === "futures"
+                    ? `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${streamInterval}`
+                    : `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@kline_${streamInterval}`,
+            parser: (raw) => (raw && raw.e === "kline" ? raw : null),
+            onMessage: (raw) => {
+                const point = normalizeKlineStreamEvent(raw);
+                if (!point) return;
+                const nextPoint: OhlcvPoint = {
+                    ...point,
+                    time: formatTime(point.timestamp, interval),
+                };
+                setAllData((prev) => {
+                    const copy = [...prev];
+                    const idx = copy.findIndex(
+                        (p) => p.timestamp === nextPoint.timestamp,
+                    );
+                    if (idx >= 0) {
+                        copy[idx] = nextPoint;
+                    } else {
+                        copy.push(nextPoint);
+                        copy.sort((a, b) => a.timestamp - b.timestamp);
+                    }
+                    const enriched = enrich(copy);
+                    allDataRef.current = enriched;
+                    return enriched;
+                });
+            },
+            onStatus: setConnectionStatus,
+        });
 
         return () => {
-            if (pollRef.current) clearInterval(pollRef.current);
+            subscriptionRef.current?.unsubscribe();
+            subscriptionRef.current = null;
         };
-    }, [symbol, interval, marketType, fetchInitial, fetchLatest]);
+    }, [symbol, interval, marketType, fetchInitial]);
 
     const toggleIndicator = useCallback((ind: Indicator) => {
         setActiveIndicators((prev) => {
@@ -250,5 +254,6 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
         toggleIndicator,
         fetchHistory,
         refetch: () => fetchInitial(symbol, interval),
+        connectionStatus,
     };
 };

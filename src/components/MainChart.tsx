@@ -976,7 +976,7 @@ export const MainChart = () => {
             ) : activeTab === "flow" ? (
                 <FlowPanel />
             ) : (
-                <div className="flex-1 min-h-0 relative">
+                <div className="flex-1 min-h-[260px] relative">
                     {isLoading && data.length === 0 && (
                         <div className="absolute inset-0 flex items-center justify-center bg-main/60 z-10">
                             <div className="flex flex-col items-center space-y-2">
@@ -1009,7 +1009,10 @@ export const MainChart = () => {
                     )}
 
                     {/* Canvas chart container */}
-                    <div ref={chartContainerRef} className="absolute inset-0" />
+                    <div
+                        ref={chartContainerRef}
+                        className="absolute inset-0 min-w-[320px] min-h-[260px]"
+                    />
                 </div>
             )}
         </div>

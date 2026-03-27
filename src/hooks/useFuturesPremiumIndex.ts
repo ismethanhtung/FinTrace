@@ -1,68 +1,123 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { binanceService, FuturesPremiumIndex, MarketType } from '../services/binanceService';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { binanceService, type FuturesPremiumIndex, type MarketType } from "../services/binanceService";
+import {
+    normalizeMarkPriceStreamEvent,
+    subscribeSharedStream,
+    type MarketStreamStatus,
+    type MarkPriceStreamEvent,
+} from "../services/marketStreamService";
 
 export type { FuturesPremiumIndex };
 
 /**
- * Polls Binance Futures premium index for a given symbol when in futures mode.
+ * Fetches Binance Futures premium index with websocket updates.
  * Provides mark price, index price, funding rate, and next funding time.
  *
  * Only fetches when `marketType === 'futures'`; returns null otherwise.
  */
 export const useFuturesPremiumIndex = (
-  symbol: string,
-  marketType: MarketType,
+    symbol: string,
+    marketType: MarketType,
 ) => {
-  const [data, setData] = useState<FuturesPremiumIndex | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+    const [data, setData] = useState<FuturesPremiumIndex | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [connectionStatus, setConnectionStatus] =
+        useState<MarketStreamStatus>("connecting");
+    const abortRef = useRef<AbortController | null>(null);
+    const subscriptionRef = useRef<ReturnType<typeof subscribeSharedStream> | null>(
+        null,
+    );
 
-  const fetchData = useCallback(async () => {
-    if (marketType !== 'futures') {
-      setData(null);
-      setError(null);
-      return;
-    }
+    const fetchData = useCallback(async () => {
+        if (marketType !== "futures") {
+            setData(null);
+            setError(null);
+            setIsLoading(false);
+            return;
+        }
 
-    if (abortRef.current) abortRef.current.abort();
-    abortRef.current = new AbortController();
+        if (abortRef.current) abortRef.current.abort();
+        abortRef.current = new AbortController();
 
-    setIsLoading(true);
-    try {
-      const result = await binanceService.getFuturesPremiumIndex(symbol);
-      setData(result);
-      setError(null);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return;
-      console.error('[useFuturesPremiumIndex] Failed to fetch premium index:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load futures data');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [symbol, marketType]);
+        setIsLoading(true);
+        try {
+            const result = await binanceService.getFuturesPremiumIndex(symbol);
+            setData(result);
+            setError(null);
+        } catch (err: unknown) {
+            if (err instanceof Error && err.name === "AbortError") return;
+            console.error(
+                "[useFuturesPremiumIndex] Failed to fetch premium index:",
+                err,
+            );
+            setError(
+                err instanceof Error ? err.message : "Failed to load futures data",
+            );
+        } finally {
+            setIsLoading(false);
+        }
+    }, [symbol, marketType]);
 
-  useEffect(() => {
-    fetchData();
+    useEffect(() => {
+        fetchData();
 
-    if (marketType !== 'futures') return;
+        subscriptionRef.current?.unsubscribe();
+        if (marketType !== "futures") {
+            setConnectionStatus("disconnected");
+            return () => {
+                abortRef.current?.abort();
+            };
+        }
 
-    // Funding rate updates roughly every 8h but mark price updates constantly;
-    // poll every 10s for a good balance of freshness vs requests.
-    const timer = setInterval(fetchData, 10_000);
-    return () => {
-      clearInterval(timer);
-      abortRef.current?.abort();
+        subscriptionRef.current = subscribeSharedStream<MarkPriceStreamEvent>({
+            key: `mark-price:${symbol}`,
+            url: `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@markPrice@1s`,
+            parser: (raw) => (raw && raw.e === "markPriceUpdate" ? raw : null),
+            onMessage: (raw) => {
+                const normalized = normalizeMarkPriceStreamEvent(raw);
+                if (!normalized) return;
+                setData((prev) => {
+                    const next: FuturesPremiumIndex = {
+                        symbol,
+                        markPrice: String(normalized.markPrice),
+                        indexPrice: String(normalized.indexPrice),
+                        estimatedSettlePrice: prev?.estimatedSettlePrice ?? String(normalized.markPrice),
+                        lastFundingRate: String(normalized.fundingRate),
+                        nextFundingTime: normalized.nextFundingTime,
+                        interestRate: prev?.interestRate ?? "0",
+                        time: normalized.eventTime,
+                    };
+                    return next;
+                });
+            },
+            onStatus: setConnectionStatus,
+        });
+
+        return () => {
+            abortRef.current?.abort();
+            subscriptionRef.current?.unsubscribe();
+            subscriptionRef.current = null;
+        };
+    }, [fetchData, marketType, symbol]);
+
+    /** Derived: funding rate as percentage string (e.g. "+0.0100%") */
+    const fundingRatePct = data
+        ? `${parseFloat(data.lastFundingRate) >= 0 ? "+" : ""}${(parseFloat(data.lastFundingRate) * 100).toFixed(4)}%`
+        : null;
+
+    /** Derived: ms until next funding event */
+    const msToNextFunding = data
+        ? Math.max(0, data.nextFundingTime - Date.now())
+        : null;
+
+    return {
+        data,
+        isLoading,
+        error,
+        fundingRatePct,
+        msToNextFunding,
+        refetch: fetchData,
+        connectionStatus,
     };
-  }, [fetchData, marketType]);
-
-  /** Derived: funding rate as percentage string (e.g. "+0.0100%") */
-  const fundingRatePct = data
-    ? `${parseFloat(data.lastFundingRate) >= 0 ? '+' : ''}${(parseFloat(data.lastFundingRate) * 100).toFixed(4)}%`
-    : null;
-
-  /** Derived: ms until next funding event */
-  const msToNextFunding = data ? Math.max(0, data.nextFundingTime - Date.now()) : null;
-
-  return { data, isLoading, error, fundingRatePct, msToNextFunding, refetch: fetchData };
 };

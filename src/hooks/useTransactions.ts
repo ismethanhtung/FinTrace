@@ -1,155 +1,179 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { binanceService, BinanceRecentTrade, MarketType } from '../services/binanceService';
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    binanceService,
+    type BinanceRecentTrade,
+    type MarketType,
+} from "../services/binanceService";
+import {
+    normalizeTradeStreamEvent,
+    subscribeSharedStream,
+    type TradeStreamEvent,
+} from "../services/marketStreamService";
 
 export type Transaction = {
-  id: number;
-  symbol: string; // base symbol (e.g. BTC)
-  pair: string; // pair id (e.g. BTCUSDT)
-  price: number;
-  qty: number;
-  quoteQty: number;
-  timeMs: number;
-  timeLabel: string;
-  isBuy: boolean;
-  type: 'buy' | 'sell';
+    id: number;
+    symbol: string; // base symbol (e.g. BTC)
+    pair: string; // pair id (e.g. BTCUSDT)
+    price: number;
+    qty: number;
+    quoteQty: number;
+    timeMs: number;
+    timeLabel: string;
+    isBuy: boolean;
+    type: "buy" | "sell";
 };
 
 function mapTrade(t: BinanceRecentTrade, pair: string): Transaction {
-  const quoteQty = t.quoteQty
-    ? parseFloat(t.quoteQty)
-    : parseFloat(t.price) * parseFloat(t.qty);
-  const baseSymbol = pair.replace('USDT', '');
-  const timeLabel = new Date(t.time).toLocaleTimeString('en', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+    const quoteQty = t.quoteQty
+        ? parseFloat(t.quoteQty)
+        : parseFloat(t.price) * parseFloat(t.qty);
+    const baseSymbol = pair.replace("USDT", "");
+    const timeLabel = new Date(t.time).toLocaleTimeString("en", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
 
-  // isBuyerMaker=true => buyer placed maker order => taker (buyer) is the seller
-  const isBuy = !t.isBuyerMaker;
-  return {
-    id: t.id,
-    symbol: baseSymbol,
-    pair,
-    price: parseFloat(t.price),
-    qty: parseFloat(t.qty),
-    quoteQty,
-    timeMs: t.time,
-    timeLabel,
-    isBuy,
-    type: isBuy ? 'buy' : 'sell',
-  };
+    // isBuyerMaker=true => buyer placed maker order => taker (buyer) is the seller
+    const isBuy = !t.isBuyerMaker;
+    return {
+        id: t.id,
+        symbol: baseSymbol,
+        pair,
+        price: parseFloat(t.price),
+        qty: parseFloat(t.qty),
+        quoteQty,
+        timeMs: t.time,
+        timeLabel,
+        isBuy,
+        type: isBuy ? "buy" : "sell",
+    };
 }
 
 export type UseTransactionsOptions = {
-  symbol: string; // pair id, e.g. BTCUSDT
-  marketType: MarketType;
-  limit?: number;
-  pollingMs?: number | null; // null => manual only
+    symbol: string; // pair id, e.g. BTCUSDT
+    marketType: MarketType;
+    limit?: number;
+    pollingMs?: number | null; // kept for API compatibility; websocket-first ignores polling
 };
+
+type FetchMode = "initial" | "manual";
 
 /**
- * Fetch recent trades from Binance spot/futures (REST).
- * Default: polling every 2s (lightweight, not websocket).
+ * Fetch recent trades from Binance spot/futures using a websocket stream.
  */
-type FetchMode = 'initial' | 'poll' | 'manual';
-
 export const useTransactions = ({
-  symbol,
-  marketType,
-  limit = 500,
-  pollingMs = 2000,
+    symbol,
+    marketType,
+    limit = 500,
 }: UseTransactionsOptions) => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const inFlightRef = useRef(false);
-  const mountedRef = useRef(true);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const inFlightRef = useRef(false);
+    const mountedRef = useRef(true);
+    const subscriptionRef = useRef<ReturnType<typeof subscribeSharedStream> | null>(
+        null,
+    );
 
-  const fetchTrades = useCallback(
-    async (mode: FetchMode = 'initial') => {
-      if (!symbol) return;
-      if (inFlightRef.current) return;
-      inFlightRef.current = true;
+    const fetchTrades = useCallback(
+        async (mode: FetchMode = "initial") => {
+            if (!symbol || inFlightRef.current) return;
+            inFlightRef.current = true;
 
-      const isPoll = mode === 'poll';
+            try {
+                if (mode === "initial") {
+                    setIsLoading(true);
+                    setError(null);
+                }
+                if (mode === "manual") {
+                    setIsRefreshing(true);
+                }
 
-      try {
-        if (mode === 'initial') {
-          setIsLoading(true);
-          setError(null);
-        }
-        if (mode === 'manual') {
-          setIsRefreshing(true);
-        }
-        if (!isPoll) {
-          setError(null);
-        }
+                const getTrades =
+                    marketType === "futures"
+                        ? binanceService.getFuturesRecentTrades.bind(binanceService)
+                        : binanceService.getRecentTrades.bind(binanceService);
 
-        const getTrades =
-          marketType === 'futures'
-            ? binanceService.getFuturesRecentTrades.bind(binanceService)
-            : binanceService.getRecentTrades.bind(binanceService);
+                const raw = await getTrades(symbol, limit);
+                const next = raw
+                    .map((t) => mapTrade(t, symbol))
+                    .sort((a, b) => b.timeMs - a.timeMs);
 
-        const raw = await getTrades(symbol, limit);
+                if (mountedRef.current) {
+                    setTransactions(next);
+                    setError(null);
+                }
+            } catch (err: unknown) {
+                console.error("[useTransactions] Failed to fetch transactions:", err);
+                if (mountedRef.current) {
+                    const msg =
+                        err instanceof Error
+                            ? err.message
+                            : "Failed to fetch transactions";
+                    setError(msg);
+                    if (mode === "initial" || mode === "manual") {
+                        setTransactions([]);
+                    }
+                }
+            } finally {
+                inFlightRef.current = false;
+                if (mountedRef.current) {
+                    if (mode === "initial") setIsLoading(false);
+                    if (mode === "manual") setIsRefreshing(false);
+                }
+            }
+        },
+        [marketType, symbol, limit],
+    );
 
-        // Keep newest first for "tape-like" view.
-        const next = raw
-          .map((t) => mapTrade(t, symbol))
-          .sort((a, b) => b.timeMs - a.timeMs);
+    useEffect(() => {
+        mountedRef.current = true;
+        fetchTrades("initial");
 
-        if (mountedRef.current) {
-          setTransactions(next);
-          setError(null);
-        }
-      } catch (err: unknown) {
-        console.error('[useTransactions] Failed to fetch transactions:', err);
-        if (mountedRef.current) {
-          const msg =
-            err instanceof Error ? err.message : 'Failed to fetch transactions';
-          setError(msg);
-          // Chỉ xóa list khi load lần đầu / refresh tay — poll lỗi giữ dữ liệu cũ (giống UX live tape).
-          if (mode === 'initial' || mode === 'manual') {
-            setTransactions([]);
-          }
-        }
-      } finally {
-        inFlightRef.current = false;
-        if (mountedRef.current) {
-          if (mode === 'initial') setIsLoading(false);
-          if (mode === 'manual') setIsRefreshing(false);
-        }
-      }
-    },
-    [marketType, symbol, limit],
-  );
+        subscriptionRef.current?.unsubscribe();
+        subscriptionRef.current = subscribeSharedStream<TradeStreamEvent>({
+            key: `transactions:${marketType}:${symbol}`,
+            url:
+                marketType === "futures"
+                    ? `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@trade`
+                    : `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@trade`,
+            parser: (raw) => (raw && raw.e === "trade" ? raw : null),
+            onMessage: (raw) => {
+                const item = normalizeTradeStreamEvent(raw);
+                if (!item || !mountedRef.current) return;
+                const pair = symbol;
+                const tx = mapTrade(
+                    {
+                        id: item.id,
+                        price: String(item.price),
+                        qty: String(item.qty),
+                        time: item.time,
+                        isBuyerMaker: !item.isBuy,
+                    },
+                    pair,
+                );
+                setTransactions((prev) => {
+                    if (prev.some((t) => t.id === tx.id)) return prev;
+                    return [tx, ...prev].sort((a, b) => b.timeMs - a.timeMs).slice(0, limit);
+                });
+            },
+        });
 
-  useEffect(() => {
-    mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            subscriptionRef.current?.unsubscribe();
+            subscriptionRef.current = null;
+        };
+    }, [fetchTrades, limit, marketType, symbol]);
 
-    fetchTrades('initial');
-
-    if (pollingMs === null) {
-      return () => {
-        mountedRef.current = false;
-      };
-    }
-    const timer = setInterval(() => {
-      fetchTrades('poll');
-    }, pollingMs);
-
-    return () => {
-      mountedRef.current = false;
-      clearInterval(timer);
+    return {
+        transactions,
+        isLoading,
+        isRefreshing,
+        error,
+        refetch: () => fetchTrades("manual"),
     };
-  }, [fetchTrades, pollingMs]);
-
-  return {
-    transactions,
-    isLoading,
-    isRefreshing,
-    error,
-    refetch: () => fetchTrades('manual'),
-  };
 };
+

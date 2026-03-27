@@ -150,7 +150,7 @@ export const binanceService = {
   },
 
   /** Get spot order book depth. limit max = 1000 on Binance */
-  async getDepth(symbol: string, limit: number = 1000): Promise<{ bids: string[][], asks: string[][] }> {
+  async getDepth(symbol: string, limit: number = 1000): Promise<{ lastUpdateId: number; bids: string[][]; asks: string[][] }> {
     const response = await fetch(`${BINANCE_BASE_URL}/depth?symbol=${symbol}&limit=${limit}`);
     if (!response.ok) throw new Error(`Binance depth error: ${response.status}`);
     return response.json();
@@ -202,7 +202,7 @@ export const binanceService = {
   },
 
   /** Get futures order book depth. limit max = 1000 on Binance Futures */
-  async getFuturesDepth(symbol: string, limit: number = 1000): Promise<{ bids: string[][], asks: string[][] }> {
+  async getFuturesDepth(symbol: string, limit: number = 1000): Promise<{ lastUpdateId: number; bids: string[][]; asks: string[][] }> {
     const response = await fetch(`${FAPI_BASE_URL}/depth?symbol=${symbol}&limit=${limit}`);
     if (!response.ok) throw new Error(`Futures depth error: ${response.status}`);
     return response.json();
