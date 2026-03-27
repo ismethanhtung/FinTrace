@@ -30,3 +30,6 @@ Các API routes trong `src/app/api/**` cần được kiểm thử status code, 
   - Existing tests for `/api/news` and `/api/query/nlq` kept passing.
 - Round 3 progress:
   - Added tests cho `/api/ai/key-status`, `/api/binance/logo`, `/api/openrouter/models`, `/api/groq/models`, `/api/huggingface/models`, `/api/market/network-map`.
+- Round 4 progress:
+  - Added integration tests cho `/api/openrouter/chat/completions`, `/api/groq/chat/completions`, `/api/huggingface/chat/completions`.
+  - Added integration tests cho `/api/market-flow` bao gồm success path và fallback khi `aggTrades` lỗi.
