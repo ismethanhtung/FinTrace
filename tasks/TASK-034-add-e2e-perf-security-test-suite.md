@@ -24,3 +24,7 @@ Repo cần lớp kiểm thử ngoài unit/integration để chặn rủi ro rele
 - `e2e/**`
 - `src/**/*.perf.test.ts`
 - `scripts/security-checks.*`
+
+## Round 2 Notes
+- E2E smoke suite and perf suite still passing after expanding integration/unit scope.
+- Coverage improved from ~5.29% lines to ~11.68% lines, but still below 100% gate.

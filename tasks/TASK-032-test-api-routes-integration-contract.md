@@ -25,3 +25,6 @@ Các API routes trong `src/app/api/**` cần được kiểm thử status code, 
 
 ## Notes
 - Ưu tiên `/api/news`, `/api/market-news`, `/api/query/nlq`.
+- Round 2 progress:
+  - Added tests for `/api/general-news` and `/api/query/search`.
+  - Existing tests for `/api/news` and `/api/query/nlq` kept passing.
