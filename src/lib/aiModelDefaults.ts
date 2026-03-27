@@ -9,6 +9,7 @@ export const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
   // Hugging Face Inference Providers (router) OpenAI-compatible Chat Completions
   huggingface: 'openai/gpt-oss-120b:cerebras',
 };
+export const DEFAULT_CUSTOM_MODEL = 'gpt-4o-mini';
 
 const FALLBACK_OPENROUTER_MODELS: AIModelOption[] = [
   {
@@ -41,7 +42,7 @@ const FALLBACK_HUGGINGFACE_MODELS: AIModelOption[] = [
 ];
 
 export function getDefaultModelForProvider(providerId: string): string {
-  return DEFAULT_MODEL_BY_PROVIDER[providerId] ?? DEFAULT_MODEL_BY_PROVIDER.openrouter;
+  return DEFAULT_MODEL_BY_PROVIDER[providerId] ?? DEFAULT_CUSTOM_MODEL;
 }
 
 export function getFallbackModelsForProvider(providerId: string): AIModelOption[] {
@@ -51,7 +52,8 @@ export function getFallbackModelsForProvider(providerId: string): AIModelOption[
     case 'huggingface':
       return FALLBACK_HUGGINGFACE_MODELS;
     case 'openrouter':
-    default:
       return FALLBACK_OPENROUTER_MODELS;
+    default:
+      return [];
   }
 }

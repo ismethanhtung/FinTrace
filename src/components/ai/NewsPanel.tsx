@@ -28,6 +28,7 @@ const NewsItemCard = ({ item }: { item: NewsItem }) => {
       const summaryText = await aiProviderService.chat(
         activeProviderId,
         activeProvider?.apiKey ?? '',
+        activeProvider?.baseUrl,
         selectedModel,
         [
         {

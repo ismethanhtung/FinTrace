@@ -394,6 +394,7 @@ const AddProviderForm = ({
         id: "",
         name: "",
         apiKey: "",
+        baseUrl: "",
         placeholder: "your-api-key",
         websiteUrl: "",
         description: "",
@@ -406,6 +407,7 @@ const AddProviderForm = ({
             id: form.id.trim().toLowerCase().replace(/\s+/g, "-"),
             name: form.name.trim(),
             apiKey: form.apiKey.trim(),
+            baseUrl: form.baseUrl.trim(),
             placeholder: form.placeholder || "your-api-key",
             websiteUrl: form.websiteUrl.trim(),
             description: form.description.trim(),
@@ -414,6 +416,7 @@ const AddProviderForm = ({
             id: "",
             name: "",
             apiKey: "",
+            baseUrl: "",
             placeholder: "your-api-key",
             websiteUrl: "",
             description: "",
@@ -480,6 +483,31 @@ const AddProviderForm = ({
                     placeholder="your-api-key"
                     onChange={(v) => setForm((f) => ({ ...f, apiKey: v }))}
                 />
+            </div>
+            <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
+                    Base URL (OpenAI-compatible) *
+                </label>
+                <input
+                    required
+                    placeholder="https://llm.chiasegpu.vn/v1"
+                    value={form.baseUrl}
+                    onChange={(e) =>
+                        setForm((f) => ({ ...f, baseUrl: e.target.value }))
+                    }
+                    className="w-full bg-main border border-main rounded-lg py-2 px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-accent/30 font-mono"
+                />
+                <p className="text-[11px] text-muted">
+                    Ví dụ: endpoint chat ở{" "}
+                    <code className="bg-secondary border border-main px-1 py-0.5 rounded text-[11px]">
+                        /chat/completions
+                    </code>{" "}
+                    và models ở{" "}
+                    <code className="bg-secondary border border-main px-1 py-0.5 rounded text-[11px]">
+                        /models
+                    </code>
+                    .
+                </p>
             </div>
             <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
@@ -578,7 +606,7 @@ export default function SettingsPage() {
 
         setIsLoadingModels(true);
         aiProviderService
-            .getModels(modelProvider.id, modelProvider.apiKey)
+            .getModels(modelProvider.id, modelProvider.apiKey, modelProvider.baseUrl)
             .then((list) => {
                 const effective =
                     list.length > 0

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getHuggingFaceKey } from '../../../../lib/getHuggingFaceKey';
+import { apiError } from '../../../../lib/ai/apiError';
 
 const HUGGINGFACE_MODELS_URL = 'https://router.huggingface.co/v1/models';
 
@@ -27,10 +28,12 @@ export async function GET(request: Request) {
   }
 
   if (!apiKey) {
-    return NextResponse.json(
-      { error: 'Missing Hugging Face API key' },
-      { status: 401 },
-    );
+    return apiError({
+      providerId: 'huggingface',
+      status: 401,
+      error: 'Missing Hugging Face API key',
+      code: 'MISSING_AUTH',
+    });
   }
 
   const res = await fetch(HUGGINGFACE_MODELS_URL, {
@@ -43,10 +46,13 @@ export async function GET(request: Request) {
 
   if (!res.ok) {
     const errBody = await res.text().catch(() => '');
-    return NextResponse.json(
-      { error: `Hugging Face models error: ${res.status}`, details: errBody },
-      { status: res.status },
-    );
+    return apiError({
+      providerId: 'huggingface',
+      status: res.status,
+      error: `Hugging Face models error: ${res.status}`,
+      details: errBody,
+      code: 'UPSTREAM_ERROR',
+    });
   }
 
   const json: unknown = await res.json();

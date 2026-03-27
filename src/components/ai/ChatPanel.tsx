@@ -222,6 +222,7 @@ export const ChatPanel = () => {
         activeProviderId,
         setActiveProviderId,
         activeProvider,
+        availableProviders,
         serverKeyStatus,
         selectedModel,
         setSelectedModel,
@@ -240,7 +241,7 @@ export const ChatPanel = () => {
         setModels([]);
 
         aiProviderService
-            .getModels(activeProvider.id, activeProvider.apiKey)
+            .getModels(activeProvider.id, activeProvider.apiKey, activeProvider.baseUrl)
             .then((list) => {
                 const effective =
                     list.length > 0
@@ -363,6 +364,7 @@ ${
     } = useAIChat({
         providerId: activeProviderId,
         apiKey: activeProvider?.apiKey ?? "",
+        baseUrl: activeProvider?.baseUrl ?? "",
         model: selectedModel,
         systemPromptTemplate: systemPrompt,
         symbol: selectedSymbol,
@@ -374,6 +376,12 @@ ${
     const [showHistory, setShowHistory] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    const canChat = Boolean(
+        activeProvider &&
+            activeProvider.enabled &&
+            availableProviders.some((p) => p.id === activeProviderId),
+    );
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [activeSession?.messages, isStreaming]);
@@ -381,6 +389,7 @@ ${
     const handleSend = (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!input.trim() || isStreaming) return;
+        if (!canChat) return;
         sendMessage(input);
         setInput("");
     };
@@ -583,7 +592,10 @@ ${
                                                 ),
                                             }}
                                         >
-                                            {msg.content || "..."}
+                                            {msg.content ||
+                                                (msg.isStreaming
+                                                    ? "Fetching coin data and cooking news..."
+                                                    : "...")}
                                         </ReactMarkdown>
                                     </div>
                                 ) : (
@@ -617,7 +629,11 @@ ${
                             4,
                             Math.max(1, input.split("\n").length),
                         )}
-                        placeholder={`Ask AI about ${selectedSymbol.replace("USDT", "")}...`}
+                        placeholder={
+                            canChat
+                                ? `Ask AI about ${selectedSymbol.replace("USDT", "")}...`
+                                : "AI chat is disabled — enable a provider in Settings"
+                        }
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => {
@@ -626,6 +642,7 @@ ${
                                 handleSend();
                             }
                         }}
+                        disabled={!canChat}
                         className="w-full bg-secondary border border-main rounded-lg py-2.5 pl-4 pr-12 text-[12px] text-main focus:outline-none focus:border-accent/50 resize-none thin-scrollbar leading-relaxed placeholder:text-muted"
                         style={{ minHeight: "40px" }}
                     />
@@ -640,7 +657,7 @@ ${
                     ) : (
                         <button
                             type="submit"
-                            disabled={!input.trim()}
+                            disabled={!input.trim() || !canChat}
                             className="absolute right-2 bottom-1.5 p-1.5 w-7 h-7 flex items-center justify-center bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors"
                         >
                             <Send size={12} className="ml-0.5" />

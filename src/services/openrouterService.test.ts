@@ -27,6 +27,7 @@ describe("openrouterService", () => {
         expect(aiProviderService.chat).toHaveBeenCalledWith(
             "openrouter",
             "k",
+            undefined,
             "model",
             [{ role: "user", content: "hi" }],
             undefined,

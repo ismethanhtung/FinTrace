@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getOpenRouterApiKey } from '../../../../lib/getOpenRouterKey';
+import { apiError } from '../../../../lib/ai/apiError';
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 
@@ -29,10 +30,12 @@ export async function GET(request: Request) {
     }
 
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'Missing OpenRouter API key' },
-        { status: 401 },
-      );
+      return apiError({
+        providerId: 'openrouter',
+        status: 401,
+        error: 'Missing OpenRouter API key',
+        code: 'MISSING_AUTH',
+      });
     }
 
     const res = await fetch(OPENROUTER_MODELS_URL, {
@@ -45,10 +48,13 @@ export async function GET(request: Request) {
 
     if (!res.ok) {
       const errBody = await res.text().catch(() => '');
-      return NextResponse.json(
-        { error: `OpenRouter models error: ${res.status}`, details: errBody },
-        { status: res.status },
-      );
+      return apiError({
+        providerId: 'openrouter',
+        status: res.status,
+        error: `OpenRouter models error: ${res.status}`,
+        details: errBody,
+        code: 'UPSTREAM_ERROR',
+      });
     }
 
     const json = await res.json();

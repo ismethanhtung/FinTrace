@@ -1,30 +1,60 @@
 import { NextResponse } from 'next/server';
-import { getOpenRouterApiKey } from '../../../../../lib/getOpenRouterKey';
+import { validateCustomBaseUrl } from '../../../../../lib/ai/customProviderUrl';
 import { apiError } from '../../../../../lib/ai/apiError';
 
-const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
+export const runtime = 'nodejs';
 
 type Role = 'system' | 'user' | 'assistant';
 type ChatMessage = { role: Role; content: string };
 
-function extractApiKeyFromHeaders(req: Request): string | null {
-  const h1 = req.headers.get('x-openrouter-api-key');
-  if (h1 && h1.trim()) return h1.trim();
+function getProviderId(req: Request): string {
+  return (req.headers.get('x-ai-provider-id') || 'custom').trim() || 'custom';
+}
 
+function getBaseUrl(req: Request): string {
+  return (req.headers.get('x-ai-provider-base-url') || '').trim();
+}
+
+function extractBearer(req: Request): string | null {
   const auth = req.headers.get('authorization');
   if (!auth) return null;
   const m = auth.match(/^Bearer\s+(.+)$/i);
   return m?.[1]?.trim() ? m[1].trim() : null;
 }
 
-export const runtime = 'nodejs';
-
 export async function POST(request: Request) {
+  const providerId = getProviderId(request);
+  const baseUrl = getBaseUrl(request);
+  const validated = validateCustomBaseUrl(baseUrl);
+  if (validated.ok === false) {
+    return apiError({
+      providerId,
+      status: 400,
+      error: `Invalid custom provider baseUrl: ${validated.reason}`,
+      code: 'INVALID_BASE_URL',
+    });
+  }
+
+  const apiKey = extractBearer(request);
+  if (!apiKey) {
+    return apiError({
+      providerId,
+      status: 401,
+      error: 'Missing Authorization header',
+      code: 'MISSING_AUTH',
+    });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return apiError({
+      providerId,
+      status: 400,
+      error: 'Invalid JSON body',
+      code: 'INVALID_JSON',
+    });
   }
 
   const parsed = body as Partial<{
@@ -39,38 +69,19 @@ export async function POST(request: Request) {
   const stream = parsed.stream === true;
   const maxTokens = typeof parsed.max_tokens === 'number' ? parsed.max_tokens : 2048;
 
-  if (!model) return NextResponse.json({ error: 'Missing model' }, { status: 400 });
+  if (!model) return apiError({ providerId, status: 400, error: 'Missing model', code: 'MISSING_MODEL' });
   if (!messages || messages.length === 0) {
-    return NextResponse.json({ error: 'Missing messages' }, { status: 400 });
+    return apiError({ providerId, status: 400, error: 'Missing messages', code: 'MISSING_MESSAGES' });
   }
 
-  const apiKeyFromUser = extractApiKeyFromHeaders(request);
-  let apiKey = apiKeyFromUser;
+  const upstreamUrl = new URL(validated.url.toString());
+  upstreamUrl.pathname = `${upstreamUrl.pathname}/chat/completions`.replace(/\/{2,}/g, '/');
 
-  if (!apiKey) {
-    try {
-      apiKey = await getOpenRouterApiKey();
-    } catch {
-      apiKey = null;
-    }
-  }
-
-  if (!apiKey) {
-    return apiError({
-      providerId: 'openrouter',
-      status: 401,
-      error: 'Missing OpenRouter API key',
-      code: 'MISSING_AUTH',
-    });
-  }
-
-  const upstreamRes = await fetch(OPENROUTER_CHAT_URL, {
+  const upstreamRes = await fetch(upstreamUrl.toString(), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://fintrace.app',
-      'X-Title': 'FinTrace AI',
     },
     body: JSON.stringify({
       model,
@@ -83,9 +94,9 @@ export async function POST(request: Request) {
   if (!upstreamRes.ok) {
     const errBody = await upstreamRes.text().catch(() => '');
     return apiError({
-      providerId: 'openrouter',
+      providerId,
       status: upstreamRes.status,
-      error: `OpenRouter chat error: ${upstreamRes.status}`,
+      error: `Custom provider chat error: ${upstreamRes.status}`,
       details: errBody,
       code: 'UPSTREAM_ERROR',
     });
@@ -93,9 +104,13 @@ export async function POST(request: Request) {
 
   if (stream) {
     if (!upstreamRes.body) {
-      return NextResponse.json({ error: 'No response body for stream' }, { status: 500 });
+      return apiError({
+        providerId,
+        status: 500,
+        error: 'No response body for stream',
+        code: 'NO_BODY',
+      });
     }
-
     const headers = new Headers(upstreamRes.headers);
     headers.set('Content-Type', 'text/event-stream');
     headers.set('Cache-Control', 'no-cache, no-transform');

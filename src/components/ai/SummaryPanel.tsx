@@ -20,8 +20,7 @@ import { aiProviderService } from "../../services/aiProviderService";
 
 export const SummaryPanel = () => {
     const { selectedSymbol, assets } = useMarket();
-    const { activeProviderId, activeProvider, selectedModel } =
-        useAppSettings();
+    const { activeProviderId, activeProvider, selectedModel } = useAppSettings();
     const { news } = useCoinNews({ symbol: selectedSymbol });
 
     const [aiReport, setAiReport] = useState<string | null>(null);
@@ -81,6 +80,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
             const report = await aiProviderService.chat(
                 activeProviderId,
                 activeProvider?.apiKey ?? "",
+                activeProvider?.baseUrl,
                 selectedModel,
                 [{ role: "user", content: systemContext }],
             );

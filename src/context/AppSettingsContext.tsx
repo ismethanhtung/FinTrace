@@ -26,13 +26,28 @@ export type AppTheme =
     | "dark5";
 
 export type AIProviderId = "openrouter" | "groq" | string;
+export type BuiltInProviderId = "openrouter" | "groq" | "huggingface";
+
+export const BUILT_IN_PROVIDER_IDS: BuiltInProviderId[] = [
+    "openrouter",
+    "groq",
+    "huggingface",
+];
+
+export function isBuiltInProviderId(providerId: string): providerId is BuiltInProviderId {
+    return BUILT_IN_PROVIDER_IDS.includes(providerId as BuiltInProviderId);
+}
 
 export interface AIProviderConfig {
     id: AIProviderId;
     name: string;
     apiKey: string;
     enabled: boolean;
-    /** Base URL hint – used by UI only, routing goes via Next.js proxy */
+    /**
+     * Base URL for OpenAI-compatible custom providers.
+     * Built-in providers leave this empty.
+     */
+    baseUrl?: string;
     websiteUrl: string;
     placeholder: string;
     description: string;
@@ -104,20 +119,50 @@ function buildDefaultProviders(): AIProviderConfig[] {
         ...p,
         apiKey: "",
         enabled: true,
+        baseUrl: "",
     }));
+}
+
+function normalizeProvider(rawProvider: unknown): AIProviderConfig | null {
+    if (!rawProvider || typeof rawProvider !== "object") return null;
+    const rec = rawProvider as Record<string, unknown>;
+    if (typeof rec.id !== "string" || rec.id.trim().length === 0) return null;
+    if (typeof rec.name !== "string" || rec.name.trim().length === 0) return null;
+    const id = rec.id.trim().toLowerCase().replace(/\s+/g, "-");
+    const isBuiltIn = isBuiltInProviderId(id);
+    return {
+        id,
+        name: rec.name.trim(),
+        apiKey: typeof rec.apiKey === "string" ? rec.apiKey : "",
+        enabled: typeof rec.enabled === "boolean" ? rec.enabled : true,
+        baseUrl: typeof rec.baseUrl === "string" ? rec.baseUrl.trim() : "",
+        websiteUrl: typeof rec.websiteUrl === "string" ? rec.websiteUrl : "",
+        placeholder: typeof rec.placeholder === "string" ? rec.placeholder : "your-api-key",
+        description: typeof rec.description === "string" ? rec.description : "",
+    };
 }
 
 function loadProviders(): AIProviderConfig[] {
     try {
         const raw = localStorage.getItem(PROVIDERS_STORAGE_KEY);
         if (!raw) return buildDefaultProviders();
-        const parsed = JSON.parse(raw) as AIProviderConfig[];
+        const parsedRaw = JSON.parse(raw) as unknown[];
+        const parsed = Array.isArray(parsedRaw)
+            ? parsedRaw
+                  .map(normalizeProvider)
+                  .filter((provider): provider is AIProviderConfig => Boolean(provider))
+            : [];
         // Merge in any new built-in providers not yet persisted
         const existingIds = new Set(parsed.map((p) => p.id));
         const merged = [...parsed];
         for (const bp of BUILT_IN_PROVIDERS) {
             if (!existingIds.has(bp.id)) {
-                merged.push({ ...bp, apiKey: "", enabled: true });
+                merged.push({ ...bp, apiKey: "", enabled: true, baseUrl: "" });
+            }
+        }
+        for (let i = 0; i < merged.length; i += 1) {
+            if (isBuiltInProviderId(merged[i].id)) {
+                merged[i] = { ...merged[i], baseUrl: "" };
             }
         }
         return merged;
@@ -168,6 +213,7 @@ interface AppSettingsValue {
     activeProviderId: AIProviderId;
     setActiveProviderId: (id: AIProviderId) => void;
     activeProvider: AIProviderConfig | undefined;
+    availableProviders: AIProviderConfig[];
     serverKeyStatus: Record<string, boolean>;
 
     // Legacy shim – keeps backward compatibility with existing code
@@ -298,7 +344,16 @@ export const AppSettingsProvider = ({
     const providerHasAvailableKey = useCallback((providerId: AIProviderId) => {
         const provider = aiProviders.find((item) => item.id === providerId);
         if (!provider) return false;
-        return Boolean(provider.apiKey?.trim()) || Boolean(serverKeyStatus[providerId]);
+        const hasUserKey = Boolean(provider.apiKey?.trim());
+        if (hasUserKey) {
+            // Custom providers bắt buộc phải có baseUrl để routing đúng proxy server.
+            if (!isBuiltInProviderId(provider.id)) {
+                return Boolean(provider.baseUrl?.trim());
+            }
+            return true;
+        }
+        if (isBuiltInProviderId(provider.id)) return Boolean(serverKeyStatus[providerId]);
+        return false;
     }, [aiProviders, serverKeyStatus]);
 
     const setFont = useCallback((f: AppFont) => {
@@ -339,7 +394,12 @@ export const AppSettingsProvider = ({
     const addCustomProvider = useCallback((provider: Omit<AIProviderConfig, "enabled">) => {
         setAiProvidersState((prev) => {
             if (prev.find((p) => p.id === provider.id)) return prev;
-            const next = [...prev, { ...provider, enabled: true }];
+            const next = [...prev, {
+                ...provider,
+                id: provider.id.trim().toLowerCase().replace(/\s+/g, "-"),
+                baseUrl: provider.baseUrl?.trim() ?? "",
+                enabled: true,
+            }];
             persistProviders(next);
             return next;
         });
@@ -361,10 +421,12 @@ export const AppSettingsProvider = ({
     }, [persistProviderModels, persistProviders]);
 
     const setActiveProviderId = useCallback((id: AIProviderId) => {
+        const provider = aiProviders.find((item) => item.id === id);
+        if (!provider?.enabled) return;
         if (!providerHasAvailableKey(id)) return;
         setActiveProviderIdState(id);
         localStorage.setItem(SELECTED_PROVIDER_KEY, id);
-    }, [providerHasAvailableKey]);
+    }, [aiProviders, providerHasAvailableKey]);
 
     // Legacy shim for openrouterApiKey
     const openrouterApiKey = aiProviders.find((p) => p.id === "openrouter")?.apiKey ?? "";
@@ -401,15 +463,20 @@ export const AppSettingsProvider = ({
 
     useEffect(() => {
         if (!hasLoadedServerKeyStatus) return;
-        if (providerHasAvailableKey(activeProviderId)) return;
+        const active = aiProviders.find((provider) => provider.id === activeProviderId);
+        if (active?.enabled && providerHasAvailableKey(activeProviderId)) return;
 
         const fallbackProvider = aiProviders.find(
             (provider) =>
                 provider.enabled &&
-                (Boolean(provider.apiKey?.trim()) || Boolean(serverKeyStatus[provider.id])),
+                providerHasAvailableKey(provider.id),
         );
 
-        if (!fallbackProvider || fallbackProvider.id === activeProviderId) return;
+        if (!fallbackProvider) {
+            // No available provider; keep activeProviderId as-is but downstream UI must block.
+            return;
+        }
+        if (fallbackProvider.id === activeProviderId) return;
 
         setActiveProviderIdState(fallbackProvider.id);
         localStorage.setItem(SELECTED_PROVIDER_KEY, fallbackProvider.id);
@@ -418,10 +485,12 @@ export const AppSettingsProvider = ({
         aiProviders,
         hasLoadedServerKeyStatus,
         providerHasAvailableKey,
-        serverKeyStatus,
     ]);
 
     const activeProvider = aiProviders.find((p) => p.id === activeProviderId);
+    const availableProviders = aiProviders.filter(
+        (provider) => provider.enabled && providerHasAvailableKey(provider.id),
+    );
     const selectedModel = getSelectedModel(activeProviderId);
 
     return (
@@ -440,6 +509,7 @@ export const AppSettingsProvider = ({
                 activeProviderId,
                 setActiveProviderId,
                 activeProvider,
+                availableProviders,
                 serverKeyStatus,
                 openrouterApiKey,
                 setOpenrouterApiKey,

@@ -99,6 +99,7 @@ export function NewsPageAiSummaryTooltip({
             const text = await aiProviderService.chat(
                 activeProviderId,
                 apiKey,
+                activeProvider?.baseUrl,
                 selectedModel,
                 [
                     { role: "system", content: SUMMARY_SYSTEM_PROMPT },

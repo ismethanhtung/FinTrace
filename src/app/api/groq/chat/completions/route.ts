@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getGroqApiKey } from '../../../../../lib/getGroqKey';
+import { apiError } from '../../../../../lib/ai/apiError';
 
 const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -51,7 +52,12 @@ export async function POST(request: Request) {
     }
   }
   if (!apiKey) {
-    return NextResponse.json({ error: 'Missing Groq API key' }, { status: 401 });
+    return apiError({
+      providerId: 'groq',
+      status: 401,
+      error: 'Missing Groq API key',
+      code: 'MISSING_AUTH',
+    });
   }
 
   const upstreamRes = await fetch(GROQ_CHAT_URL, {
@@ -65,10 +71,13 @@ export async function POST(request: Request) {
 
   if (!upstreamRes.ok) {
     const errBody = await upstreamRes.text().catch(() => '');
-    return NextResponse.json(
-      { error: `Groq chat error: ${upstreamRes.status}`, details: errBody },
-      { status: upstreamRes.status },
-    );
+    return apiError({
+      providerId: 'groq',
+      status: upstreamRes.status,
+      error: `Groq chat error: ${upstreamRes.status}`,
+      details: errBody,
+      code: 'UPSTREAM_ERROR',
+    });
   }
 
   if (stream) {

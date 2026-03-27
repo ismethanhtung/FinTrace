@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getGroqApiKey } from '../../../../lib/getGroqKey';
+import { apiError } from '../../../../lib/ai/apiError';
 
 const GROQ_MODELS_URL = 'https://api.groq.com/openai/v1/models';
 
@@ -24,7 +25,12 @@ export async function GET(request: Request) {
     }
   }
   if (!apiKey) {
-    return NextResponse.json({ error: 'Missing Groq API key' }, { status: 401 });
+    return apiError({
+      providerId: 'groq',
+      status: 401,
+      error: 'Missing Groq API key',
+      code: 'MISSING_AUTH',
+    });
   }
 
   const res = await fetch(GROQ_MODELS_URL, {
@@ -36,10 +42,13 @@ export async function GET(request: Request) {
 
   if (!res.ok) {
     const errBody = await res.text().catch(() => '');
-    return NextResponse.json(
-      { error: `Groq models error: ${res.status}`, details: errBody },
-      { status: res.status },
-    );
+    return apiError({
+      providerId: 'groq',
+      status: res.status,
+      error: `Groq models error: ${res.status}`,
+      details: errBody,
+      code: 'UPSTREAM_ERROR',
+    });
   }
 
   const json = await res.json();

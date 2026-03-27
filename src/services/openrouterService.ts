@@ -36,7 +36,14 @@ export const openrouterService = {
     messages: ChatMessage[],
     signal?: AbortSignal,
   ): Promise<string> {
-    return aiProviderService.chat('openrouter', apiKey, model, messages, signal);
+    return aiProviderService.chat(
+      'openrouter',
+      apiKey,
+      undefined,
+      model,
+      messages,
+      signal,
+    );
   },
 
   /**
@@ -53,6 +60,7 @@ export const openrouterService = {
     return aiProviderService.chatStream(
       'openrouter',
       apiKey,
+      undefined,
       model,
       messages,
       onChunk,

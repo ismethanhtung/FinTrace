@@ -1,7 +1,6 @@
 /**
  * Unified AI provider service.
- * Routes chat requests to the correct Next.js proxy based on providerId.
- * Adding a new provider = add a case in getProxyBase + a /api/<provider> route.
+ * Routes chat requests to the correct Next.js proxy based on provider config.
  */
 
 export type ChatMessage = {
@@ -14,9 +13,38 @@ export type ModelInfo = {
   name?: string;
 };
 
-// ─── Routing ──────────────────────────────────────────────────────────────────
+export type ProviderRuntimeConfig = {
+  id: string;
+  apiKey: string;
+  baseUrl?: string;
+};
 
-function getProxyBase(providerId: string): string {
+type AiServiceErrorPayload = {
+  providerId: string;
+  status: number;
+  message: string;
+  details?: string;
+  code?: string;
+};
+
+export class AIProviderServiceError extends Error {
+  providerId: string;
+  status: number;
+  details?: string;
+  code?: string;
+
+  constructor(payload: AiServiceErrorPayload) {
+    super(`[${payload.providerId}] ${payload.message}`);
+    this.name = 'AIProviderServiceError';
+    this.providerId = payload.providerId;
+    this.status = payload.status;
+    this.details = payload.details;
+    this.code = payload.code;
+  }
+}
+
+function getProxyBase(config: ProviderRuntimeConfig): string {
+  const providerId = config.id;
   switch (providerId) {
     case 'openrouter':
       return '/api/openrouter';
@@ -25,14 +53,29 @@ function getProxyBase(providerId: string): string {
     case 'huggingface':
       return '/api/huggingface';
     default:
-      // Custom providers fall back to openrouter proxy (user manages routing externally)
-      return '/api/openrouter';
+      if (!config.baseUrl?.trim()) {
+        throw new AIProviderServiceError({
+          providerId,
+          status: 400,
+          message: `Unsupported provider "${providerId}": missing custom baseUrl`,
+          code: 'UNSUPPORTED_PROVIDER',
+        });
+      }
+      return '/api/custom';
   }
 }
 
-function buildHeaders(providerId: string, apiKey: string): Record<string, string> {
+function buildHeaders(config: ProviderRuntimeConfig): Record<string, string> {
+  const providerId = config.id;
+  const apiKey = config.apiKey;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (!apiKey?.trim()) return headers;
+  headers['x-ai-provider-id'] = providerId;
+  if (providerId !== 'openrouter' && providerId !== 'groq' && providerId !== 'huggingface') {
+    headers['x-ai-provider-base-url'] = config.baseUrl?.trim() ?? '';
+  }
+  if (!apiKey?.trim()) {
+    return headers;
+  }
 
   switch (providerId) {
     case 'openrouter':
@@ -47,28 +90,57 @@ function buildHeaders(providerId: string, apiKey: string): Record<string, string
       headers['authorization'] = `Bearer ${apiKey.trim()}`;
       break;
     default:
-      headers['x-openrouter-api-key'] = apiKey.trim();
+      // Generic OpenAI-compatible providers should use Bearer auth.
+      headers['authorization'] = `Bearer ${apiKey.trim()}`;
   }
   return headers;
 }
 
+async function parseErrorResponse(res: Response, providerId: string): Promise<AIProviderServiceError> {
+  const bodyText = await res.text().catch(() => '');
+  let message = `Request failed with status ${res.status}`;
+  let details = bodyText;
+  let code: string | undefined;
+  try {
+    const parsed = JSON.parse(bodyText) as { error?: unknown; details?: unknown; code?: unknown };
+    if (typeof parsed.error === 'string' && parsed.error.trim()) {
+      message = parsed.error;
+    }
+    if (typeof parsed.details === 'string' && parsed.details.trim()) {
+      details = parsed.details;
+    }
+    if (typeof parsed.code === 'string' && parsed.code.trim()) {
+      code = parsed.code;
+    }
+  } catch {
+    // Keep raw text as details
+  }
+  return new AIProviderServiceError({
+    providerId,
+    status: res.status,
+    message,
+    details,
+    code,
+  });
+}
+
 // ─── Model listing ────────────────────────────────────────────────────────────
 
-async function getModels(providerId: string, apiKey: string): Promise<ModelInfo[]> {
-  const base = getProxyBase(providerId);
+async function getModels(config: ProviderRuntimeConfig): Promise<ModelInfo[]> {
+  const base = getProxyBase(config);
 
-  const headers = buildHeaders(providerId, apiKey);
+  const headers = buildHeaders(config);
 
   const res = await fetch(`${base}/models`, { headers });
   if (!res.ok) {
     // 401/403: thiếu hoặc sai khóa — không throw để UI dùng model dự phòng / Settings
     if (res.status === 401 || res.status === 403) {
       console.warn(
-        `[aiProvider] ${providerId} /models: ${res.status} — kiểm tra API key trong Settings`,
+        `[aiProvider] ${config.id} /models: ${res.status} — kiểm tra API key trong Settings`,
       );
       return [];
     }
-    throw new Error(`[${providerId}] models error: ${res.status}`);
+    throw await parseErrorResponse(res, config.id);
   }
 
   const json: unknown = await res.json();
@@ -90,15 +162,14 @@ async function getModels(providerId: string, apiKey: string): Promise<ModelInfo[
 // ─── Streaming chat ───────────────────────────────────────────────────────────
 
 async function chatStream(
-  providerId: string,
-  apiKey: string,
+  config: ProviderRuntimeConfig,
   model: string,
   messages: ChatMessage[],
   onChunk: (text: string) => void,
   signal?: AbortSignal,
 ): Promise<string> {
-  const base = getProxyBase(providerId);
-  const headers = buildHeaders(providerId, apiKey);
+  const base = getProxyBase(config);
+  const headers = buildHeaders(config);
 
   const res = await fetch(`${base}/chat/completions`, {
     method: 'POST',
@@ -108,8 +179,7 @@ async function chatStream(
   });
 
   if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    throw new Error(`[${providerId}] stream error ${res.status}: ${errBody}`);
+    throw await parseErrorResponse(res, config.id);
   }
 
   const reader = res.body?.getReader();
@@ -155,14 +225,13 @@ async function chatStream(
 // ─── Non-streaming chat ───────────────────────────────────────────────────────
 
 async function chat(
-  providerId: string,
-  apiKey: string,
+  config: ProviderRuntimeConfig,
   model: string,
   messages: ChatMessage[],
   signal?: AbortSignal,
 ): Promise<string> {
-  const base = getProxyBase(providerId);
-  const headers = buildHeaders(providerId, apiKey);
+  const base = getProxyBase(config);
+  const headers = buildHeaders(config);
 
   const res = await fetch(`${base}/chat/completions`, {
     method: 'POST',
@@ -172,12 +241,31 @@ async function chat(
   });
 
   if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    throw new Error(`[${providerId}] chat error ${res.status}: ${errBody}`);
+    throw await parseErrorResponse(res, config.id);
   }
 
   const json = await res.json();
   return json.choices?.[0]?.message?.content ?? '';
 }
 
-export const aiProviderService = { getModels, chatStream, chat };
+export const aiProviderService = {
+  getModels: (providerId: string, apiKey: string, baseUrl?: string) =>
+    getModels({ id: providerId, apiKey, baseUrl }),
+  chatStream: (
+    providerId: string,
+    apiKey: string,
+    baseUrl: string | undefined,
+    model: string,
+    messages: ChatMessage[],
+    onChunk: (text: string) => void,
+    signal?: AbortSignal,
+  ) => chatStream({ id: providerId, apiKey, baseUrl }, model, messages, onChunk, signal),
+  chat: (
+    providerId: string,
+    apiKey: string,
+    baseUrl: string | undefined,
+    model: string,
+    messages: ChatMessage[],
+    signal?: AbortSignal,
+  ) => chat({ id: providerId, apiKey, baseUrl }, model, messages, signal),
+};

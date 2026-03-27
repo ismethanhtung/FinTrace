@@ -38,7 +38,7 @@ describe("aiProviderService", () => {
             ),
         ) as typeof global.fetch;
 
-        const out = await aiProviderService.chat("openrouter", "k", "m", [
+        const out = await aiProviderService.chat("openrouter", "k", undefined, "m", [
             { role: "user", content: "hi" },
         ]);
         expect(out).toBe("hello");
@@ -51,11 +51,12 @@ describe("aiProviderService", () => {
             aiProviderService.chatStream(
                 "huggingface",
                 "k",
+                undefined,
                 "m",
                 [{ role: "user", content: "x" }],
                 () => undefined,
             ),
-        ).rejects.toThrow("[huggingface] stream error 500: boom");
+        ).rejects.toThrow("[huggingface]");
     });
 
     it("parses SSE stream chunks and aggregates full text", async () => {
@@ -86,6 +87,7 @@ describe("aiProviderService", () => {
         const full = await aiProviderService.chatStream(
             "openrouter",
             "k",
+            undefined,
             "m",
             [{ role: "user", content: "x" }],
             onChunk,

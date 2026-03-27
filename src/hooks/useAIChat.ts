@@ -55,6 +55,7 @@ function generateTitle(firstUserMessage: string): string {
 interface UseAIChatOptions {
     providerId: string;
     apiKey: string;
+    baseUrl?: string;
     model: string;
     systemPromptTemplate: string; // may contain {CONTEXT} placeholder
     symbol: string;
@@ -65,6 +66,7 @@ interface UseAIChatOptions {
 export const useAIChat = ({
     providerId,
     apiKey,
+    baseUrl,
     model,
     systemPromptTemplate,
     symbol,
@@ -152,6 +154,10 @@ export const useAIChat = ({
     const sendMessage = useCallback(
         async (userText: string): Promise<void> => {
             if (!userText.trim() || isStreaming) return;
+            if (!providerId || !model) {
+                console.warn("[useAIChat] Missing providerId/model");
+                return;
+            }
 
             // Ensure we have an active session
             let sessionId = activeSessionId;
@@ -238,6 +244,7 @@ export const useAIChat = ({
                 await aiProviderService.chatStream(
                     providerId,
                     apiKey,
+                    baseUrl,
                     model,
                     chatMsgs,
                     (chunk) => {
@@ -314,6 +321,7 @@ export const useAIChat = ({
             activeSessionId,
             providerId,
             apiKey,
+            baseUrl,
             model,
             systemPromptTemplate,
             contextSummary,
