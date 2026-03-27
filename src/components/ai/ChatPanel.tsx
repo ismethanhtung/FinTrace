@@ -631,8 +631,8 @@ ${
                         )}
                         placeholder={
                             canChat
-                                ? `Ask AI about ${selectedSymbol.replace("USDT", "")}...`
-                                : "AI chat is disabled — enable a provider in Settings"
+                                ? `Let AI cook ${selectedSymbol.replace("USDT", "")}...`
+                                : "AI is disabled — enable a provider in Settings"
                         }
                         value={input}
                         onChange={(e) => setInput(e.target.value)}

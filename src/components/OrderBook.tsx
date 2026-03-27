@@ -61,15 +61,7 @@ const RecentTrades = ({
                                   : "bg-rose-500",
                         )}
                     />
-                    <span className="text-[9px] text-muted uppercase tracking-wider">
-                        {connectionStatus === "connected"
-                            ? "Live"
-                            : connectionStatus === "connecting"
-                              ? "Syncing"
-                              : connectionStatus === "error"
-                                ? "Error"
-                                : "Reconnecting"}
-                    </span>
+                
                     <Link
                         href="/transactions"
                         className="px-2 py-1 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-semibold"
@@ -158,6 +150,26 @@ const qtyFmt = (v: number): string => {
     return v.toFixed(6);
 };
 
+const topOfBookPriceFmt = (v: number): string => {
+    if (!Number.isFinite(v)) return "—";
+    if (v >= 1000) {
+        return v.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    }
+    if (v >= 1) {
+        return v.toLocaleString("en-US", {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3,
+        });
+    }
+    return v.toLocaleString("en-US", {
+        minimumFractionDigits: 6,
+        maximumFractionDigits: 6,
+    });
+};
+
 // ─── Single Order Row ─────────────────────────────────────────────────────────
 interface OrderRowProps {
     price: number;
@@ -241,7 +253,8 @@ export const OrderBook = () => {
         setIsUserGrouping(false);
     }, [selectedSymbol]);
 
-    const { data, isLoading, connectionStatus, lastUpdatedAt } = useOrderBook(
+    const { data, metrics, isLoading, connectionStatus, lastUpdatedAt } =
+        useOrderBook(
         selectedSymbol,
         grouping,
         marketType,
@@ -267,25 +280,7 @@ export const OrderBook = () => {
                             <span className="text-[10px] font-bold uppercase tracking-widest text-main">
                                 Order Book
                             </span>
-                            <span className="text-[9px] uppercase tracking-wider text-muted flex items-center gap-1">
-                                <Wifi
-                                    size={9}
-                                    className={cn(
-                                        connectionStatus === "connected"
-                                            ? "text-emerald-500"
-                                            : connectionStatus === "connecting"
-                                              ? "text-amber-400"
-                                              : "text-rose-500",
-                                    )}
-                                />
-                                {connectionStatus === "connected"
-                                    ? "Live"
-                                    : connectionStatus === "connecting"
-                                      ? "Syncing"
-                                      : connectionStatus === "error"
-                                        ? "Error"
-                                        : "Reconnecting"}
-                            </span>
+
                         </div>
                         <div className="flex items-center space-x-2">
                             <div className="flex items-center space-x-0.5 bg-secondary border border-main rounded-md p-0.5">
@@ -413,55 +408,47 @@ export const OrderBook = () => {
                     {/* Header */}
                     <div className="px-3 py-2.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-center">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-main">
-                            Depth
+                            {baseSymbol} Depth
                         </span>
+                      
                     </div>
-                    <div className="flex-1 flex flex-col justify-center items-center text-center p-4 space-y-3">
-                        <div className="w-11 h-11 rounded-full bg-main flex items-center justify-center border border-main shadow-sm">
-                            <Activity size={18} className="text-accent" />
-                        </div>
-                        <div>
-                            <div className="text-[12px] font-semibold">
-                                {baseSymbol} Depth
-                            </div>
-                            {data && (
-                                <div className="mt-2 space-y-1">
-                                    <div className="flex justify-between text-[10px]">
-                                        <span className="text-emerald-500">
-                                            Bids
+                    <div className="flex-1 min-h-0 p-3 overflow-y-auto thin-scrollbar">
+                        {data && metrics ? (
+                            <div className="space-y-3">
+                                <div className="rounded-lg border border-main bg-main/40 p-3">
+                                    <div className="flex items-center justify-between min-w-0">
+                                        <span className="text-[9px] uppercase tracking-widest text-muted">
+                                            Total Depth
                                         </span>
-                                        <span className="font-mono text-muted">
+                                        <span className="text-[9px] text-muted font-mono truncate max-w-[55%]">
                                             {qtyFmt(
-                                                data.bids.reduce(
-                                                    (s, b) => s + b.quantity,
-                                                    0,
-                                                ),
+                                                metrics.bidVolume +
+                                                    metrics.askVolume,
                                             )}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between text-[10px]">
-                                        <span className="text-rose-500">
-                                            Asks
-                                        </span>
-                                        <span className="font-mono text-muted">
-                                            {qtyFmt(
-                                                data.asks.reduce(
-                                                    (s, a) => s + a.quantity,
-                                                    0,
-                                                ),
-                                            )}
-                                        </span>
+                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-left min-w-0">
+                                            <div className="text-[9px] uppercase tracking-wider text-emerald-400">
+                                                Bids
+                                            </div>
+                                            <div className="text-[12px] font-mono font-semibold text-emerald-500 truncate">
+                                                {qtyFmt(metrics.bidVolume)}
+                                            </div>
+                                        </div>
+                                        <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-left min-w-0">
+                                            <div className="text-[9px] uppercase tracking-wider text-rose-400">
+                                                Asks
+                                            </div>
+                                            <div className="text-[12px] font-mono font-semibold text-rose-500 truncate">
+                                                {qtyFmt(metrics.askVolume)}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="mt-2 h-1.5 rounded-full overflow-hidden flex">
+                                    <div className="mt-2 h-1.5 rounded-full overflow-hidden flex bg-secondary/40">
                                         {(() => {
-                                            const bidVol = data.bids.reduce(
-                                                (s, b) => s + b.quantity,
-                                                0,
-                                            );
-                                            const askVol = data.asks.reduce(
-                                                (s, a) => s + a.quantity,
-                                                0,
-                                            );
+                                            const bidVol = metrics.bidVolume;
+                                            const askVol = metrics.askVolume;
                                             const total = bidVol + askVol;
                                             const bidPct =
                                                 total > 0
@@ -481,8 +468,108 @@ export const OrderBook = () => {
                                         })()}
                                     </div>
                                 </div>
-                            )}
-                        </div>
+
+                                
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="rounded-md border border-main bg-main/20 px-2 py-1.5 text-left">
+                                        <div className="text-[9px] text-muted">
+                                            Bid Qty
+                                        </div>
+                                        <div className="text-[11px] font-mono text-main">
+                                            {qtyFmt(metrics.bestBidQty)}
+                                        </div>
+                                    </div>
+                                    <div className="rounded-md border border-main bg-main/20 px-2 py-1.5 text-left">
+                                        <div className="text-[9px] text-muted">
+                                            Ask Qty
+                                        </div>
+                                        <div className="text-[11px] font-mono text-main">
+                                            {qtyFmt(metrics.bestAskQty)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="rounded-md border border-main bg-main/20 px-2 py-1.5 text-left">
+                                        <div className="text-[9px] text-muted">
+                                            Spread (bps)
+                                        </div>
+                                        <div className="text-[11px] font-mono text-main">
+                                            {metrics.spreadBps.toFixed(2)}
+                                        </div>
+                                    </div>
+                                    <div className="rounded-md border border-main bg-main/20 px-2 py-1.5 text-left">
+                                        <div className="text-[9px] text-muted">
+                                            Depth tick/s
+                                        </div>
+                                        <div className="text-[11px] font-mono text-main">
+                                            {metrics.updatesPerSec10s.toFixed(1)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="rounded-md border border-main bg-main/30 px-2 py-1.5 text-left">
+                                        <div className="text-[9px] text-muted">
+                                            Best Bid
+                                        </div>
+                                        <div className="text-[12px] font-mono font-semibold text-emerald-500">
+                                            {topOfBookPriceFmt(
+                                                metrics.bestBid,
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="rounded-md border border-main bg-main/30 px-2 py-1.5 text-left">
+                                        <div className="text-[9px] text-muted">
+                                            Best Ask
+                                        </div>
+                                        <div className="text-[12px] font-mono font-semibold text-rose-500">
+                                            {topOfBookPriceFmt(
+                                                metrics.bestAsk,
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-md border border-main bg-main/30 px-2 py-1.5 flex items-center justify-between">
+                                    <div>
+                                        <div className="text-[9px] text-muted">
+                                            Imbalance
+                                        </div>
+                                        <div
+                                            className={cn(
+                                                "text-[11px] font-mono font-semibold",
+                                                metrics.imbalancePct >= 0
+                                                    ? "text-emerald-500"
+                                                    : "text-rose-500",
+                                            )}
+                                        >
+                                            {metrics.imbalancePct >= 0
+                                                ? "+"
+                                                : ""}
+                                            {metrics.imbalancePct.toFixed(1)}%
+                                        </div>
+                                    </div>
+                                    <div
+                                        className={cn(
+                                            "text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border",
+                                            metrics.imbalancePct >= 0
+                                                ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10"
+                                                : "text-rose-400 border-rose-500/40 bg-rose-500/10",
+                                        )}
+                                    >
+                                        {metrics.imbalancePct >= 0
+                                            ? "Bid"
+                                            : "Ask"}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-[11px] text-muted">
+                                Chưa có dữ liệu.
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

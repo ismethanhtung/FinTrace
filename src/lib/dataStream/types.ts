@@ -2,7 +2,8 @@ export type DataStreamMarketType = "spot" | "futures";
 
 export type DataStreamEvent =
     | DataStreamTradeEvent
-    | DataStreamFundingEvent;
+    | DataStreamFundingEvent
+    | DataStreamLiquidationEvent;
 
 export type DataStreamTradeEvent = {
     kind: "trade";
@@ -28,6 +29,25 @@ export type DataStreamFundingEvent = {
     indexPrice?: number;
     nextFundingTimeMs: number;
     eventTimeMs: number;
+    source: string; // "Binance Futures"
+};
+
+export type DataStreamLiquidationEvent = {
+    kind: "liquidation";
+    marketType: "futures";
+    pair: string;
+    token: string;
+    side: "buy" | "sell";
+    orderType: string;
+    status?: string;
+    price: number;
+    avgPrice?: number;
+    qty: number;
+    lastFilledQty?: number;
+    accumulatedFilledQty?: number;
+    usdValue: number; // price * qty
+    eventTimeMs: number;
+    tradeTimeMs?: number;
     source: string; // "Binance Futures"
 };
 
@@ -98,4 +118,3 @@ export type DataStreamWorkerStateMessage = {
     highlightSeq: number;
     lastHighlightRecordId?: string;
 };
-

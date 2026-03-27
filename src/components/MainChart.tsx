@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { IChartApi, UTCTimestamp, LogicalRange } from "lightweight-charts";
 import { useMarket } from "../context/MarketContext";
 import {
@@ -22,9 +22,11 @@ import {
     Waves,
     Zap,
     Clock,
+    AlertTriangle,
 } from "lucide-react";
 import { FlowPanel } from "./FlowPanel";
 import { TokenAvatar } from "./TokenAvatar";
+import { FuturesLiquidationPanel } from "./FuturesLiquidationPanel";
 
 // ─── Price formatter ─────────────────────────────────────────────────────────
 const priceFmt = (v: number) => {
@@ -246,14 +248,28 @@ export const MainChart = () => {
         fetchHistory,
     } = useChartData(selectedSymbol, marketType);
 
-    const [activeTab, setActiveTab] = useState<"chart" | "info" | "flow">(
-        "chart",
-    );
+    type ChartTab = "chart" | "info" | "flow" | "liquidation";
+    const [activeTab, setActiveTab] = useState<ChartTab>("chart");
     const [isPanned, setIsPanned] = useState(false);
 
     const currentAsset = assets.find((a) => a.id === selectedSymbol);
     const isPositive = (currentAsset?.changePercent ?? 0) >= 0;
     const lastPoint = data[data.length - 1];
+    const isFutures = marketType === "futures";
+
+    const tabs = useMemo(
+        () =>
+            (isFutures
+                ? (["chart", "info", "flow", "liquidation"] as const)
+                : (["chart", "info", "flow"] as const)) as readonly ChartTab[],
+        [isFutures],
+    );
+
+    useEffect(() => {
+        if (!tabs.includes(activeTab)) {
+            setActiveTab("chart");
+        }
+    }, [activeTab, tabs]);
 
     // ── Lightweight Charts module (loaded client-only) ──
     const lcRef = useRef<any>(null);
@@ -714,7 +730,7 @@ export const MainChart = () => {
 
                     {/* Tab switcher */}
                     <div className="flex items-center space-x-1 bg-secondary p-0.5 rounded-lg border border-main">
-                        {(["chart", "info", "flow"] as const).map((tab) => (
+                        {tabs.map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
@@ -729,6 +745,8 @@ export const MainChart = () => {
                                     <BarChart2 size={11} />
                                 ) : tab === "info" ? (
                                     <Info size={11} />
+                                ) : tab === "liquidation" ? (
+                                    <AlertTriangle size={11} />
                                 ) : (
                                     <Waves size={11} />
                                 )}
@@ -737,6 +755,8 @@ export const MainChart = () => {
                                         ? "Coin Info"
                                         : tab === "flow"
                                           ? "Flow"
+                                          : tab === "liquidation"
+                                            ? "Liquidation"
                                           : "Chart"}
                                 </span>
                             </button>
@@ -975,6 +995,8 @@ export const MainChart = () => {
                 <CoinInfoPanel />
             ) : activeTab === "flow" ? (
                 <FlowPanel />
+            ) : activeTab === "liquidation" ? (
+                <FuturesLiquidationPanel />
             ) : (
                 <div className="flex-1 min-h-[260px] relative">
                     {isLoading && data.length === 0 && (

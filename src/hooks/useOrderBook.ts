@@ -21,6 +21,17 @@ export type OrderBookEntry = {
 };
 
 export type OrderBookData = DerivedOrderBookData;
+export type OrderBookMetrics = {
+    bidVolume: number;
+    askVolume: number;
+    imbalancePct: number;
+    spreadBps: number;
+    updatesPerSec10s: number;
+    bestBid: number;
+    bestAsk: number;
+    bestBidQty: number;
+    bestAskQty: number;
+};
 
 /**
  * Suggest the best default grouping for a given price.
@@ -73,6 +84,29 @@ function normalizeDepthDiff(raw: any): OrderBookDiff | null {
         pu: typeof raw.pu === "number" ? raw.pu : undefined,
         b: parseSide(raw.b),
         a: parseSide(raw.a),
+    };
+}
+
+type BookTickerEvent = {
+    u?: number;
+    s?: string;
+    b: string;
+    B: string;
+    a: string;
+    A: string;
+};
+
+function normalizeBookTicker(raw: any): BookTickerEvent | null {
+    if (!raw) return null;
+    if (typeof raw.b !== "string" || typeof raw.a !== "string") return null;
+    if (typeof raw.B !== "string" || typeof raw.A !== "string") return null;
+    return {
+        u: typeof raw.u === "number" ? raw.u : undefined,
+        s: typeof raw.s === "string" ? raw.s : undefined,
+        b: raw.b,
+        B: raw.B,
+        a: raw.a,
+        A: raw.A,
     };
 }
 
@@ -137,15 +171,31 @@ export const useOrderBook = (
         useState<MarketStreamStatus>("connecting");
     const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
     const [bookVersion, setBookVersion] = useState(0);
+    const [bookTicker, setBookTicker] = useState<BookTickerEvent | null>(null);
+    const [updatesPerSec10s, setUpdatesPerSec10s] = useState(0);
 
     const bookRef = useRef<OrderBookState | null>(null);
     const pendingDiffsRef = useRef<OrderBookDiff[]>([]);
+    const depthUpdateTsRef = useRef<number[]>([]);
     const loadingSnapshotRef = useRef(false);
     const pendingResyncRef = useRef(false);
     const mountedRef = useRef(true);
     const subscriptionRef = useRef<ReturnType<typeof subscribeSharedStream> | null>(
         null,
     );
+    const bookTickerSubscriptionRef = useRef<
+        ReturnType<typeof subscribeSharedStream> | null
+    >(null);
+
+    const pushDepthUpdateTimestamp = useCallback(() => {
+        const now = Date.now();
+        const cutoff = now - 10_000;
+        depthUpdateTsRef.current.push(now);
+        depthUpdateTsRef.current = depthUpdateTsRef.current.filter(
+            (ts) => ts >= cutoff,
+        );
+        setUpdatesPerSec10s(depthUpdateTsRef.current.length / 10);
+    }, []);
 
     const applyBufferedDiffs = useCallback(() => {
         if (!bookRef.current || !pendingDiffsRef.current.length) return;
@@ -162,9 +212,10 @@ export const useOrderBook = (
             }
             bookRef.current = next;
             setLastUpdatedAt(Date.now());
+            pushDepthUpdateTimestamp();
             setBookVersion((v) => v + 1);
         }
-    }, []);
+    }, [pushDepthUpdateTimestamp]);
 
     const loadSnapshot = useCallback(async () => {
         if (loadingSnapshotRef.current) return;
@@ -179,6 +230,8 @@ export const useOrderBook = (
             const next = createOrderBookState(raw);
             bookRef.current = next;
             pendingDiffsRef.current = [];
+            depthUpdateTsRef.current = [];
+            setUpdatesPerSec10s(0);
             setLastUpdatedAt(Date.now());
             setError(null);
             setBookVersion((v) => v + 1);
@@ -241,25 +294,73 @@ export const useOrderBook = (
                 }
                 bookRef.current = next;
                 setLastUpdatedAt(Date.now());
+                pushDepthUpdateTimestamp();
                 setBookVersion((v) => v + 1);
             },
             onStatus: setConnectionStatus,
+        });
+
+        bookTickerSubscriptionRef.current?.unsubscribe();
+        const pairLower = symbol.toLowerCase();
+        const bookTickerUrl =
+            marketType === "futures"
+                ? `wss://fstream.binance.com/ws/${pairLower}@bookTicker`
+                : `wss://stream.binance.com:9443/ws/${pairLower}@bookTicker`;
+        bookTickerSubscriptionRef.current = subscribeSharedStream<BookTickerEvent>({
+            key: `bookTicker:${marketType}:${pairLower}`,
+            url: bookTickerUrl,
+            parser: normalizeBookTicker,
+            onMessage: (next) => setBookTicker(next),
         });
 
         return () => {
             mountedRef.current = false;
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
+            bookTickerSubscriptionRef.current?.unsubscribe();
+            bookTickerSubscriptionRef.current = null;
         };
-    }, [marketType, resync, symbol, loadSnapshot]);
+    }, [marketType, resync, symbol, loadSnapshot, pushDepthUpdateTimestamp]);
 
     const data = useMemo(
         () => deriveDataFromState(bookRef.current, grouping),
         [bookVersion, grouping],
     );
 
+    const metrics = useMemo<OrderBookMetrics | null>(() => {
+        if (!data) return null;
+        const bidVolume = data.bids.reduce((sum, row) => sum + row.quantity, 0);
+        const askVolume = data.asks.reduce((sum, row) => sum + row.quantity, 0);
+        const total = bidVolume + askVolume;
+        const imbalancePct = total > 0 ? ((bidVolume - askVolume) / total) * 100 : 0;
+        const spreadBps =
+            data.midPrice > 0 ? (data.spread / data.midPrice) * 10_000 : 0;
+
+        const bookBid = Number.parseFloat(bookTicker?.b ?? "");
+        const bookAsk = Number.parseFloat(bookTicker?.a ?? "");
+        const bookBidQty = Number.parseFloat(bookTicker?.B ?? "");
+        const bookAskQty = Number.parseFloat(bookTicker?.A ?? "");
+
+        return {
+            bidVolume,
+            askVolume,
+            imbalancePct,
+            spreadBps,
+            updatesPerSec10s,
+            bestBid: Number.isFinite(bookBid) ? bookBid : data.bids[0]?.price ?? 0,
+            bestAsk: Number.isFinite(bookAsk) ? bookAsk : data.asks[0]?.price ?? 0,
+            bestBidQty: Number.isFinite(bookBidQty)
+                ? bookBidQty
+                : data.bids[0]?.quantity ?? 0,
+            bestAskQty: Number.isFinite(bookAskQty)
+                ? bookAskQty
+                : data.asks[0]?.quantity ?? 0,
+        };
+    }, [bookTicker, data, updatesPerSec10s]);
+
     return {
         data,
+        metrics,
         isLoading,
         error,
         connectionStatus,

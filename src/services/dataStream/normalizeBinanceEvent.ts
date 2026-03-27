@@ -1,6 +1,7 @@
 import type {
     DataStreamEvent,
     DataStreamFundingEvent,
+    DataStreamLiquidationEvent,
     DataStreamTradeEvent,
     DataStreamMarketType,
 } from "../../lib/dataStream/types";
@@ -116,12 +117,52 @@ export function normalizeBinanceFuturesMarkPriceEvent(
     };
 }
 
+export function normalizeBinanceFuturesForceOrderEvent(
+    msg: any,
+    pair: string,
+): DataStreamLiquidationEvent | null {
+    // Binance USD-M force order stream payload:
+    // { e:"forceOrder", E:..., o:{ s,S,o,f,q,p,ap,X,l,z,T }, ... }
+    if (!msg || msg.e !== "forceOrder" || !msg.o) return null;
+
+    const order = msg.o;
+    if (!order || typeof order !== "object") return null;
+
+    const price = safeNum(order.p);
+    const qty = safeNum(order.q);
+    if (price === null || qty === null) return null;
+
+    const side: "buy" | "sell" = order.S === "BUY" ? "buy" : "sell";
+
+    return {
+        kind: "liquidation",
+        marketType: "futures",
+        pair,
+        token: tokenFromPair(pair),
+        side,
+        orderType: typeof order.o === "string" ? order.o : "UNKNOWN",
+        status: typeof order.X === "string" ? order.X : undefined,
+        price,
+        avgPrice: safeNum(order.ap) ?? undefined,
+        qty,
+        lastFilledQty: safeNum(order.l) ?? undefined,
+        accumulatedFilledQty: safeNum(order.z) ?? undefined,
+        usdValue: price * qty,
+        eventTimeMs: typeof msg.E === "number" ? msg.E : Date.now(),
+        tradeTimeMs: safeNum(order.T) ?? undefined,
+        source: "Binance Futures",
+    };
+}
+
 export function normalizeBinanceEvent(
     msg: any,
     pair: string,
     marketType: DataStreamMarketType,
 ): DataStreamEvent | null {
     if (!msg) return null;
+    if (marketType === "futures" && msg.e === "forceOrder") {
+        return normalizeBinanceFuturesForceOrderEvent(msg, pair);
+    }
     // For marking events, `msg` usually carries `r` (funding rate).
     if (marketType === "futures" && typeof msg.r !== "undefined") {
         return normalizeBinanceFuturesMarkPriceEvent(msg, pair);
@@ -132,4 +173,3 @@ export function normalizeBinanceEvent(
     }
     return normalizeBinanceFuturesTradeEvent(msg, pair);
 }
-
