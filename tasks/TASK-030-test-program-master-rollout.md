@@ -38,3 +38,4 @@ Repository cần chuẩn hoá kiểm thử toàn diện theo nhiều lớp (unit
 ## Notes
 - Mục tiêu coverage đặt ở mức 100%; nếu có ngoại lệ tạm thời phải ghi rõ lý do + ngày hết hạn.
 - Vòng 2 (tiếp diễn): tăng coverage cho nhóm `src/app/api/**`, `src/services/**`, `src/lib/get*Key.ts`, `src/services/queryEngineService.ts`.
+- Vòng 3: coverage toàn repo đã tăng lên ~21.57% lines; còn thiếu lớn ở `src/components/**`, `src/hooks/**`, và nhiều page routes.

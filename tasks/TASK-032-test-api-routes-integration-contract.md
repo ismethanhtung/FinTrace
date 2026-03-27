@@ -28,3 +28,5 @@ Các API routes trong `src/app/api/**` cần được kiểm thử status code, 
 - Round 2 progress:
   - Added tests for `/api/general-news` and `/api/query/search`.
   - Existing tests for `/api/news` and `/api/query/nlq` kept passing.
+- Round 3 progress:
+  - Added tests cho `/api/ai/key-status`, `/api/binance/logo`, `/api/openrouter/models`, `/api/groq/models`, `/api/huggingface/models`, `/api/market/network-map`.
