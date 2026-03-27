@@ -14,7 +14,8 @@ describe("binanceService", () => {
 
         await binanceService.getKlines("BTCUSDT", "1H");
 
-        const calledUrl = String(fetchMock.mock.calls[0][0]);
+        const firstCall = fetchMock.mock.calls[0] as unknown[];
+        const calledUrl = String(firstCall[0]);
         expect(calledUrl).toContain("interval=1h");
         expect(calledUrl).toContain(`limit=${INTERVAL_LIMIT["1H"]}`);
     });
