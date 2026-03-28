@@ -241,7 +241,11 @@ export const ChatPanel = () => {
         setModels([]);
 
         aiProviderService
-            .getModels(activeProvider.id, activeProvider.apiKey, activeProvider.baseUrl)
+            .getModels(
+                activeProvider.id,
+                activeProvider.apiKey,
+                activeProvider.baseUrl,
+            )
             .then((list) => {
                 const effective =
                     list.length > 0
@@ -291,7 +295,7 @@ Price: $${currentAsset.price.toLocaleString()}
 24h High: $${currentAsset.high24h?.toLocaleString()}
 24h Low: $${currentAsset.low24h?.toLocaleString()}
 Volume (Base): ${currentAsset.baseVolume}
-CRITICAL INSTRUCTION: You MUST heavily base your analysis on the following recent news headlines AND their summaries. Evaluate if these news items are bullish or bearish, and synthesize that with the technical data above. 
+CRITICAL INSTRUCTION: You MUST heavily base your analysis on the following recent news headlines AND their summaries. Evaluate if these news items are bullish or bearish, and synthesize that with the technical data above.
 If you mention a specific news article, you MUST cite it using markdown links formatted exactly like this: [Read Article](URL) so the user can click it.
 
 NEWS DATA:
@@ -378,8 +382,8 @@ ${
 
     const canChat = Boolean(
         activeProvider &&
-            activeProvider.enabled &&
-            availableProviders.some((p) => p.id === activeProviderId),
+        activeProvider.enabled &&
+        availableProviders.some((p) => p.id === activeProviderId),
     );
 
     useEffect(() => {
@@ -410,8 +414,8 @@ ${
             {/* ── Chat Header bar ── */}
             <div className="px-5 py-3 border-b border-main flex items-center justify-between shrink-0 bg-secondary/30">
                 <div className="flex items-center space-x-2 text-muted">
-                    <TerminalSquare size={14} className="text-accent" />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-main truncate max-w-[150px]">
+                    {/*<TerminalSquare size={14} className="text-accent" />*/}
+                    <span className="text-[10px] font-semibold tracking-wider text-main truncate max-w-[150px]">
                         {activeSession ? activeSession.title : "New Chat"}
                     </span>
                 </div>

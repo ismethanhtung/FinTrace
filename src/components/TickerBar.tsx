@@ -57,6 +57,12 @@ export const TickerBar = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [tickerMode, setTickerMode] = useState<TickerMode>("hot");
     const [nowMs, setNowMs] = useState(() => Date.now());
+    const [isOnline, setIsOnline] = useState(
+        () => (typeof navigator === "undefined" ? true : navigator.onLine),
+    );
+    const [networkQuality, setNetworkQuality] = useState<
+        "good" | "weak" | "offline"
+    >("good");
     const [stableOrderIds, setStableOrderIds] = useState<string[]>([]);
     const settingsRef = useRef<HTMLDivElement>(null);
     const streamStatus =
@@ -69,6 +75,69 @@ export const TickerBar = () => {
     useEffect(() => {
         const id = setInterval(() => setNowMs(Date.now()), 1000);
         return () => clearInterval(id);
+    }, []);
+
+    useEffect(() => {
+        const evaluateQuality = () => {
+            const online = navigator.onLine;
+            setIsOnline(online);
+            if (!online) {
+                setNetworkQuality("offline");
+                return;
+            }
+
+            const connection = (
+                navigator as Navigator & {
+                    connection?: {
+                        effectiveType?: string;
+                        downlink?: number;
+                        rtt?: number;
+                        saveData?: boolean;
+                    };
+                }
+            ).connection;
+
+            if (!connection) {
+                setNetworkQuality("good");
+                return;
+            }
+
+            const isWeak =
+                connection.saveData === true ||
+                (typeof connection.downlink === "number" &&
+                    connection.downlink > 0 &&
+                    connection.downlink < 1.5) ||
+                (typeof connection.rtt === "number" && connection.rtt > 350) ||
+                connection.effectiveType === "2g" ||
+                connection.effectiveType === "slow-2g";
+
+            setNetworkQuality(isWeak ? "weak" : "good");
+        };
+
+        evaluateQuality();
+        window.addEventListener("online", evaluateQuality);
+        window.addEventListener("offline", evaluateQuality);
+        const connection = (
+            navigator as Navigator & {
+                connection?: EventTarget & {
+                    addEventListener?: (
+                        type: "change",
+                        listener: () => void,
+                    ) => void;
+                    removeEventListener?: (
+                        type: "change",
+                        listener: () => void,
+                    ) => void;
+                };
+            }
+        ).connection;
+        connection?.addEventListener?.("change", evaluateQuality);
+
+        return () => {
+            window.removeEventListener("online", evaluateQuality);
+            window.removeEventListener("offline", evaluateQuality);
+            connection?.removeEventListener?.("change", evaluateQuality);
+        };
     }, []);
 
     useEffect(() => {
@@ -154,16 +223,32 @@ export const TickerBar = () => {
     const staleMs =
         typeof lastUpdateAt === "number" ? Math.max(0, nowMs - lastUpdateAt) : null;
     const isLikelyLive =
-        streamStatus === "connected" && staleMs !== null && staleMs < 10_000;
-    const statusLabel = isLikelyLive
-        ? "Stable"
-        : streamStatus === "connecting"
-          ? "Connecting"
-          : streamStatus === "error"
-            ? "Stream error"
-            : streamStatus === "connected"
-              ? "Stale"
-              : "Reconnecting";
+        streamStatus === "connected" &&
+        staleMs !== null &&
+        staleMs < 10_000 &&
+        isOnline;
+    const statusLabel = !isOnline
+        ? "Offline"
+        : networkQuality === "weak"
+          ? "Weak network"
+          : isLikelyLive
+            ? "Stable"
+            : streamStatus === "connecting"
+              ? "Connecting"
+              : streamStatus === "error"
+                ? "Stream error"
+                : streamStatus === "connected"
+                  ? "Stale"
+                  : "Reconnecting";
+    const statusTone = !isOnline
+        ? "text-rose-500"
+        : networkQuality === "weak"
+          ? "text-amber-400"
+          : isLikelyLive
+            ? "text-emerald-500"
+            : streamStatus === "connecting" || streamStatus === "connected"
+              ? "text-amber-400"
+              : "text-rose-500";
 
     return (
         <div className="relative h-8 border-t border-main bg-secondary/40 flex items-center shrink-0">
@@ -174,32 +259,19 @@ export const TickerBar = () => {
                 <div className="flex items-center gap-1.5">
                     <Wifi
                         size={11}
-                        className={cn(
-                            isLikelyLive
-                                ? "text-emerald-500"
-                                : streamStatus === "connecting" ||
-                                    streamStatus === "connected"
-                                  ? "text-amber-400"
-                                  : "text-rose-500",
-                        )}
+                        className={statusTone}
                     />
                     <span
-                        className={cn(
-                            "text-[10px] font-semibold whitespace-nowrap",
-                            isLikelyLive
-                                ? "text-emerald-500"
-                                : streamStatus === "connecting" ||
-                                    streamStatus === "connected"
-                                  ? "text-amber-400"
-                                  : "text-rose-500",
-                        )}
+                        className={cn("text-[10px] font-semibold whitespace-nowrap", statusTone)}
                     >
                         {statusLabel}
                     </span>
                     <span
                         className={cn(
                             "w-1.5 h-1.5 rounded-full shrink-0",
-                            isLikelyLive
+                            !isOnline
+                                ? "bg-rose-500"
+                                : isLikelyLive
                                 ? "bg-emerald-500"
                                 : "bg-amber-400 animate-pulse",
                         )}

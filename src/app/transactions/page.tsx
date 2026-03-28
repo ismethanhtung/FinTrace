@@ -6,13 +6,15 @@ import {
     AlertCircle,
     ArrowDownLeft,
     ArrowUpRight,
+    ArrowUp,
+    ArrowDown,
     RefreshCw,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useEffect, useMemo, useState } from "react";
 import { useMarket } from "../../context/MarketContext";
 import { useTransactions } from "../../hooks/useTransactions";
-import { LineChart, Line, YAxis } from "recharts";
+import { LineChart, Line, YAxis, Tooltip, XAxis, CartesianGrid, ReferenceLine } from "recharts";
 
 /** Giống `OrderBook` — format giá trên tape */
 const tradePriceFmt = (v: number) =>
@@ -33,10 +35,12 @@ const compactUsdFmt = new Intl.NumberFormat("en-US", {
 function MiniTradeSparkline({
     data,
     positive,
+    vwap,
     variant = "compact",
 }: {
-    data: { v: number }[];
+    data: { v: number; ma: number; t: string }[];
     positive: boolean;
+    vwap: number;
     variant?: "compact" | "wide";
 }) {
     const w = variant === "wide" ? 320 : 112;
@@ -63,7 +67,29 @@ function MiniTradeSparkline({
             )}
         >
             <LineChart width={w} height={h} data={data}>
+                {variant === "wide" && (
+                    <CartesianGrid stroke="var(--border-color)" strokeOpacity={0.25} vertical={false} />
+                )}
+                {variant === "wide" && <XAxis dataKey="t" hide />}
                 <YAxis hide domain={["dataMin", "dataMax"]} />
+                {variant === "wide" && Number.isFinite(vwap) && vwap > 0 && (
+                    <ReferenceLine y={vwap} stroke="var(--color-accent, #3b82f6)" strokeDasharray="3 3" />
+                )}
+                {variant === "wide" && (
+                    <Tooltip
+                        contentStyle={{
+                            background: "var(--bg-main)",
+                            border: "1px solid var(--border-color)",
+                            borderRadius: "6px",
+                            fontSize: "10px",
+                        }}
+                        formatter={(value: number, name) => [
+                            `$${tradePriceFmt(value)}`,
+                            name === "v" ? "Price" : "MA20",
+                        ]}
+                        labelFormatter={(label) => `Tick ${label}`}
+                    />
+                )}
                 <Line
                     type="monotone"
                     dataKey="v"
@@ -72,6 +98,16 @@ function MiniTradeSparkline({
                     dot={false}
                     isAnimationActive={false}
                 />
+                {variant === "wide" && (
+                    <Line
+                        type="monotone"
+                        dataKey="ma"
+                        stroke="var(--text-muted, #94a3b8)"
+                        strokeWidth={1.2}
+                        dot={false}
+                        isAnimationActive={false}
+                    />
+                )}
             </LineChart>
         </div>
     );
@@ -137,11 +173,22 @@ export default function TransactionsPage() {
 
         const vwap = totalQty > 0 ? totalQuote / totalQty : 0;
         const positive = len >= 2 ? filtered[0].price >= filtered[len - 1].price : true;
-        const chartData = filtered
+        const priceSeries = filtered
             .slice()
             .reverse()
-            .slice(Math.max(0, filtered.length - 60))
-            .map((t) => ({ v: t.price }));
+            .slice(Math.max(0, filtered.length - 240));
+        const chartData = priceSeries.map((t, i, arr) => {
+            const start = Math.max(0, i - 19);
+            const window = arr.slice(start, i + 1);
+            const ma =
+                window.reduce((sum, item) => sum + item.price, 0) /
+                Math.max(1, window.length);
+            return { v: t.price, ma, t: `${i + 1}` };
+        });
+        const firstChart = chartData[0]?.v ?? 0;
+        const lastChart = chartData[chartData.length - 1]?.v ?? 0;
+        const trendPct =
+            firstChart > 0 ? ((lastChart - firstChart) / firstChart) * 100 : 0;
 
         return {
             len,
@@ -155,6 +202,8 @@ export default function TransactionsPage() {
             vwap,
             positive,
             chartData,
+            chartPoints: chartData.length,
+            trendPct,
         };
     }, [filtered]);
 
@@ -360,12 +409,23 @@ export default function TransactionsPage() {
                         </div>
                         <div className="shrink-0 flex flex-col items-stretch sm:items-center xl:items-end gap-2">
                             <div className="text-[9px] text-muted uppercase tracking-widest font-bold text-center xl:text-right">
-                                Giá (60 tick gần nhất)
+                                Giá ({stats.chartPoints} tick gần nhất)
+                            </div>
+                            <div
+                                className={cn(
+                                    "text-[10px] font-mono tabular-nums flex items-center justify-center xl:justify-end gap-1",
+                                    stats.trendPct >= 0 ? "text-emerald-500" : "text-rose-500",
+                                )}
+                            >
+                                {stats.trendPct >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+                                {stats.trendPct >= 0 ? "+" : ""}
+                                {stats.trendPct.toFixed(2)}%
                             </div>
                             <div className="flex justify-center xl:justify-end w-full">
                                 <MiniTradeSparkline
                                     data={stats.chartData}
                                     positive={stats.positive}
+                                    vwap={stats.vwap}
                                     variant="wide"
                                 />
                             </div>

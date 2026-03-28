@@ -16,11 +16,6 @@ import {
     RefreshCw,
     AlertCircle,
     Trash2,
-    Database,
-    ShoppingCart,
-    LayoutGrid,
-    BookOpenText,
-    Search,
     Moon,
     Sun,
     Palette,
@@ -97,28 +92,24 @@ export default function DataStreamPage() {
                             href="/market"
                             className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
                         >
-                            <ShoppingCart size={13} />
                             <span>Markets</span>
                         </Link>
                         <Link
                             href="/heatmap"
                             className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
                         >
-                            <LayoutGrid size={13} />
                             <span>Heatmap</span>
                         </Link>
                         <Link
                             href="/data-stream"
                             className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
                         >
-                            <Database size={13} />
                             <span>Data Streams</span>
                         </Link>
                         <Link
                             href="/news"
                             className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
                         >
-                            <BookOpenText size={13} />
                             <span>News</span>
                         </Link>
                         <div className="h-4 w-px bg-main border-l border-main" />
@@ -173,7 +164,7 @@ export default function DataStreamPage() {
                                                 connectionStatus === "connected"
                                                     ? "bg-emerald-500 animate-pulse"
                                                     : connectionStatus ===
-                                                          "error"
+                                                        "error"
                                                       ? "bg-rose-500"
                                                       : "bg-amber-400 animate-pulse"
                                             }`}
@@ -184,8 +175,7 @@ export default function DataStreamPage() {
                                                 : connectionStatus ===
                                                     "connecting"
                                                   ? "Connecting..."
-                                                  : connectionStatus ===
-                                                    "error"
+                                                  : connectionStatus === "error"
                                                     ? "WS Error"
                                                     : "Disconnected"}
                                         </div>

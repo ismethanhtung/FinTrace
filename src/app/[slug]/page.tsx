@@ -1,6 +1,7 @@
 import PageLayout from "../../components/PageLayout";
 import Image from "next/image";
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 
 export default async function PlaceholderPage({
     params,
@@ -8,6 +9,19 @@ export default async function PlaceholderPage({
     params: Promise<{ slug: string }>;
 }) {
     const { slug } = await params;
+    const normalizedSlug = slug.trim().toLowerCase();
+
+    // Prevent static asset-like paths from being rendered by the placeholder page.
+    if (slug.includes(".")) {
+        notFound();
+    }
+
+    // Only normalize case for known dedicated routes.
+    // Avoid unconditional redirect that can loop in catch-all resolution.
+    if (normalizedSlug === "liquidation" && slug !== "liquidation") {
+        redirect("/liquidation");
+    }
+
     const title = slug.charAt(0).toUpperCase() + slug.slice(1);
     return (
         <PageLayout title={title}>

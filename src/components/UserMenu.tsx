@@ -13,6 +13,8 @@ import {
     History,
     Bell,
     ChevronDown,
+    AlertTriangle,
+    Waves,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "motion/react";
@@ -26,11 +28,15 @@ export const UserMenu = () => {
             items: [
                 {
                     icon: LayoutDashboard,
-                    label: "Dashboard",
+                    label: "Dashboard (Soon)",
                     href: "/dashboard",
                 },
-                { icon: Activity, label: "Market Explorer", href: "/explorer" },
-                { icon: Wallet, label: "Portfolio", href: "/portfolio" },
+                {
+                    icon: Activity,
+                    label: "Market Explorer (Soon)",
+                    href: "/explorer",
+                },
+                { icon: Wallet, label: "Portfolio (Soon)", href: "/portfolio" },
             ],
         },
         {
@@ -43,6 +49,16 @@ export const UserMenu = () => {
                     href: "/query",
                 },
                 { icon: Cpu, label: "AI Insights (Soon)", href: "/ai" },
+                {
+                    icon: AlertTriangle,
+                    label: "Liquidation",
+                    href: "/liquidation",
+                },
+                {
+                    icon: Waves,
+                    label: "Smart Money",
+                    href: "/smart-money",
+                },
             ],
         },
         {
@@ -96,7 +112,7 @@ export const UserMenu = () => {
                                 </div>
                             </div>
 
-                            <div className="max-h-[400px] overflow-y-auto thin-scrollbar py-1">
+                            <div className="max-h-[600px] overflow-y-auto thin-scrollbar py-1">
                                 {menuItems.map((group, idx) => (
                                     <div key={idx} className="py-1">
                                         <div className="px-3 py-1 text-[10px] font-bold text-muted uppercase tracking-wider">

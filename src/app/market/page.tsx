@@ -638,28 +638,24 @@ export default function MarketPage() {
                             href="/"
                             className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
                         >
-                            <TrendingUp size={13} />
                             <span>Chart</span>
                         </Link>
                         <Link
                             href="/heatmap"
                             className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
                         >
-                            <LayoutGrid size={13} />
                             <span>Heatmap</span>
                         </Link>
                         <Link
                             href="/news"
                             className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
                         >
-                            <BookOpenText size={13} />
                             <span>News</span>
                         </Link>
                         <Link
                             href="/data-stream"
                             className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
                         >
-                            <Database size={13} />
                             <span>Data Streams</span>
                         </Link>
                         <div className="h-4 w-px border-l border-main mx-2" />
@@ -908,7 +904,9 @@ export default function MarketPage() {
                                                                     {coin.name}
                                                                 </div>
                                                                 <div className="text-[10px] text-muted">
-                                                                    {coin.symbol}
+                                                                    {
+                                                                        coin.symbol
+                                                                    }
                                                                 </div>
                                                             </div>
                                                             <button className="ml-1 bg-accent/10 text-accent text-[10px] px-2.5 py-0.5 rounded font-bold opacity-0 group-hover:opacity-100 transition-opacity border border-accent/20">
@@ -948,9 +946,7 @@ export default function MarketPage() {
                                                     <td className="px-5 py-4">
                                                         <div className="flex justify-center">
                                                             <MiniSparkline
-                                                                data={
-                                                                    sparkData
-                                                                }
+                                                                data={sparkData}
                                                                 positive={
                                                                     sparkPositive
                                                                 }

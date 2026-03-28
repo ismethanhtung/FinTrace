@@ -49,14 +49,27 @@ const PERIOD_LIMITS: Record<FlowPeriod, string> = {
 export const useMarketFlow = (symbol: string, period: FlowPeriod = "1d") => {
     const [data, setData] = useState<MarketFlowData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const abortRef = useRef<AbortController | null>(null);
+    const hasLoadedRef = useRef(false);
+
+    useEffect(() => {
+        hasLoadedRef.current = false;
+        setData(null);
+        setIsLoading(true);
+    }, [symbol, period]);
 
     const fetchData = useCallback(async () => {
         if (abortRef.current) abortRef.current.abort();
         abortRef.current = new AbortController();
 
-        setIsLoading(true);
+        const isInitialLoad = !hasLoadedRef.current;
+        if (isInitialLoad) {
+            setIsLoading(true);
+        } else {
+            setIsRefreshing(true);
+        }
         setError(null);
         try {
             const res = await fetch(
@@ -67,11 +80,15 @@ export const useMarketFlow = (symbol: string, period: FlowPeriod = "1d") => {
             const json = await res.json();
             if (json.error) throw new Error(json.error);
             setData(json);
+            hasLoadedRef.current = true;
         } catch (err: any) {
             if (err.name !== "AbortError")
                 setError(err.message || "Unknown error");
         } finally {
-            setIsLoading(false);
+            if (isInitialLoad) {
+                setIsLoading(false);
+            }
+            setIsRefreshing(false);
         }
     }, [symbol, period]);
 
@@ -95,5 +112,5 @@ export const useMarketFlow = (symbol: string, period: FlowPeriod = "1d") => {
         };
     }, [fetchData]);
 
-    return { data, isLoading, error, refetch: fetchData };
+    return { data, isLoading, isRefreshing, error, refetch: fetchData };
 };

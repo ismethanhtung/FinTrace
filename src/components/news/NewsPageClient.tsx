@@ -56,7 +56,7 @@ const monoFont = JetBrains_Mono({
 });
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-const ARTICLES_PER_PAGE = 8; // 2 left + 3 center + 3 right
+const ARTICLES_PER_PAGE = 18; // 4 left + 7 center + 7 right
 const REFRESH_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 function formatCompactUsd(value: number): string {
@@ -124,7 +124,7 @@ export const NewsPageClient = () => {
     // ─── Fetch news from API ───────────────────────────────────────────────────
     const fetchNews = async () => {
         try {
-            const res = await fetch("/api/general-news");
+            const res = await fetch("/api/general-news?limit=90");
             if (!res.ok) throw new Error(`API Error: ${res.status}`);
             const data = await res.json();
             if (data.articles && Array.isArray(data.articles)) {
@@ -163,9 +163,9 @@ export const NewsPageClient = () => {
     const currentArticles = articles.slice(startIdx, endIdx);
 
     // Split articles into columns
-    const leftArticles = currentArticles.slice(0, 2); // 2 articles
-    const centerArticles = currentArticles.slice(2, 5); // 3 articles
-    const rightArticles = currentArticles.slice(5, 8); // 3 articles
+    const leftArticles = currentArticles.slice(0, 4); // 4 articles
+    const centerArticles = currentArticles.slice(4, 11); // 7 articles
+    const rightArticles = currentArticles.slice(11, 18); // 7 articles
 
     const handlePrevious = () => {
         setCurrentPage((prev) => Math.max(0, prev - 1));

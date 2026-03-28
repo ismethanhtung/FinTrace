@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     AreaChart,
     Area,
@@ -9,7 +9,6 @@ import {
     XAxis,
     YAxis,
     Tooltip,
-    ResponsiveContainer,
     Cell,
     PieChart,
     Pie,
@@ -143,7 +142,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export const FlowPanel = () => {
     const { selectedSymbol } = useMarket();
     const [period, setPeriod] = useState<FlowPeriod>("1d");
-    const { data, isLoading, error, refetch } = useMarketFlow(
+    const { data, isLoading, isRefreshing, error, refetch } = useMarketFlow(
         selectedSymbol,
         period,
     );
@@ -159,16 +158,20 @@ export const FlowPanel = () => {
         : 0;
     const totalNet = totalBuy - totalSell;
 
-    const donutData = buckets
-        ? [
+    const donutData = useMemo(
+        () =>
+            buckets
+                ? [
               { name: "Mua Lớn", value: buckets.large.buy, fill: "#10b981" },
               { name: "Mua TB", value: buckets.medium.buy, fill: "#34d399" },
               { name: "Mua Nhỏ", value: buckets.small.buy, fill: "#6ee7b7" },
               { name: "Bán Nhỏ", value: buckets.small.sell, fill: "#fca5a5" },
               { name: "Bán TB", value: buckets.medium.sell, fill: "#fb7185" },
               { name: "Bán Lớn", value: buckets.large.sell, fill: "#f43f5e" },
-          ]
-        : [];
+                  ]
+                : [],
+        [buckets],
+    );
 
     const lsChartData = (data?.longShortRatio ?? []).map((d) => ({
         time: new Date(d.timestamp).toLocaleDateString("vi-VN", {
@@ -257,14 +260,7 @@ export const FlowPanel = () => {
                 </button>
             </div>
 
-            <div
-                className={cn(
-                    "transition-opacity duration-300 grid grid-cols-1 lg:grid-cols-2 gap-px bg-main",
-                    isLoading
-                        ? "opacity-50 pointer-events-none"
-                        : "opacity-100",
-                )}
-            >
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-main">
                 {/* Row 1: Donut (L) + Table (R) */}
                 <section className="bg-main p-4 border-b border-main lg:border-r">
                     <div className="flex items-center space-x-1.5 mb-3">
@@ -274,9 +270,9 @@ export const FlowPanel = () => {
                         <Info size={11} className="text-muted" />
                     </div>
                     <div className="flex items-center gap-4">
-                        <div className="w-40 h-40 shrink-0">
-                            <ResponsiveContainer width="100%" height="100%" minWidth={160} minHeight={160}>
-                                <PieChart>
+                        <SizedChartContainer className="w-40 h-40 shrink-0 min-w-[160px] min-h-[160px]">
+                            {({ width, height }) => (
+                                <PieChart width={width} height={height}>
                                     <Pie
                                         data={donutData}
                                         cx="50%"
@@ -295,8 +291,8 @@ export const FlowPanel = () => {
                                     </Pie>
                                     <Tooltip content={<CustomTooltip />} />
                                 </PieChart>
-                            </ResponsiveContainer>
-                        </div>
+                            )}
+                        </SizedChartContainer>
                         {buckets && (
                             <div className="flex-1 space-y-0.5 text-[9px]">
                                 {donutData.map((d) => (
@@ -429,9 +425,11 @@ export const FlowPanel = () => {
                         </span>
                         <Info size={11} className="text-muted" />
                     </div>
-                    <div className="h-44">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={176}>
+                    <SizedChartContainer className="h-44 w-full min-w-[200px] min-h-[176px]">
+                        {({ width, height }) => (
                             <BarChart
+                                width={width}
+                                height={height}
                                 data={takerChartData}
                                 margin={{
                                     top: 8,
@@ -459,8 +457,8 @@ export const FlowPanel = () => {
                                     ))}
                                 </Bar>
                             </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                        )}
+                    </SizedChartContainer>
                 </section>
 
                 <section className="bg-main p-4 border-b border-main">
@@ -470,9 +468,11 @@ export const FlowPanel = () => {
                         </span>
                         <Info size={11} className="text-muted" />
                     </div>
-                    <div className="h-44">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={176}>
+                    <SizedChartContainer className="h-44 w-full min-w-[200px] min-h-[176px]">
+                        {({ width, height }) => (
                             <AreaChart
+                                width={width}
+                                height={height}
                                 data={oiChartData}
                                 margin={{
                                     top: 8,
@@ -492,8 +492,8 @@ export const FlowPanel = () => {
                                     fillOpacity={0.15}
                                 />
                             </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
+                        )}
+                    </SizedChartContainer>
                 </section>
 
                 {/* Row 3: L/S Ratio (Spans 2 columns if on large screen) */}
@@ -518,9 +518,11 @@ export const FlowPanel = () => {
                                 );
                             })()}
                     </div>
-                    <div className="h-44">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={176}>
+                    <SizedChartContainer className="h-44 w-full min-w-[300px] min-h-[176px]">
+                        {({ width, height }) => (
                             <AreaChart
+                                width={width}
+                                height={height}
                                 data={lsChartData}
                                 margin={{
                                     top: 8,
@@ -546,8 +548,8 @@ export const FlowPanel = () => {
                                     fillOpacity={0.15}
                                 />
                             </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
+                        )}
+                    </SizedChartContainer>
                 </section>
 
                 {isLoading && !data && (
@@ -562,6 +564,55 @@ export const FlowPanel = () => {
                     </div>
                 )}
             </div>
+            {isRefreshing && (
+                <div className="sticky bottom-2 flex justify-center pointer-events-none">
+                    <div className="px-2 py-1 rounded-md border border-main bg-main/90 text-[10px] text-muted inline-flex items-center gap-1.5">
+                        <RefreshCw size={10} className="animate-spin" />
+                        Đang cập nhật dữ liệu...
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const SizedChartContainer = ({
+    className,
+    children,
+}: {
+    className: string;
+    children: (size: { width: number; height: number }) => React.ReactNode;
+}) => {
+    const ref = useRef<HTMLDivElement>(null);
+    const [size, setSize] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+
+        const updateSize = () => {
+            const rect = el.getBoundingClientRect();
+            const width = Math.floor(rect.width);
+            const height = Math.floor(rect.height);
+            if (width <= 0 || height <= 0) return;
+            setSize((prev) =>
+                prev.width === width && prev.height === height
+                    ? prev
+                    : { width, height },
+            );
+        };
+
+        updateSize();
+        const observer = new ResizeObserver(updateSize);
+        observer.observe(el);
+
+        return () => observer.disconnect();
+    }, []);
+
+    const hasSize = size.width > 0 && size.height > 0;
+    return (
+        <div ref={ref} className={className}>
+            {hasSize ? children(size) : null}
         </div>
     );
 };

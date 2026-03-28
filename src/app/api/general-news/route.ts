@@ -1,7 +1,7 @@
 /**
  * GET /api/general-news
  *
- * Fetches ~20 general crypto news articles from Google News RSS.
+ * Fetches up to ~90 general crypto news articles from Google News RSS.
  * Results are cached server-side for 30 minutes to avoid rate limits.
  *
  * Returns NewsArticle[] sorted by most recent first.
@@ -57,38 +57,65 @@ const RSS_QUERIES = [
 async function fetchNewsArticles(): Promise<GeneralNewsArticle[]> {
     const parser = new Parser();
 
-    // Use random query to get varied news
-    const query = RSS_QUERIES[Math.floor(Math.random() * RSS_QUERIES.length)];
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
-
     try {
-        const feed = await parser.parseURL(rssUrl);
+        const feedResults = await Promise.allSettled(
+            RSS_QUERIES.map(async (query) => {
+                const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+                return parser.parseURL(rssUrl);
+            }),
+        );
+        const feeds = feedResults
+            .filter(
+                (
+                    result,
+                ): result is PromiseFulfilledResult<Awaited<ReturnType<Parser["parseURL"]>>> =>
+                    result.status === "fulfilled",
+            )
+            .map((result) => result.value);
+        if (feeds.length === 0) {
+            throw new Error("All RSS sources failed");
+        }
 
-        const articles = feed.items.slice(0, 20).map((item, index) => {
-            const rawDesc =
-                item.contentSnippet || item.content || item.summary || "";
-            const cleanDesc = rawDesc
-                .replace(/(<([^>]+)>)/gi, "")
-                .substring(0, 500);
-            const cleanTitle = (item.title || "Crypto News")
-                .replace(/ - [^-]+$/, "")
-                .trim();
-            const source =
-                (item as any).source?.title || item.creator || feed.title || "News";
+        const deduped = new Map<string, GeneralNewsArticle>();
+        let globalIndex = 0;
 
-            return {
-                id: item.guid || `rss-${index}`,
-                title: cleanTitle,
-                url: item.link || "",
-                source: String(source).split(" ")[0],
-                publishedAt:
-                    item.isoDate || item.pubDate || new Date().toISOString(),
-                relativeTime: relativeTime(
-                    item.isoDate || item.pubDate || new Date().toISOString(),
-                ),
-                description: cleanDesc,
-            };
-        });
+        for (const feed of feeds) {
+            for (const item of feed.items.slice(0, 40)) {
+                const rawDesc =
+                    item.contentSnippet || item.content || item.summary || "";
+                const cleanDesc = rawDesc
+                    .replace(/(<([^>]+)>)/gi, "")
+                    .trim()
+                    .substring(0, 500);
+                const cleanTitle = (item.title || "Crypto News")
+                    .replace(/ - [^-]+$/, "")
+                    .trim();
+                const source =
+                    (item as any).source?.title ||
+                    item.creator ||
+                    feed.title ||
+                    "News";
+                const publishedAt =
+                    item.isoDate || item.pubDate || new Date().toISOString();
+                const url = item.link || "";
+
+                const dedupeKey =
+                    (url || cleanTitle).toLowerCase().replace(/\s+/g, " ").trim();
+                if (!dedupeKey || deduped.has(dedupeKey)) continue;
+
+                deduped.set(dedupeKey, {
+                    id: item.guid || `rss-${globalIndex++}`,
+                    title: cleanTitle,
+                    url,
+                    source: String(source).split(" ")[0],
+                    publishedAt,
+                    relativeTime: relativeTime(publishedAt),
+                    description: cleanDesc,
+                });
+            }
+        }
+
+        const articles = [...deduped.values()];
 
         // Sort by most recent first
         return articles.sort(
@@ -107,6 +134,10 @@ async function fetchNewsArticles(): Promise<GeneralNewsArticle[]> {
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const forceRefresh = searchParams.get("refresh") === "1";
+    const limitParam = Number.parseInt(searchParams.get("limit") || "", 10);
+    const limit = Number.isFinite(limitParam)
+        ? Math.min(Math.max(limitParam, 12), 120)
+        : 90;
 
     // Serve from cache if fresh
     if (
@@ -116,7 +147,7 @@ export async function GET(request: Request) {
     ) {
         return NextResponse.json(
             {
-                articles: _cache.articles,
+                articles: _cache.articles.slice(0, limit),
                 cachedAt: new Date(_cache.fetchedAt).toISOString(),
                 cacheValid: true,
             },
@@ -135,7 +166,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json(
             {
-                articles,
+                articles: articles.slice(0, limit),
                 cachedAt: new Date(_cache.fetchedAt).toISOString(),
                 cacheValid: true,
             },
@@ -153,7 +184,7 @@ export async function GET(request: Request) {
         if (_cache) {
             return NextResponse.json(
                 {
-                    articles: _cache.articles,
+                    articles: _cache.articles.slice(0, limit),
                     cachedAt: new Date(_cache.fetchedAt).toISOString(),
                     cacheValid: false,
                     warning: "Stale cache served due to fetch error",
