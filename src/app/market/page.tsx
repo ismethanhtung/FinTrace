@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { QuickSearchDropdown } from "../../components/AssetList";
 import { UserMenu } from "../../components/UserMenu";
 import { cn } from "../../lib/utils";
+import { WorldSwitch } from "../../components/shell/WorldSwitch";
 import {
     NetworkMapPayload,
     shouldKeepByNetwork,
@@ -496,7 +497,7 @@ function CoinAvatar({ symbol, logoUrl }: { symbol: string; logoUrl?: string }) {
 export default function MarketPage() {
     const router = useRouter();
     const { theme, toggleTheme } = useAppSettings();
-    const { marketType, setMarketType, setSelectedSymbol } = useMarket();
+    const { marketType, setMarketType, setSelectedSymbol, isMockUniverse, universe } = useMarket();
     const { rows, stats, isLoading, refetch } = useMarketPageData();
 
     const handleRowClick = (symbol: string) => {
@@ -659,6 +660,7 @@ export default function MarketPage() {
                             <span>Data Streams</span>
                         </Link>
                         <div className="h-4 w-px border-l border-main mx-2" />
+                        <WorldSwitch />
                         <QuickSearchDropdown />
                     </nav>
                 </div>
@@ -673,7 +675,7 @@ export default function MarketPage() {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             type="text"
-                            placeholder="Search coins..."
+                            placeholder="Search assets..."
                             className="bg-secondary border border-transparent hover:border-main rounded-md py-1.5 pl-8 pr-3 text-[12px] w-48 focus:w-64 focus:outline-none focus:ring-1 focus:ring-accent/30 transition-all"
                         />
                     </div>
@@ -703,6 +705,11 @@ export default function MarketPage() {
                 {/* ── Sub-tabs + Insights row ──────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar">
+                        {isMockUniverse && (
+                            <span className="px-2 py-1 rounded-md border border-amber-400/25 bg-amber-400/15 text-amber-400 text-[10px] font-semibold uppercase tracking-wider">
+                                {universe} mock
+                            </span>
+                        )}
                         {SUB_TABS.map((tab) => (
                             <div key={tab} className="relative">
                                 <button

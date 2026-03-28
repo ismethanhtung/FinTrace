@@ -1,29 +1,23 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { MainChart } from "../components/MainChart";
-import { RightPanel } from "../components/RightPanel";
-import { UserMenu } from "../components/UserMenu";
-import { LeftSidebar } from "../components/LeftSidebar";
-import { OrderBook } from "../components/OrderBook";
-import { TickerBar } from "../components/TickerBar";
-import { QuickSearchDropdown } from "../components/AssetList";
-import { WorldSwitch } from "../components/shell/WorldSwitch";
-import { useMarket } from "../context/MarketContext";
-import {
-    useAppSettings,
-    THEME_CYCLE,
-    AppTheme,
-} from "../context/AppSettingsContext";
-import { Moon, Sun, RefreshCw, Palette } from "lucide-react";
+import React, { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import {
+    AlertTriangle,
+    BookOpenText,
+    Moon,
+    Palette,
+    RefreshCw,
+    Sun,
+} from "lucide-react";
+import { LeftSidebar } from "../../components/LeftSidebar";
+import { FuturesLiquidationPanel } from "../../components/FuturesLiquidationPanel";
+import { UserMenu } from "../../components/UserMenu";
+import { QuickSearchDropdown } from "../../components/AssetList";
+import { useAppSettings, AppTheme } from "../../context/AppSettingsContext";
+import { WorldSwitch } from "../../components/shell/WorldSwitch";
 
-const BOTTOM_MIN = 100;
-const BOTTOM_MAX = 460;
-const BOTTOM_DEFAULT = 240;
-
-// ─── Per-theme icon & label ─────────────────────────────────────────────────
 const THEME_META: Record<AppTheme, { icon: React.ReactNode; label: string }> = {
     light: { icon: <Sun size={14} />, label: "Light" },
     dark1: { icon: <Moon size={14} />, label: "Dark I" },
@@ -33,70 +27,22 @@ const THEME_META: Record<AppTheme, { icon: React.ReactNode; label: string }> = {
     dark5: { icon: <Moon size={14} />, label: "Dark V" },
 };
 
-export default function App() {
+export default function LiquidationPage() {
     const { theme, toggleTheme } = useAppSettings();
+    const meta = useMemo(() => THEME_META[theme], [theme]);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [bottomHeight, setBottomHeight] = useState(BOTTOM_DEFAULT);
-    const { assets, selectedSymbol } = useMarket();
-
-    const currentAsset = assets.find((a) => a.id === selectedSymbol);
+    const [panelKey, setPanelKey] = useState(0);
 
     const handleRefresh = () => {
         setIsRefreshing(true);
-        setTimeout(() => setIsRefreshing(false), 1000);
+        setPanelKey((prev) => prev + 1);
+        setTimeout(() => setIsRefreshing(false), 800);
     };
-
-    // ── Vertical resize for bottom pane ──────────────────────────────────────
-    const isDraggingBottom = useRef(false);
-    const startY = useRef(0);
-    const startHeight = useRef(BOTTOM_DEFAULT);
-
-    const onBottomHandleMouseDown = useCallback(
-        (e: React.MouseEvent) => {
-            isDraggingBottom.current = true;
-            startY.current = e.clientY;
-            startHeight.current = bottomHeight;
-            document.body.style.cursor = "row-resize";
-            document.body.style.userSelect = "none";
-            e.preventDefault();
-        },
-        [bottomHeight],
-    );
-
-    useEffect(() => {
-        const onMove = (e: MouseEvent) => {
-            if (!isDraggingBottom.current) return;
-            // Dragging up = bigger bottom pane (negative delta from start)
-            const delta = startY.current - e.clientY;
-            setBottomHeight(
-                Math.min(
-                    BOTTOM_MAX,
-                    Math.max(BOTTOM_MIN, startHeight.current + delta),
-                ),
-            );
-        };
-        const onUp = () => {
-            if (!isDraggingBottom.current) return;
-            isDraggingBottom.current = false;
-            document.body.style.cursor = "";
-            document.body.style.userSelect = "";
-        };
-        document.addEventListener("mousemove", onMove);
-        document.addEventListener("mouseup", onUp);
-        return () => {
-            document.removeEventListener("mousemove", onMove);
-            document.removeEventListener("mouseup", onUp);
-        };
-    }, []);
-
-    const meta = THEME_META[theme];
 
     return (
         <div className="flex flex-col h-screen w-full bg-main text-main overflow-hidden">
-            {/* ── Global Header ── */}
             <header className="h-12 border-b border-main flex items-center justify-between px-4 bg-main z-50 shrink-0">
                 <div className="flex items-center space-x-6">
-                    {/* Logo */}
                     <div className="flex items-center space-x-2">
                         <Image
                             src="/logo.gif"
@@ -112,7 +58,6 @@ export default function App() {
                         </span>
                     </div>
 
-                    {/* Nav: watchlist dropdown + quick search */}
                     <nav className="flex items-center space-x-2">
                         <Link
                             href="/market"
@@ -144,10 +89,8 @@ export default function App() {
                     </nav>
                 </div>
 
-                {/* Right controls */}
                 <div className="flex items-center space-x-3">
                     <div className="flex items-center space-x-1">
-                        {/* Theme toggle */}
                         <button
                             onClick={toggleTheme}
                             className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main"
@@ -160,7 +103,11 @@ export default function App() {
                         </button>
                         <button
                             onClick={handleRefresh}
-                            className={`p-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary ${isRefreshing ? "animate-spin" : ""}`}
+                            className={`p-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary ${
+                                isRefreshing ? "animate-spin" : ""
+                            }`}
+                            title="Reload liquidation stream"
+                            aria-label="Reload liquidation stream"
                         >
                             <RefreshCw size={14} />
                         </button>
@@ -175,42 +122,29 @@ export default function App() {
                 </div>
             </header>
 
-            {/* ── Main Layout ── */}
-            <div className="flex-1 flex min-h-0">
-                {/* Left Sidebar */}
-                <LeftSidebar />
+            <main className="flex-1 min-h-0 flex flex-col overflow-hidden p-6 sm:p-8 mx-auto w-full max-w-[1600px]">
+                <div className="flex min-h-0 flex-1 w-full rounded-xl border border-main overflow-hidden bg-main">
+                    <LeftSidebar embedded />
 
-                {/* Center: Chart + Order Book */}
-                <div className="flex-1 flex flex-col min-w-0">
-                    {/* Price Chart — takes remaining height */}
-                    <div className="flex-1 min-h-0">
-                        <MainChart />
-                    </div>
+                    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-main">
+                        <div className="px-4 py-3 border-b border-main bg-secondary/10 shrink-0">
+                            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-amber-500 font-bold">
+                                <AlertTriangle size={14} />
+                                Dedicated Liquidation Stream
+                            </div>
+                            <div className="mt-1 text-[12px] text-muted">
+                                Theo doi liquidation futures trong mot trang
+                                rieng, nhung van giu nguyen tab Liquidation o
+                                trang chu.
+                            </div>
+                        </div>
 
-                    {/* ── Vertical resize handle ── */}
-                    <div
-                        onMouseDown={onBottomHandleMouseDown}
-                        className="h-1.5 shrink-0 cursor-row-resize bg-transparent hover:bg-accent/25 active:bg-accent/40 transition-colors group relative"
-                        title="Drag to resize order book"
-                    >
-                        {/* Visual grip indicator */}
-                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center">
-                            <div className="w-12 h-0.5 rounded-full bg-main border border-main group-hover:bg-accent/50 transition-colors" />
+                        <div className="flex-1 min-h-0">
+                            <FuturesLiquidationPanel key={panelKey} />
                         </div>
                     </div>
-
-                    {/* Order Book — resizable height */}
-                    <div className="shrink-0" style={{ height: bottomHeight }}>
-                        <OrderBook />
-                    </div>
                 </div>
-
-                {/* Right Panel: AI Analysis (horizontally resizable) */}
-                <RightPanel />
-            </div>
-
-            {/* ── Bottom Ticker Bar ── */}
-            <TickerBar />
+            </main>
         </div>
     );
 }

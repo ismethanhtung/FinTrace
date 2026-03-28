@@ -28,17 +28,17 @@ const modeMeta: Record<
     { label: string; description: string; implemented: boolean }
 > = {
     hot: {
-        label: "Coin hot",
-        description: "Ưu tiên các cặp có volume giao dịch cao nhất.",
+        label: "Asset hot",
+        description: "Ưu tiên các tài sản có volume giao dịch cao nhất.",
         implemented: true,
     },
     gainers: {
-        label: "Coin lời",
-        description: "Ưu tiên các cặp tăng giá mạnh nhất trong 24h.",
+        label: "Top gainers",
+        description: "Ưu tiên các tài sản tăng giá mạnh nhất trong 24h.",
         implemented: true,
     },
     favorites: {
-        label: "Coin yêu thích",
+        label: "Favorites",
         description: "Sẽ hiện thực ở bước tiếp theo.",
         implemented: false,
     },
@@ -53,6 +53,7 @@ export const TickerBar = () => {
         futuresStreamStatus,
         lastSpotStreamUpdateAt,
         lastFuturesStreamUpdateAt,
+        isMockUniverse,
     } = useMarket();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [tickerMode, setTickerMode] = useState<TickerMode>("hot");
@@ -229,6 +230,8 @@ export const TickerBar = () => {
         isOnline;
     const statusLabel = !isOnline
         ? "Offline"
+        : isMockUniverse
+          ? "Mock feed"
         : networkQuality === "weak"
           ? "Weak network"
           : isLikelyLive
@@ -314,7 +317,7 @@ export const TickerBar = () => {
                                 Ticker Settings
                             </div>
                             <div className="text-[10px] text-muted mt-0.5">
-                                Chọn loại coin hiển thị trên bottom bar.
+                                Chọn loại asset hiển thị trên bottom bar.
                             </div>
                         </div>
 
@@ -422,7 +425,7 @@ export const TickerBar = () => {
                     </div>
                 ) : (
                     <div className="h-full flex items-center px-4 text-[10px] text-muted">
-                        Danh sach coin yeu thich se duoc bo sung o buoc tiep
+                        Danh sach asset yeu thich se duoc bo sung o buoc tiep
                         theo.
                     </div>
                 )}

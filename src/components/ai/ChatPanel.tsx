@@ -412,7 +412,7 @@ ${
     return (
         <div className="h-full flex flex-col relative bg-main">
             {/* ── Chat Header bar ── */}
-            <div className="px-5 py-3 border-b border-main flex items-center justify-between shrink-0 bg-secondary/30">
+            <div className="px-5 py-2 border-b border-main flex items-center justify-between shrink-0 bg-secondary/30">
                 <div className="flex items-center space-x-2 text-muted">
                     {/*<TerminalSquare size={14} className="text-accent" />*/}
                     <span className="text-[10px] font-semibold tracking-wider text-main truncate max-w-[150px]">

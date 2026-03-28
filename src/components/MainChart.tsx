@@ -61,7 +61,7 @@ function msToCountdown(ms: number): string {
 
 // ─── Coin Info Panel ──────────────────────────────────────────────────────────
 const CoinInfoPanel = () => {
-    const { assets, selectedSymbol, marketType } = useMarket();
+    const { assets, selectedSymbol, marketType, universe, isMockUniverse } = useMarket();
     const asset = assets.find((a) => a.id === selectedSymbol);
     const { data: premiumData, isLoading: premiumLoading, fundingRatePct, msToNextFunding } =
         useFuturesPremiumIndex(selectedSymbol, marketType);
@@ -154,7 +154,12 @@ const CoinInfoPanel = () => {
                         )}
                     </div>
                     <div className="text-muted text-[11px]">
-                        {asset.id} · {isFutures ? 'Binance Futures' : 'Binance'}
+                        {asset.id} ·{" "}
+                        {isMockUniverse
+                            ? "Mock Feed"
+                            : isFutures
+                              ? "Binance Futures"
+                              : "Binance"}
                     </div>
                 </div>
                 <div className="ml-auto shrink-0">
@@ -223,9 +228,18 @@ const CoinInfoPanel = () => {
                     About {asset.symbol}
                 </div>
                 <p className="text-[12px] text-muted leading-relaxed">
-                    {asset.symbol} là tài sản kỹ thuật số giao dịch trên Binance.
-                    Dữ liệu giá và khối lượng thời gian thực từ{' '}
-                    {isFutures ? 'Binance Futures REST API' : 'Binance REST API'}.
+                    {asset.symbol} là{" "}
+                    {universe === "stock"
+                        ? "một mã cổ phiếu giả lập cho trải nghiệm UI."
+                        : "tài sản kỹ thuật số giao dịch trên Binance."}{" "}
+                    Dữ liệu{" "}
+                    {isMockUniverse
+                        ? "đang ở chế độ mock."
+                        : `giá và khối lượng thời gian thực từ ${
+                              isFutures
+                                  ? "Binance Futures REST API"
+                                  : "Binance REST API"
+                          }.`}
                 </p>
             </div>
         </div>
@@ -234,7 +248,7 @@ const CoinInfoPanel = () => {
 
 // ─── Main Chart ───────────────────────────────────────────────────────────────
 export const MainChart = () => {
-    const { selectedSymbol, assets, marketType } = useMarket();
+    const { selectedSymbol, assets, marketType, universe, isMockUniverse } = useMarket();
     const {
         data,
         isLoading,
@@ -685,9 +699,9 @@ export const MainChart = () => {
                         <div className="flex items-center space-x-2">
                             <h2 className="text-[16px] font-bold tracking-tight">
                                 {currentAsset?.name ??
-                                    selectedSymbol.replace("USDT", "")}
+                                    selectedSymbol.replace(/USDT|-C|-F/gi, "")}
                                 <span className="text-muted font-normal text-[12px] ml-1">
-                                    / USDT
+                                    / {universe === "stock" ? "MOCK" : "USDT"}
                                 </span>
                             </h2>
                             <span className="px-1 py-0.5 bg-secondary text-muted text-[9px] font-semibold rounded uppercase">
@@ -752,7 +766,7 @@ export const MainChart = () => {
                                 )}
                                 <span>
                                     {tab === "info"
-                                        ? "Coin Info"
+                                        ? "Asset Info"
                                         : tab === "flow"
                                           ? "Flow"
                                           : tab === "liquidation"
@@ -882,7 +896,7 @@ export const MainChart = () => {
                             {currentAsset.quoteVolumeRaw > 0 && (
                                 <div className="flex items-center space-x-0.5">
                                     <span className="text-muted">
-                                        Vol(USDT):
+                                        Vol({universe === "stock" ? "USD" : "USDT"}):
                                     </span>
                                     <span className="font-mono text-accent">
                                         {currentAsset.quoteVolumeRaw >=
@@ -895,6 +909,12 @@ export const MainChart = () => {
                         </div>
                     )}
                 </div>
+
+                {isMockUniverse && (
+                    <div className="pb-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                        Mock stock data active
+                    </div>
+                )}
 
                 {/* Controls (chart tab only) */}
                 {activeTab === "chart" && (

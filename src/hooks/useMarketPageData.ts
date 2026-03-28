@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMarket } from "../context/MarketContext";
 import type { MarketType } from "../services/binanceService";
 import { fetchMarketRowMetrics } from "../api/market/marketPageApi";
+import { useUniverse } from "../context/UniverseContext";
 
 export type Sentiment = "Positive" | "Negative" | "Neutral";
 export type Trend = "up" | "down" | "flat";
@@ -98,6 +99,7 @@ async function fetchMetricCached(
 }
 
 export function useMarketPageData() {
+    const { universe } = useUniverse();
     const {
         marketType,
         assets,
@@ -173,6 +175,10 @@ export function useMarketPageData() {
             const concurrency = 6;
             let cursor = 0;
 
+            if (universe === "stock") {
+                return;
+            }
+
             async function worker() {
                 while (cursor < symbols.length && mounted) {
                     const idx = cursor++;
@@ -192,7 +198,7 @@ export function useMarketPageData() {
         return () => {
             mounted = false;
         };
-    }, [assets, marketType, refreshSeed]);
+    }, [assets, marketType, refreshSeed, universe]);
 
     return {
         rows,

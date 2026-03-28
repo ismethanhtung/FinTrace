@@ -74,6 +74,12 @@ fintrace/
 └────────────────────┬────────────────────────┘
                      │ reads from
 ┌────────────────────▼────────────────────────┐
+│     Universe Layer (src/context/Universe*)   │
+│  Global world switch: `coin` / `stock`      │
+│  Persists user mode, handles route fallback │
+└────────────────────┬────────────────────────┘
+                     │ selects adapter/source
+┌────────────────────▼────────────────────────┐
 │        State Layer (src/context/)            │
 │  React Context: MarketContext               │
 │  Distributes data to the whole component    │
@@ -103,6 +109,19 @@ fintrace/
 - Arrows are **one-directional only**. Lower layers do not import from upper layers.
 - Components never call `fetch()` directly.
 - Services never import from React.
+- `UniverseContext` quyết định world hiện tại (`coin` hoặc `stock`) và route fallback khi switch world.
+- `MarketContext` vẫn giữ API tương thích ngược, nhưng dữ liệu được chọn theo adapter tương ứng với world.
+
+### 3.1 Multi-World Adapter Model (Phase 1)
+
+- `coin` world: dùng `coinMarketAdapter` (Binance + logo enrichment như hiện tại).
+- `stock` world (phase 1): dùng `stockMockMarketAdapter` (mock deterministic, có cờ `isMock`).
+- Contract mở rộng:
+  - `AssetUniverse = "coin" | "stock"`
+  - `MarketDataAdapter` interface
+  - `UnifiedAsset` mapper (`toUnifiedAsset`)
+
+> Lưu ý: stock phase 1 là mock-only. Chưa kết nối API stock thật.
 
 ---
 

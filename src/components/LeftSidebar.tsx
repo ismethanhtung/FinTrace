@@ -137,14 +137,20 @@ const MarketBar = () => {
         isFuturesLoading,
         spotStreamStatus,
         futuresStreamStatus,
+        universe,
+        isMockUniverse,
     } = useMarket();
     const isFutures = marketType === "futures";
     const loading = isFutures ? isFuturesLoading : isLoading;
     const streamStatus = isFutures ? futuresStreamStatus : spotStreamStatus;
 
-    const label = isFutures
-        ? "USD-M Perpetual · Binance Futures"
-        : "Spot Market · Binance";
+    const label = universe === "stock"
+        ? isFutures
+            ? "Derivatives · Mock Stock Feed"
+            : "Primary Market · Mock Stock Feed"
+        : isFutures
+          ? "USD-M Perpetual · Binance Futures"
+          : "Spot Market · Binance";
 
     return (
         <div className="px-3 py-1.5 border-b border-main bg-secondary/10 shrink-0 space-y-1.5">
@@ -172,7 +178,7 @@ const MarketBar = () => {
                             : "Reconnecting"}
                 </span>
                 <span className="text-[9px] text-muted tabular-nums">
-                    {assets.length.toLocaleString("en-US")} pairs
+                    {assets.length.toLocaleString("en-US")} assets
                 </span>
             </div>
 
@@ -186,9 +192,13 @@ const MarketBar = () => {
                             ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-500"
                             : "border-main text-muted hover:text-main hover:bg-secondary",
                     )}
-                    title="Hiển thị dữ liệu Spot"
+                    title={
+                        universe === "stock"
+                            ? "Hiển thị dữ liệu thị trường cơ sở (mock)"
+                            : "Hiển thị dữ liệu Spot"
+                    }
                 >
-                    Spot
+                    {universe === "stock" ? "Primary" : "Spot"}
                 </button>
 
                 <span className="flex items-center justify-center text-muted">
@@ -203,11 +213,20 @@ const MarketBar = () => {
                             ? "border-amber-400/40 bg-amber-400/15 text-amber-400"
                             : "border-main text-muted hover:text-main hover:bg-secondary",
                     )}
-                    title="Hiển thị dữ liệu USD-M Futures"
+                    title={
+                        universe === "stock"
+                            ? "Hiển thị dữ liệu phái sinh (mock)"
+                            : "Hiển thị dữ liệu USD-M Futures"
+                    }
                 >
-                    Futures
+                    {universe === "stock" ? "Derivatives" : "Futures"}
                 </button>
             </div>
+            {isMockUniverse && (
+                <div className="text-[9px] text-amber-400 font-semibold uppercase tracking-wider">
+                    Mock data mode
+                </div>
+            )}
         </div>
     );
 };
@@ -308,7 +327,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                     />
                     <input
                         type="text"
-                        placeholder="Search coins..."
+                        placeholder="Search assets..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full bg-secondary border border-main rounded-md py-1.5 pl-7 pr-3 text-[11px] focus:outline-none focus:ring-1 focus:ring-accent/30"
@@ -339,7 +358,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
             <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar">
                 {displayAssets.length === 0 ? (
                     <div className="p-6 text-center text-muted text-[11px]">
-                        No coins found
+                        No assets found
                     </div>
                 ) : (
                     displayAssets.map((asset) => (

@@ -10,6 +10,7 @@ import { UserMenu } from "../../components/UserMenu";
 import { QuickSearchDropdown } from "../../components/AssetList";
 import { useAppSettings, AppTheme } from "../../context/AppSettingsContext";
 import { cn } from "../../lib/utils";
+import { WorldSwitch } from "../../components/shell/WorldSwitch";
 
 const THEME_META: Record<AppTheme, { icon: React.ReactNode; label: string }> = {
     light: { icon: <Sun size={14} />, label: "Light" },
@@ -70,6 +71,7 @@ export default function HeatmapPage() {
                         </Link>
 
                         <div className="h-4 w-px bg-main border-l border-main" />
+                        <WorldSwitch />
                         <QuickSearchDropdown />
                     </nav>
                 </div>

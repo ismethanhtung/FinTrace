@@ -10,6 +10,8 @@ import {
     type MarketStreamStatus,
     type TradeStreamEvent,
 } from "../services/marketStreamService";
+import { useUniverse } from "../context/UniverseContext";
+import { createMockStockTradeTape } from "../lib/mockStockData";
 
 export type RecentTradeItem = {
     id: number;
@@ -50,6 +52,7 @@ export const useRecentTrades = (
     marketType: MarketType,
     limit = 80,
 ) => {
+    const { universe } = useUniverse();
     const [trades, setTrades] = useState<RecentTradeItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -63,6 +66,22 @@ export const useRecentTrades = (
 
     const fetchSnapshot = useCallback(async () => {
         try {
+            if (universe === "stock") {
+                const next = createMockStockTradeTape(symbol, limit)
+                    .map((t) => ({
+                        id: t.id,
+                        price: t.price,
+                        qty: t.qty,
+                        time: t.time,
+                        isBuy: t.isBuy,
+                    }))
+                    .sort((a, b) => b.time - a.time);
+                if (!mountedRef.current) return;
+                setTrades(next);
+                setError(null);
+                setConnectionStatus("connected");
+                return;
+            }
             const getTrades =
                 marketType === "futures"
                     ? binanceService.getFuturesRecentTrades.bind(binanceService)
@@ -81,12 +100,20 @@ export const useRecentTrades = (
         } finally {
             if (mountedRef.current) setIsLoading(false);
         }
-    }, [symbol, marketType, limit]);
+    }, [symbol, marketType, limit, universe]);
 
     useEffect(() => {
         mountedRef.current = true;
         setIsLoading(true);
         fetchSnapshot();
+
+        if (universe === "stock") {
+            subscriptionRef.current?.unsubscribe();
+            subscriptionRef.current = null;
+            return () => {
+                mountedRef.current = false;
+            };
+        }
 
         subscriptionRef.current?.unsubscribe();
         subscriptionRef.current = subscribeSharedStream<TradeStreamEvent>({
@@ -113,7 +140,7 @@ export const useRecentTrades = (
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [fetchSnapshot, limit, marketType, symbol]);
+    }, [fetchSnapshot, limit, marketType, symbol, universe]);
 
     return {
         trades,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "../lib/utils";
+import { WorldSwitch } from "./shell/WorldSwitch";
 
 export default function PageLayout({
     title,
@@ -43,6 +44,7 @@ export default function PageLayout({
                     <div className="h-4 w-[1px] bg-main border-l border-main mx-2"></div>
                     <h1 className="text-[14px] font-semibold">{title}</h1>
                 </div>
+                <WorldSwitch />
             </header>
             <main
                 className={cn(

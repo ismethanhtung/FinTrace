@@ -28,6 +28,7 @@ App runs at: **http://localhost:3000**
 | [`docs/API.md`](docs/API.md) | External API documentation (Binance, Gemini) |
 | [`docs/CODING_CONVENTIONS.md`](docs/CODING_CONVENTIONS.md) | Code style guide with examples |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | How to contribute — setup, branching, commits |
+| [`docs/universe-adapter-guide.md`](docs/universe-adapter-guide.md) | Coin/Stock universe switch and adapter extension guide |
 
 ---
 

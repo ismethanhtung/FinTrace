@@ -12,6 +12,8 @@ import {
     type KlineStreamEvent,
     type MarketStreamStatus,
 } from "../services/marketStreamService";
+import { useUniverse } from "../context/UniverseContext";
+import { createMockStockChart } from "../lib/mockStockData";
 
 export type ChartType = "candlestick" | "area";
 export type Indicator = "MA7" | "MA25" | "EMA99";
@@ -30,6 +32,16 @@ export type ChartInterval = (typeof CHART_INTERVALS)[number];
 
 const INITIAL_LIMIT = 300;
 const HISTORY_BATCH = 200;
+const INTERVAL_MS: Record<ChartInterval, number> = {
+    "1m": 60_000,
+    "5m": 5 * 60_000,
+    "15m": 15 * 60_000,
+    "1H": 60 * 60_000,
+    "4H": 4 * 60 * 60_000,
+    "1D": 24 * 60 * 60_000,
+    "1W": 7 * 24 * 60 * 60_000,
+    "1M": 30 * 24 * 60 * 60_000,
+};
 
 export type EnrichedPoint = OhlcvPoint & {
     MA7?: number | null;
@@ -105,6 +117,7 @@ function enrich(mapped: OhlcvPoint[]): EnrichedPoint[] {
  * @param marketType - Which market to fetch klines from. Futures uses fapi; spot/margin use api.
  */
 export const useChartData = (symbol: string, marketType: MarketType = 'spot') => {
+    const { universe } = useUniverse();
     const [interval, setInterval] = useState<ChartInterval>("1H");
     const [chartType, setChartType] = useState<ChartType>("candlestick");
     const [activeIndicators, setActiveIndicators] = useState<Set<Indicator>>(
@@ -126,6 +139,23 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
         async (sym: string, intv: ChartInterval) => {
             try {
                 setIsLoading(true);
+                if (universe === "stock") {
+                    const points = createMockStockChart(
+                        sym,
+                        INTERVAL_MS[intv],
+                        INITIAL_LIMIT,
+                    );
+                    const mapped = points.map((p) => ({
+                        ...p,
+                        time: formatTime(p.timestamp, intv),
+                    }));
+                    const enriched = enrich(mapped);
+                    allDataRef.current = enriched;
+                    setAllData(enriched);
+                    setError(null);
+                    setConnectionStatus("connected");
+                    return;
+                }
                 const getKlines = marketType === 'futures'
                     ? binanceService.getFuturesKlines.bind(binanceService)
                     : binanceService.getKlines.bind(binanceService);
@@ -143,15 +173,19 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
                 setError(
                     err instanceof Error ? err.message : "Failed to load chart",
                 );
+                if (universe === "stock") {
+                    setConnectionStatus("error");
+                }
             } finally {
                 setIsLoading(false);
             }
         },
-        [marketType],
+        [marketType, universe],
     );
 
     const fetchHistory = useCallback(async () => {
         if (isFetchingHistory) return;
+        if (universe === "stock") return;
         const oldest = allDataRef.current[0];
         if (!oldest) return;
         try {
@@ -187,10 +221,16 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
         } finally {
             setIsFetchingHistory(false);
         }
-    }, [symbol, interval, isFetchingHistory, marketType]);
+    }, [symbol, interval, isFetchingHistory, marketType, universe]);
 
     useEffect(() => {
         fetchInitial(symbol, interval);
+        if (universe === "stock") {
+            subscriptionRef.current?.unsubscribe();
+            subscriptionRef.current = null;
+            setConnectionStatus("connected");
+            return;
+        }
         const streamInterval = INTERVAL_MAP[interval] ?? interval;
         subscriptionRef.current?.unsubscribe();
         subscriptionRef.current = subscribeSharedStream<KlineStreamEvent>({
@@ -230,7 +270,7 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [symbol, interval, marketType, fetchInitial]);
+    }, [symbol, interval, marketType, fetchInitial, universe]);
 
     const toggleIndicator = useCallback((ind: Indicator) => {
         setActiveIndicators((prev) => {

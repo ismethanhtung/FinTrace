@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { useAppSettings } from "../context/AppSettingsContext";
 import { Asset } from "../services/binanceService";
+import { useUniverse } from "../context/UniverseContext";
 
 export function MarketHeatmap({
     className,
@@ -13,6 +14,7 @@ export function MarketHeatmap({
     className?: string;
 }) {
     const { theme } = useAppSettings();
+    const { universe, isMockUniverse } = useUniverse();
     const containerRef = useRef<HTMLDivElement>(null);
 
     const colorTheme = useMemo<"light" | "dark">(
@@ -23,6 +25,10 @@ export function MarketHeatmap({
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
+        if (universe === "stock") {
+            container.innerHTML = "";
+            return;
+        }
 
         container.innerHTML = "";
 
@@ -61,7 +67,24 @@ export function MarketHeatmap({
         return () => {
             container.innerHTML = "";
         };
-    }, [colorTheme]);
+    }, [colorTheme, universe]);
+
+    if (universe === "stock") {
+        return (
+            <div
+                className={`w-full h-full ${className ?? ""} flex items-center justify-center bg-secondary/20 border border-main`}
+            >
+                <div className="text-center space-y-2">
+                    <div className="text-[12px] font-semibold uppercase tracking-wider text-amber-400">
+                        {isMockUniverse ? "Mock Stock Heatmap" : "Stock Heatmap"}
+                    </div>
+                    <p className="text-[12px] text-muted">
+                        Stock heatmap sẽ được nối dữ liệu thật ở phase tiếp theo.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div

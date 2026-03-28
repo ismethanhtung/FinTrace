@@ -22,7 +22,9 @@ import {
     Playfair_Display,
 } from "next/font/google";
 import { useMarket } from "../../context/MarketContext";
+import { useUniverse } from "../../context/UniverseContext";
 import { NewsPageAiSummaryTooltip } from "./NewsPageAiSummaryTooltip";
+import { WorldSwitch } from "../shell/WorldSwitch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface NewsArticle {
@@ -111,6 +113,7 @@ const fallbackCryptoPrices = [
 export const NewsPageClient = () => {
     const router = useRouter();
     const { assets, setSelectedSymbol } = useMarket();
+    const { isMockUniverse } = useUniverse();
     const [isMarketMenuOpen, setIsMarketMenuOpen] = useState(false);
     const [marketQuery, setMarketQuery] = useState("");
     const marketMenuRef = useRef<HTMLDivElement>(null);
@@ -312,6 +315,7 @@ export const NewsPageClient = () => {
                     <Link href="/news" className="italic transition-all">
                         News
                     </Link>
+                    <WorldSwitch />
                     <div ref={marketMenuRef} className="relative">
                         <button
                             type="button"
@@ -345,7 +349,7 @@ export const NewsPageClient = () => {
                                                     event.target.value,
                                                 )
                                             }
-                                            placeholder="Search coin..."
+                                            placeholder="Search asset..."
                                             className="w-full bg-transparent border border-black/30 py-1.5 pl-8 pr-2 text-[11px] news-font-mono focus:outline-none focus:border-black"
                                             autoFocus
                                         />
@@ -355,7 +359,7 @@ export const NewsPageClient = () => {
                                 <div className="max-h-80 overflow-y-auto">
                                     {filteredMarketAssets.length === 0 ? (
                                         <p className="px-3 py-5 text-[11px] news-font-mono opacity-60">
-                                            No matching coins.
+                                            No matching assets.
                                         </p>
                                     ) : (
                                         filteredMarketAssets.map((asset) => (
@@ -384,6 +388,11 @@ export const NewsPageClient = () => {
                         )}
                     </div>
                     <div className="flex items-center gap-2 sm:ml-auto">
+                        {isMockUniverse && (
+                            <span className="text-[9px] px-1.5 py-0.5 border border-amber-700 text-amber-700 uppercase tracking-wider font-bold">
+                                Mock
+                            </span>
+                        )}
                         <Search size={14} />
                         <Menu size={14} />
                     </div>

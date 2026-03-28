@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMarket } from "../context/MarketContext";
+import { useUniverse } from "../context/UniverseContext";
 import type {
     DataStreamConfig,
     DataStreamEvent,
@@ -76,6 +77,7 @@ type DataStreamWsController = {
 
 export function useDataStream() {
     const { selectedSymbol, marketType } = useMarket();
+    const { universe } = useUniverse();
 
     const [config, setConfig] = useState<DataStreamConfig>(DEFAULT_CONFIG);
     const [records, setRecords] = useState<any[]>([]);
@@ -206,6 +208,14 @@ export function useDataStream() {
     }, [highlightSeq, soundEnabled]);
 
     const connect = useCallback(() => {
+        if (universe === "stock") {
+            wsRef.current.tradesWs?.close();
+            wsRef.current.fundingWs?.close();
+            wsRef.current = {};
+            setConnectionStatus("connected");
+            setError(null);
+            return;
+        }
         // New connection attempt: clear any pending reconnect first.
         if (reconnectTimerRef.current) {
             clearTimeout(reconnectTimerRef.current);
@@ -327,7 +337,7 @@ export function useDataStream() {
                 }
             };
         }
-    }, [market, pair, pairLower, postEventToWorker]);
+    }, [market, pair, pairLower, postEventToWorker, universe]);
 
     // Reconnect when selected symbol or market type changes.
     useEffect(() => {

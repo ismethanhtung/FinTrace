@@ -2,21 +2,23 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
-    binanceService,
     Asset,
-    BinanceTicker,
     MarketType,
 } from "../services/binanceService";
-import { enrichAssetsWithLogos } from "../services/tokenLogoService";
-import { isLeveragedToken } from "../lib/tokenFilters";
 import {
     mergeMiniTickerArray,
     subscribeSharedStream,
     type MarketMiniTicker,
     type MarketStreamStatus,
 } from "../services/marketStreamService";
+import { useUniverse } from "./UniverseContext";
+import { coinMarketAdapter } from "../services/adapters/coinMarketAdapter";
+import { stockMockMarketAdapter } from "../services/adapters/stockMockMarketAdapter";
+import { type AssetUniverse } from "../lib/marketUniverse";
 
 interface MarketContextType {
+    universe: AssetUniverse;
+    isMockUniverse: boolean;
     selectedSymbol: string;
     setSelectedSymbol: (symbol: string) => void;
     marketType: MarketType;
@@ -41,6 +43,7 @@ const MarketContext = React.createContext<MarketContextType | undefined>(
 );
 
 export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
+    const { universe, isMockUniverse } = useUniverse();
     const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
     const [marketType, setMarketType] = useState<MarketType>("spot");
 
@@ -73,19 +76,9 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
     // ── Spot bootstrap ──────────────────────────────────────────────────────────
     const fetchSpotAssets = useCallback(async () => {
         try {
-            const tickers: BinanceTicker[] = await binanceService.getTickers();
-            const allUSDT = tickers
-                .filter(
-                    (t) =>
-                        t.symbol.endsWith("USDT") &&
-                        !isLeveragedToken(t.symbol.slice(0, -4)),
-                )
-                .sort(
-                    (a, b) =>
-                        parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume),
-                );
-            let next = allUSDT.map(binanceService.transformTicker);
-            next = await enrichAssetsWithLogos(next);
+            const adapter =
+                universe === "stock" ? stockMockMarketAdapter : coinMarketAdapter;
+            const next = await adapter.listAssets("spot");
             if (mountedRef.current) {
                 setSpotAssets(next);
                 setError(null);
@@ -96,33 +89,20 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
                 setError(
                     err instanceof Error
                         ? err.message
-                        : "Failed to load spot market data",
+                        : `Failed to load ${universe} spot market data`,
                 );
             }
         } finally {
             if (mountedRef.current) setIsLoading(false);
         }
-    }, []);
+    }, [universe]);
 
     // ── Futures bootstrap ────────────────────────────────────────────────────────
     const fetchFuturesAssets = useCallback(async () => {
         try {
-            const tickers = await binanceService.getFuturesTickers();
-            // Keep only USDT-M perpetuals (exclude quarterly contracts like BTCUSDT_230630)
-            const allUSDT = tickers
-                .filter(
-                    (t) =>
-                        t.symbol.endsWith("USDT") &&
-                        !t.symbol.includes("_") &&
-                        !isLeveragedToken(t.symbol.slice(0, -4)),
-                )
-                .sort(
-                    (a, b) =>
-                        parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume),
-                );
-            const next = await enrichAssetsWithLogos(
-                allUSDT.map(binanceService.transformFuturesTicker),
-            );
+            const adapter =
+                universe === "stock" ? stockMockMarketAdapter : coinMarketAdapter;
+            const next = await adapter.listAssets("futures");
             if (mountedRef.current) {
                 setFuturesAssets(next);
                 setError(null);
@@ -135,19 +115,27 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         } finally {
             if (mountedRef.current) setIsFuturesLoading(false);
         }
-    }, []);
+    }, [universe]);
 
     // ── Initial bootstrap only ──────────────────────────────────────────────────
     useEffect(() => {
+        setIsLoading(true);
         fetchSpotAssets();
     }, [fetchSpotAssets]);
 
     useEffect(() => {
+        setIsFuturesLoading(true);
         fetchFuturesAssets();
     }, [fetchFuturesAssets]);
 
     // ── Live market tickers via websocket ───────────────────────────────────────
     useEffect(() => {
+        if (universe === "stock") {
+            setSpotStreamStatus("connected");
+            setLastSpotStreamUpdateAt(Date.now());
+            return;
+        }
+
         const sub = subscribeSharedStream<MarketMiniTicker[]>({
             key: "spot-miniTicker",
             url: "wss://stream.binance.com:9443/ws/!miniTicker@arr",
@@ -162,9 +150,15 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         });
 
         return () => sub.unsubscribe();
-    }, []);
+    }, [universe]);
 
     useEffect(() => {
+        if (universe === "stock") {
+            setFuturesStreamStatus("connected");
+            setLastFuturesStreamUpdateAt(Date.now());
+            return;
+        }
+
         const sub = subscribeSharedStream<MarketMiniTicker[]>({
             key: "futures-miniTicker",
             url: "wss://fstream.binance.com/ws/!miniTicker@arr",
@@ -179,7 +173,14 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         });
 
         return () => sub.unsubscribe();
-    }, []);
+    }, [universe]);
+
+    useEffect(() => {
+        const current = marketType === "futures" ? futuresAssets : spotAssets;
+        if (!current.length) return;
+        if (current.some((asset) => asset.id === selectedSymbol)) return;
+        setSelectedSymbol(current[0].id);
+    }, [marketType, futuresAssets, selectedSymbol, spotAssets, universe]);
 
     // ── Active asset list based on marketType ────────────────────────────────────
     const assets = useMemo<Asset[]>(
@@ -190,6 +191,8 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
     return (
         <MarketContext.Provider
             value={{
+                universe,
+                isMockUniverse,
                 selectedSymbol,
                 setSelectedSymbol,
                 marketType,

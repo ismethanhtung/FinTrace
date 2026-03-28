@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { useMarket } from "../context/MarketContext";
+import { useUniverse } from "../context/UniverseContext";
 import { cn } from "../lib/utils";
 import {
     normalizeBinanceFuturesForceOrderEvent,
@@ -184,6 +185,7 @@ function toRecord(
 
 export const FuturesLiquidationPanel = () => {
     const { marketType, selectedSymbol, futuresAssets } = useMarket();
+    const { isMockUniverse } = useUniverse();
     const [rows, setRows] = useState<LiquidationRecord[]>([]);
     const [status, setStatus] = useState<SharedStatus>("connecting");
     const [error, setError] = useState<string | null>(null);
@@ -241,6 +243,14 @@ export const FuturesLiquidationPanel = () => {
         viewMode === "all"
             ? rows
             : rows.filter((row) => row.symbol === selectedSymbol);
+
+    if (isMockUniverse) {
+        return (
+            <div className="flex-1 flex items-center justify-center p-6 text-center text-[12px] text-muted">
+                Liquidation stream đang ở chế độ mock stock và chưa kết nối dữ liệu thật.
+            </div>
+        );
+    }
 
     if (marketType !== "futures") {
         return (

@@ -220,7 +220,7 @@ const OrderRow = ({
 const ColHeader = ({ baseSymbol }: { baseSymbol: string }) => (
     <div className="flex items-center px-3 py-1 text-muted bg-secondary/20">
         <span className="flex-1 text-[9px] font-bold uppercase tracking-wider">
-            Price (USDT)
+            Price
         </span>
         <span className="flex-1 text-right text-[9px] font-bold uppercase tracking-wider">
             Qty ({baseSymbol})
@@ -233,9 +233,9 @@ const ColHeader = ({ baseSymbol }: { baseSymbol: string }) => (
 
 // ─── OrderBook Component ──────────────────────────────────────────────────────
 export const OrderBook = () => {
-    const { selectedSymbol, assets, marketType } = useMarket();
+    const { selectedSymbol, assets, marketType, isMockUniverse } = useMarket();
     const currentAsset = assets.find((a) => a.id === selectedSymbol);
-    const baseSymbol = selectedSymbol.replace("USDT", "");
+    const baseSymbol = (currentAsset?.symbol ?? selectedSymbol).replace(/USDT|-C|-F/gi, "");
 
     // Smart default grouping based on price
     const [grouping, setGrouping] = useState<Grouping>(1);
@@ -264,6 +264,11 @@ export const OrderBook = () => {
 
     return (
         <div className="h-full flex flex-col border-t border-main">
+            {isMockUniverse && (
+                <div className="px-3 py-1 border-b border-main bg-amber-400/10 text-amber-400 text-[10px] font-semibold uppercase tracking-wider">
+                    Mock order book and trades
+                </div>
+            )}
             {/* 3-column layout: Trades (left) | OrderBook (center) | Depth (right) */}
             <div className="flex-1 min-h-0 flex overflow-hidden bg-main">
                 <div className="w-[30%] min-w-[240px] max-w-[360px] border-r border-main min-h-0 bg-main">

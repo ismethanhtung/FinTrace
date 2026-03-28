@@ -11,6 +11,8 @@ import {
     type OrderBookState,
     type DerivedOrderBookData,
 } from "../services/marketStreamService";
+import { useUniverse } from "../context/UniverseContext";
+import { getMockStockBasePrice } from "../lib/mockStockData";
 
 export type OrderBookEntry = {
     price: number;
@@ -165,6 +167,7 @@ export const useOrderBook = (
     grouping: Grouping,
     marketType: MarketType = "spot",
 ) => {
+    const { universe } = useUniverse();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] =
@@ -218,6 +221,13 @@ export const useOrderBook = (
     }, [pushDepthUpdateTimestamp]);
 
     const loadSnapshot = useCallback(async () => {
+        if (universe === "stock") {
+            setIsLoading(false);
+            setError(null);
+            setConnectionStatus("connected");
+            setLastUpdatedAt(Date.now());
+            return;
+        }
         if (loadingSnapshotRef.current) return;
         loadingSnapshotRef.current = true;
         setIsLoading(true);
@@ -251,7 +261,7 @@ export const useOrderBook = (
             }
             if (mountedRef.current) setIsLoading(false);
         }
-    }, [applyBufferedDiffs, marketType, symbol]);
+    }, [applyBufferedDiffs, marketType, symbol, universe]);
 
     const resync = useCallback(() => {
         pendingDiffsRef.current = [];
@@ -266,6 +276,15 @@ export const useOrderBook = (
     }, [loadSnapshot]);
 
     useEffect(() => {
+        if (universe === "stock") {
+            setIsLoading(false);
+            setError(null);
+            setConnectionStatus("connected");
+            setLastUpdatedAt(Date.now());
+            subscriptionRef.current?.unsubscribe();
+            bookTickerSubscriptionRef.current?.unsubscribe();
+            return;
+        }
         mountedRef.current = true;
         setIsLoading(true);
         setError(null);
@@ -320,12 +339,51 @@ export const useOrderBook = (
             bookTickerSubscriptionRef.current?.unsubscribe();
             bookTickerSubscriptionRef.current = null;
         };
-    }, [marketType, resync, symbol, loadSnapshot, pushDepthUpdateTimestamp]);
+    }, [marketType, resync, symbol, loadSnapshot, pushDepthUpdateTimestamp, universe]);
 
-    const data = useMemo(
+    const mockData = useMemo<OrderBookData | null>(() => {
+        if (universe !== "stock") return null;
+        const mid = getMockStockBasePrice(symbol.replace(/-(C|F)$/i, ""));
+        const bids = Array.from({ length: 16 }, (_, i) => {
+            const price = Number((mid - (i + 1) * 0.05).toFixed(2));
+            const quantity = Number((100 + i * 20).toFixed(2));
+            return { price, quantity, total: 0, depth: 0 };
+        });
+        const asks = Array.from({ length: 16 }, (_, i) => {
+            const price = Number((mid + (i + 1) * 0.05).toFixed(2));
+            const quantity = Number((95 + i * 22).toFixed(2));
+            return { price, quantity, total: 0, depth: 0 };
+        });
+        let bidRunning = 0;
+        let askRunning = 0;
+        for (const bid of bids) {
+            bidRunning += bid.quantity;
+            bid.total = bidRunning;
+        }
+        for (const ask of asks) {
+            askRunning += ask.quantity;
+            ask.total = askRunning;
+        }
+        const maxTotal = Math.max(bidRunning, askRunning);
+        for (const bid of bids) bid.depth = maxTotal > 0 ? bid.total / maxTotal : 0;
+        for (const ask of asks) ask.depth = maxTotal > 0 ? ask.total / maxTotal : 0;
+        return {
+            bids,
+            asks,
+            spread: asks[0].price - bids[0].price,
+            spreadPercent:
+                bids[0].price > 0
+                    ? ((asks[0].price - bids[0].price) / bids[0].price) * 100
+                    : 0,
+            midPrice: (asks[0].price + bids[0].price) / 2,
+        };
+    }, [symbol, universe]);
+
+    const liveData = useMemo(
         () => deriveDataFromState(bookRef.current, grouping),
         [bookVersion, grouping],
     );
+    const data = universe === "stock" ? mockData : liveData;
 
     const metrics = useMemo<OrderBookMetrics | null>(() => {
         if (!data) return null;

@@ -90,7 +90,9 @@ const AssetRow = ({
                     </span>
                     {badge}
                 </div>
-                <div className="text-[10px] text-muted">Binance</div>
+                <div className="text-[10px] text-muted">
+                    {asset.isMock ? "Mock feed" : "Binance"}
+                </div>
             </div>
         </div>
         <div className="text-right">
@@ -123,7 +125,7 @@ export const WatchlistDropdown = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [filter, setFilter] = useState("");
     const [recents, setRecents] = useState<string[]>([]);
-    const { assets, selectedSymbol, setSelectedSymbol } = useMarket();
+    const { assets, selectedSymbol, setSelectedSymbol, isMockUniverse } = useMarket();
 
     // Load recents from localStorage on mount
     useEffect(() => {
@@ -267,7 +269,7 @@ export const WatchlistDropdown = () => {
                                         </div>
                                         {filteredAssets.length === 0 ? (
                                             <div className="p-8 text-center text-muted text-[12px]">
-                                                No coins found
+                                                No assets found
                                             </div>
                                         ) : (
                                             filteredAssets.map((asset) => (
@@ -369,9 +371,14 @@ export const WatchlistDropdown = () => {
                                         {/* All top assets */}
                                         <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20 border-t border-main">
                                             <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
-                                                Top Assets (USDT)
+                                                Top Assets
                                             </span>
                                         </div>
+                                        {isMockUniverse && (
+                                            <div className="px-3 py-2 text-[9px] font-bold text-amber-400 uppercase tracking-widest border-t border-main">
+                                                Mock universe data
+                                            </div>
+                                        )}
                                         {assets.map((asset) => (
                                             <AssetRow
                                                 key={asset.id}
@@ -407,7 +414,7 @@ export const QuickSearchDropdown = () => {
     const [filter, setFilter] = useState("");
     const [recents, setRecents] = useState<string[]>([]);
 
-    const { assets, selectedSymbol, setSelectedSymbol } = useMarket();
+    const { assets, selectedSymbol, setSelectedSymbol, isMockUniverse } = useMarket();
 
     const MAX_QUICK_RESULTS = 20;
     const MAX_TOP_ASSETS_PREVIEW = 30;
@@ -561,7 +568,7 @@ export const QuickSearchDropdown = () => {
                                         </div>
                                         {shownFilteredAssets.length === 0 ? (
                                             <div className="p-8 text-center text-muted text-[12px]">
-                                                No coins found
+                                                No assets found
                                             </div>
                                         ) : (
                                             shownFilteredAssets.map((asset) => (
@@ -654,9 +661,14 @@ export const QuickSearchDropdown = () => {
 
                                         <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20 border-t border-main">
                                             <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
-                                                Top Assets (USDT)
+                                                Top Assets
                                             </span>
                                         </div>
+                                        {isMockUniverse && (
+                                            <div className="px-3 py-2 text-[9px] font-bold text-amber-400 uppercase tracking-widest border-t border-main">
+                                                Mock universe data
+                                            </div>
+                                        )}
                                         {topAssetsPreview.map((asset) => (
                                             <AssetRow
                                                 key={asset.id}

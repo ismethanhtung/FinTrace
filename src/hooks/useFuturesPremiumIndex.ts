@@ -6,6 +6,7 @@ import {
     type MarketStreamStatus,
     type MarkPriceStreamEvent,
 } from "../services/marketStreamService";
+import { useUniverse } from "../context/UniverseContext";
 
 export type { FuturesPremiumIndex };
 
@@ -19,6 +20,7 @@ export const useFuturesPremiumIndex = (
     symbol: string,
     marketType: MarketType,
 ) => {
+    const { universe } = useUniverse();
     const [data, setData] = useState<FuturesPremiumIndex | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,12 @@ export const useFuturesPremiumIndex = (
 
     const fetchData = useCallback(async () => {
         if (marketType !== "futures") {
+            setData(null);
+            setError(null);
+            setIsLoading(false);
+            return;
+        }
+        if (universe === "stock") {
             setData(null);
             setError(null);
             setIsLoading(false);
@@ -57,13 +65,13 @@ export const useFuturesPremiumIndex = (
         } finally {
             setIsLoading(false);
         }
-    }, [symbol, marketType]);
+    }, [symbol, marketType, universe]);
 
     useEffect(() => {
         fetchData();
 
         subscriptionRef.current?.unsubscribe();
-        if (marketType !== "futures") {
+        if (marketType !== "futures" || universe === "stock") {
             setConnectionStatus("disconnected");
             return () => {
                 abortRef.current?.abort();
@@ -99,7 +107,7 @@ export const useFuturesPremiumIndex = (
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [fetchData, marketType, symbol]);
+    }, [fetchData, marketType, symbol, universe]);
 
     /** Derived: funding rate as percentage string (e.g. "+0.0100%") */
     const fundingRatePct = data
