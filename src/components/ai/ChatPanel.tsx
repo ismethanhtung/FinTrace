@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useAIChat } from "../../hooks/useAIChat";
 import { useMarket } from "../../context/MarketContext";
 import { useAppSettings } from "../../context/AppSettingsContext";
+import { useUniverse } from "../../context/UniverseContext";
 import { useCoinNews } from "../../hooks/useCoinNews";
 import { newsService } from "../../services/newsService";
 import { aiProviderService, ModelInfo } from "../../services/aiProviderService";
@@ -253,6 +254,7 @@ const ModelSelector = ({
 
 export const ChatPanel = () => {
     const { selectedSymbol, assets } = useMarket();
+    const { universe } = useUniverse();
     const {
         aiProviders,
         activeProviderId,
@@ -374,7 +376,12 @@ ${
             const parts = [];
             for (const asset of targets) {
                 try {
-                    const n = await newsService.getNews(asset.id, undefined, 5);
+                    const n = await newsService.getNews(
+                        asset.id,
+                        undefined,
+                        5,
+                        universe,
+                    );
                     const newsText = n
                         .map(
                             (x) =>
@@ -388,7 +395,7 @@ ${
             }
             return parts.join("\n\n");
         },
-        [assets, selectedSymbol],
+        [assets, selectedSymbol, universe],
     );
 
     const {

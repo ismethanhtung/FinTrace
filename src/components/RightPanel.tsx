@@ -104,9 +104,30 @@ export const RightPanel = () => {
 
             {/* ── Content Area ── */}
             <div className="flex-1 min-h-0 relative z-10 bg-main flex flex-col">
-                {activeTab === "chat" && <ChatPanel />}
-                {activeTab === "news" && <NewsPanel />}
-                {activeTab === "summary" && <SummaryPanel />}
+                <div
+                    className={cn(
+                        "h-full min-h-0 flex-col",
+                        activeTab === "chat" ? "flex" : "hidden",
+                    )}
+                >
+                    <ChatPanel />
+                </div>
+                <div
+                    className={cn(
+                        "h-full min-h-0 flex-col",
+                        activeTab === "news" ? "flex" : "hidden",
+                    )}
+                >
+                    <NewsPanel />
+                </div>
+                <div
+                    className={cn(
+                        "h-full min-h-0 flex-col",
+                        activeTab === "summary" ? "flex" : "hidden",
+                    )}
+                >
+                    <SummaryPanel />
+                </div>
             </div>
         </div>
     );

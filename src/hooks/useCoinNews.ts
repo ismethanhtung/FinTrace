@@ -37,7 +37,12 @@ export const useCoinNews = ({
     }
     setIsLoading(true);
     try {
-      const items = await newsService.getNews(safeBaseSymbol);
+      const items = await newsService.getNews(
+        safeBaseSymbol,
+        undefined,
+        10,
+        universe,
+      );
       if (!isMounted.current) return;
       setNews(items);
       setLastFetched(new Date());
@@ -49,7 +54,7 @@ export const useCoinNews = ({
     } finally {
       if (isMounted.current) setIsLoading(false);
     }
-  }, [safeBaseSymbol]);
+  }, [safeBaseSymbol, universe]);
 
   // Fetch on symbol change + set up polling
   useEffect(() => {

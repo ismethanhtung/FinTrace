@@ -5,7 +5,7 @@ import { newsService } from "./newsService";
 describe("newsService", () => {
     it("maps successful API response", async () => {
         const originalFetch = global.fetch;
-        global.fetch = vi.fn(async () =>
+        const fetchMock = vi.fn(async () =>
             new Response(
                 JSON.stringify({
                     items: [
@@ -21,11 +21,29 @@ describe("newsService", () => {
                 }),
                 { status: 200 },
             ),
-        ) as typeof global.fetch;
+        );
+        global.fetch = fetchMock as typeof global.fetch;
 
-        const out = await newsService.getNews("BTCUSDT", undefined, 5);
+        const out = await newsService.getNews("BTCUSDT", undefined, 5, "coin");
         expect(out).toHaveLength(1);
         expect(out[0].currencies).toEqual(["BTC"]);
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/news?symbol=BTCUSDT&universe=coin",
+        );
+        global.fetch = originalFetch;
+    });
+
+    it("sends stock universe to API query", async () => {
+        const originalFetch = global.fetch;
+        const fetchMock = vi.fn(async () =>
+            new Response(JSON.stringify({ items: [] }), { status: 200 }),
+        );
+        global.fetch = fetchMock as typeof global.fetch;
+
+        await newsService.getNews("SSI", undefined, 10, "stock");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/news?symbol=SSI&universe=stock",
+        );
         global.fetch = originalFetch;
     });
 

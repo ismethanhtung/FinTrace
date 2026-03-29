@@ -1,3 +1,5 @@
+import type { AssetUniverse } from "../lib/marketUniverse";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type NewsItem = {
     id: string;
@@ -34,12 +36,13 @@ export const newsService = {
         symbol: string,
         _authToken?: string,
         limit = 10,
+        universe: AssetUniverse = "coin",
     ): Promise<NewsItem[]> {
         const safeSymbol = String(symbol || "").trim().toUpperCase();
         if (!safeSymbol) return [];
         try {
             const res = await fetch(
-                `/api/news?symbol=${encodeURIComponent(safeSymbol)}`,
+                `/api/news?symbol=${encodeURIComponent(safeSymbol)}&universe=${encodeURIComponent(universe)}`,
             );
             if (!res.ok) throw new Error(`News API Error: ${res.status}`);
             const data = await res.json();

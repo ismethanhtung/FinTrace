@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Parser from "rss-parser";
+import { normalizeUniverse } from "../../../lib/marketUniverse";
 
 const parser = new Parser();
 
@@ -7,6 +8,7 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const symbol = searchParams.get("symbol");
+        const universe = normalizeUniverse(searchParams.get("universe"));
 
         if (!symbol) {
             return NextResponse.json(
@@ -17,8 +19,14 @@ export async function GET(request: Request) {
 
         const baseSymbol = symbol.replace(/USDT$/, "").replace(/USD$/, "");
 
-        // Using Google News RSS for high-quality, frequent crypto updates
-        const rssUrl = `https://news.google.com/rss/search?q=${baseSymbol}+crypto&hl=en-US&gl=US&ceid=US:en`;
+        const query =
+            universe === "stock"
+                ? `Chứng khoán ${baseSymbol}`
+                : `${baseSymbol} crypto`;
+        const rssUrl =
+            universe === "stock"
+                ? `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=vi&gl=VN&ceid=VN:vi`
+                : `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
 
         const feed = await parser.parseURL(rssUrl);
 

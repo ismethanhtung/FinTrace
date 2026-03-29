@@ -47,5 +47,28 @@ describe("GET /api/news", () => {
         expect(body.items).toHaveLength(1);
         expect(body.items[0].title).toBe("BTC rises");
         expect(body.items[0].description).toBe("Hello world");
+        expect(parseURLMock).toHaveBeenCalledWith(
+            "https://news.google.com/rss/search?q=BTC%20crypto&hl=en-US&gl=US&ceid=US:en",
+        );
+    });
+
+    it("uses Vietnamese stock-focused query for stock universe", async () => {
+        parseURLMock.mockResolvedValue({
+            title: "Google News",
+            items: [],
+        });
+
+        const { GET } = await import("./route");
+        const req = new Request(
+            "http://localhost/api/news?symbol=SSI&universe=stock",
+        );
+        const res = await GET(req);
+        const body = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(body.items).toEqual([]);
+        expect(parseURLMock).toHaveBeenCalledWith(
+            "https://news.google.com/rss/search?q=Ch%E1%BB%A9ng%20kho%C3%A1n%20SSI&hl=vi&gl=VN&ceid=VN:vi",
+        );
     });
 });
