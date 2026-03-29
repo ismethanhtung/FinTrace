@@ -168,6 +168,10 @@ export const useOrderBook = (
     marketType: MarketType = "spot",
 ) => {
     const { universe } = useUniverse();
+    const resolvedSymbol =
+        universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
+            ? "BTCUSDT"
+            : symbol;
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] =
@@ -236,7 +240,7 @@ export const useOrderBook = (
                 marketType === "futures"
                     ? binanceService.getFuturesDepth.bind(binanceService)
                     : binanceService.getDepth.bind(binanceService);
-            const raw = (await getDepth(symbol, 1000)) as OrderBookSnapshot;
+            const raw = (await getDepth(resolvedSymbol, 1000)) as OrderBookSnapshot;
             const next = createOrderBookState(raw);
             bookRef.current = next;
             pendingDiffsRef.current = [];
@@ -261,7 +265,7 @@ export const useOrderBook = (
             }
             if (mountedRef.current) setIsLoading(false);
         }
-    }, [applyBufferedDiffs, marketType, symbol, universe]);
+    }, [applyBufferedDiffs, marketType, resolvedSymbol, universe]);
 
     const resync = useCallback(() => {
         pendingDiffsRef.current = [];
@@ -295,8 +299,8 @@ export const useOrderBook = (
 
         subscriptionRef.current?.unsubscribe();
         subscriptionRef.current = subscribeSharedStream<OrderBookDiff>({
-            key: depthKey(symbol, marketType),
-            url: depthUrl(symbol, marketType),
+            key: depthKey(resolvedSymbol, marketType),
+            url: depthUrl(resolvedSymbol, marketType),
             parser: (raw) => normalizeDepthDiff(raw),
             onMessage: (diff) => {
                 if (!mountedRef.current) return;
@@ -320,13 +324,13 @@ export const useOrderBook = (
         });
 
         bookTickerSubscriptionRef.current?.unsubscribe();
-        const pairLower = symbol.toLowerCase();
+        const pairLower = resolvedSymbol.toLowerCase();
         const bookTickerUrl =
             marketType === "futures"
                 ? `wss://fstream.binance.com/ws/${pairLower}@bookTicker`
                 : `wss://stream.binance.com:9443/ws/${pairLower}@bookTicker`;
         bookTickerSubscriptionRef.current = subscribeSharedStream<BookTickerEvent>({
-            key: `bookTicker:${marketType}:${pairLower}`,
+            key: `bookTicker:${marketType}:${resolvedSymbol.toLowerCase()}`,
             url: bookTickerUrl,
             parser: normalizeBookTicker,
             onMessage: (next) => setBookTicker(next),
@@ -339,7 +343,7 @@ export const useOrderBook = (
             bookTickerSubscriptionRef.current?.unsubscribe();
             bookTickerSubscriptionRef.current = null;
         };
-    }, [marketType, resync, symbol, loadSnapshot, pushDepthUpdateTimestamp, universe]);
+    }, [marketType, resync, resolvedSymbol, loadSnapshot, pushDepthUpdateTimestamp, universe]);
 
     const mockData = useMemo<OrderBookData | null>(() => {
         if (universe !== "stock") return null;

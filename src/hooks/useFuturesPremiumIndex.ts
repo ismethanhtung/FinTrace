@@ -21,6 +21,10 @@ export const useFuturesPremiumIndex = (
     marketType: MarketType,
 ) => {
     const { universe } = useUniverse();
+    const resolvedSymbol =
+        universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
+            ? "BTCUSDT"
+            : symbol;
     const [data, setData] = useState<FuturesPremiumIndex | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -50,7 +54,7 @@ export const useFuturesPremiumIndex = (
 
         setIsLoading(true);
         try {
-            const result = await binanceService.getFuturesPremiumIndex(symbol);
+            const result = await binanceService.getFuturesPremiumIndex(resolvedSymbol);
             setData(result);
             setError(null);
         } catch (err: unknown) {
@@ -65,7 +69,7 @@ export const useFuturesPremiumIndex = (
         } finally {
             setIsLoading(false);
         }
-    }, [symbol, marketType, universe]);
+    }, [marketType, universe, resolvedSymbol]);
 
     useEffect(() => {
         fetchData();
@@ -79,15 +83,15 @@ export const useFuturesPremiumIndex = (
         }
 
         subscriptionRef.current = subscribeSharedStream<MarkPriceStreamEvent>({
-            key: `mark-price:${symbol}`,
-            url: `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@markPrice@1s`,
+            key: `mark-price:${resolvedSymbol}`,
+            url: `wss://fstream.binance.com/ws/${resolvedSymbol.toLowerCase()}@markPrice@1s`,
             parser: (raw) => (raw && raw.e === "markPriceUpdate" ? raw : null),
             onMessage: (raw) => {
                 const normalized = normalizeMarkPriceStreamEvent(raw);
                 if (!normalized) return;
                 setData((prev) => {
                     const next: FuturesPremiumIndex = {
-                        symbol,
+                        symbol: resolvedSymbol,
                         markPrice: String(normalized.markPrice),
                         indexPrice: String(normalized.indexPrice),
                         estimatedSettlePrice: prev?.estimatedSettlePrice ?? String(normalized.markPrice),
@@ -107,7 +111,7 @@ export const useFuturesPremiumIndex = (
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [fetchData, marketType, symbol, universe]);
+    }, [fetchData, marketType, universe, resolvedSymbol]);
 
     /** Derived: funding rate as percentage string (e.g. "+0.0100%") */
     const fundingRatePct = data

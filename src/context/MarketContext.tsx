@@ -13,8 +13,13 @@ import {
 } from "../services/marketStreamService";
 import { useUniverse } from "./UniverseContext";
 import { coinMarketAdapter } from "../services/adapters/coinMarketAdapter";
-import { stockMockMarketAdapter } from "../services/adapters/stockMockMarketAdapter";
+import { stockLambdaMarketAdapter } from "../services/adapters/stockLambdaMarketAdapter";
 import { type AssetUniverse } from "../lib/marketUniverse";
+
+const DEFAULT_SYMBOL_BY_UNIVERSE: Record<AssetUniverse, string> = {
+    coin: "BTCUSDT",
+    stock: "FPT",
+};
 
 interface MarketContextType {
     universe: AssetUniverse;
@@ -65,6 +70,8 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
     >(null);
 
     const mountedRef = useRef(true);
+    const spotRequestSeqRef = useRef(0);
+    const futuresRequestSeqRef = useRef(0);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -75,17 +82,20 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
 
     // ── Spot bootstrap ──────────────────────────────────────────────────────────
     const fetchSpotAssets = useCallback(async () => {
+        const requestSeq = ++spotRequestSeqRef.current;
         try {
             const adapter =
-                universe === "stock" ? stockMockMarketAdapter : coinMarketAdapter;
+                universe === "stock"
+                    ? stockLambdaMarketAdapter
+                    : coinMarketAdapter;
             const next = await adapter.listAssets("spot");
-            if (mountedRef.current) {
+            if (mountedRef.current && requestSeq === spotRequestSeqRef.current) {
                 setSpotAssets(next);
                 setError(null);
             }
         } catch (err) {
             console.error("[MarketProvider] Failed to fetch spot assets:", err);
-            if (mountedRef.current) {
+            if (mountedRef.current && requestSeq === spotRequestSeqRef.current) {
                 setError(
                     err instanceof Error
                         ? err.message
@@ -93,17 +103,25 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
                 );
             }
         } finally {
-            if (mountedRef.current) setIsLoading(false);
+            if (mountedRef.current && requestSeq === spotRequestSeqRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [universe]);
 
     // ── Futures bootstrap ────────────────────────────────────────────────────────
     const fetchFuturesAssets = useCallback(async () => {
+        const requestSeq = ++futuresRequestSeqRef.current;
         try {
             const adapter =
-                universe === "stock" ? stockMockMarketAdapter : coinMarketAdapter;
+                universe === "stock"
+                    ? stockLambdaMarketAdapter
+                    : coinMarketAdapter;
             const next = await adapter.listAssets("futures");
-            if (mountedRef.current) {
+            if (
+                mountedRef.current &&
+                requestSeq === futuresRequestSeqRef.current
+            ) {
                 setFuturesAssets(next);
                 setError(null);
             }
@@ -113,17 +131,25 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
                 err,
             );
         } finally {
-            if (mountedRef.current) setIsFuturesLoading(false);
+            if (
+                mountedRef.current &&
+                requestSeq === futuresRequestSeqRef.current
+            ) {
+                setIsFuturesLoading(false);
+            }
         }
     }, [universe]);
 
     // ── Initial bootstrap only ──────────────────────────────────────────────────
     useEffect(() => {
+        setSpotAssets([]);
         setIsLoading(true);
+        setError(null);
         fetchSpotAssets();
     }, [fetchSpotAssets]);
 
     useEffect(() => {
+        setFuturesAssets([]);
         setIsFuturesLoading(true);
         fetchFuturesAssets();
     }, [fetchFuturesAssets]);
@@ -173,6 +199,11 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         });
 
         return () => sub.unsubscribe();
+    }, [universe]);
+
+    useEffect(() => {
+        const nextDefault = DEFAULT_SYMBOL_BY_UNIVERSE[universe];
+        setSelectedSymbol(nextDefault);
     }, [universe]);
 
     useEffect(() => {

@@ -40,11 +40,11 @@ const RecentTrades = ({
     const { trades, isLoading, error, connectionStatus } = useRecentTrades(
         symbol,
         marketType,
-        80,
+        300,
     );
 
     return (
-        <div className="flex flex-col flex-1 min-h-0">
+        <div className="h-full flex flex-col min-h-0 overflow-hidden">
             {/* Header */}
             <div className="px-3 py-1.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-main">
@@ -271,7 +271,7 @@ export const OrderBook = () => {
             )}
             {/* 3-column layout: Trades (left) | OrderBook (center) | Depth (right) */}
             <div className="flex-1 min-h-0 flex overflow-hidden bg-main">
-                <div className="w-[30%] min-w-[240px] max-w-[360px] border-r border-main min-h-0 bg-main">
+                <div className="w-[30%] min-w-[240px] max-w-[360px] border-r border-main min-h-0 bg-main flex flex-col overflow-hidden">
                     <RecentTrades
                         symbol={selectedSymbol}
                         marketType={marketType}

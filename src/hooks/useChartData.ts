@@ -14,6 +14,7 @@ import {
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
 import { createMockStockChart } from "../lib/mockStockData";
+import { stockLambdaService } from "../services/stockLambdaService";
 
 export type ChartType = "candlestick" | "area";
 export type Indicator = "MA7" | "MA25" | "EMA99";
@@ -41,6 +42,26 @@ const INTERVAL_MS: Record<ChartInterval, number> = {
     "1D": 24 * 60 * 60_000,
     "1W": 7 * 24 * 60 * 60_000,
     "1M": 30 * 24 * 60 * 60_000,
+};
+const STOCK_RESOLUTION_BY_INTERVAL: Record<ChartInterval, string> = {
+    "1m": "1",
+    "5m": "5",
+    "15m": "15",
+    "1H": "60",
+    "4H": "240",
+    "1D": "1D",
+    "1W": "1W",
+    "1M": "1M",
+};
+const STOCK_DAYS_BY_INTERVAL: Record<ChartInterval, number> = {
+    "1m": 2,
+    "5m": 3,
+    "15m": 7,
+    "1H": 14,
+    "4H": 30,
+    "1D": 120,
+    "1W": 365,
+    "1M": 900,
 };
 
 export type EnrichedPoint = OhlcvPoint & {
@@ -118,6 +139,10 @@ function enrich(mapped: OhlcvPoint[]): EnrichedPoint[] {
  */
 export const useChartData = (symbol: string, marketType: MarketType = 'spot') => {
     const { universe } = useUniverse();
+    const resolvedSymbol =
+        universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
+            ? "BTCUSDT"
+            : symbol;
     const [interval, setInterval] = useState<ChartInterval>("1H");
     const [chartType, setChartType] = useState<ChartType>("candlestick");
     const [activeIndicators, setActiveIndicators] = useState<Set<Indicator>>(
@@ -140,11 +165,30 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
             try {
                 setIsLoading(true);
                 if (universe === "stock") {
-                    const points = createMockStockChart(
+                    let points = createMockStockChart(
                         sym,
                         INTERVAL_MS[intv],
                         INITIAL_LIMIT,
                     );
+                    if (stockLambdaService.isConfigured()) {
+                        try {
+                            const stockSymbol = sym.replace(/-C|-F/gi, "");
+                            const livePoints =
+                                await stockLambdaService.getStockChart(
+                                    stockSymbol,
+                                    STOCK_RESOLUTION_BY_INTERVAL[intv],
+                                    STOCK_DAYS_BY_INTERVAL[intv],
+                                );
+                            if (livePoints.length > 0) {
+                                points = livePoints.slice(-INITIAL_LIMIT);
+                            }
+                        } catch (stockErr) {
+                            console.error(
+                                "[useChartData] Failed to fetch stock chart from lambda, fallback to mock:",
+                                stockErr,
+                            );
+                        }
+                    }
                     const mapped = points.map((p) => ({
                         ...p,
                         time: formatTime(p.timestamp, intv),
@@ -194,7 +238,7 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
                 ? binanceService.getFuturesKlines.bind(binanceService)
                 : binanceService.getKlines.bind(binanceService);
             const raw = await getKlines(
-                symbol,
+                resolvedSymbol,
                 interval,
                 HISTORY_BATCH,
                 oldest.timestamp - 1,
@@ -221,10 +265,10 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
         } finally {
             setIsFetchingHistory(false);
         }
-    }, [symbol, interval, isFetchingHistory, marketType, universe]);
+    }, [resolvedSymbol, interval, isFetchingHistory, marketType, universe]);
 
     useEffect(() => {
-        fetchInitial(symbol, interval);
+        fetchInitial(resolvedSymbol, interval);
         if (universe === "stock") {
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
@@ -234,11 +278,11 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
         const streamInterval = INTERVAL_MAP[interval] ?? interval;
         subscriptionRef.current?.unsubscribe();
         subscriptionRef.current = subscribeSharedStream<KlineStreamEvent>({
-            key: `kline:${marketType}:${symbol}:${interval}`,
+            key: `kline:${marketType}:${resolvedSymbol}:${interval}`,
             url:
                 marketType === "futures"
-                    ? `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${streamInterval}`
-                    : `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@kline_${streamInterval}`,
+                    ? `wss://fstream.binance.com/ws/${resolvedSymbol.toLowerCase()}@kline_${streamInterval}`
+                    : `wss://stream.binance.com:9443/ws/${resolvedSymbol.toLowerCase()}@kline_${streamInterval}`,
             parser: (raw) => (raw && raw.e === "kline" ? raw : null),
             onMessage: (raw) => {
                 const point = normalizeKlineStreamEvent(raw);
@@ -270,7 +314,7 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [symbol, interval, marketType, fetchInitial, universe]);
+    }, [resolvedSymbol, interval, marketType, fetchInitial, universe]);
 
     const toggleIndicator = useCallback((ind: Indicator) => {
         setActiveIndicators((prev) => {
@@ -293,7 +337,7 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
         activeIndicators,
         toggleIndicator,
         fetchHistory,
-        refetch: () => fetchInitial(symbol, interval),
+        refetch: () => fetchInitial(resolvedSymbol, interval),
         connectionStatus,
     };
 };

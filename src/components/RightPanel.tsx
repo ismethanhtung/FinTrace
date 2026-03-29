@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Sparkles, MessageSquare, Rss, FileText } from "lucide-react";
+import { MessageSquare, Rss, FileText } from "lucide-react";
 import { cn } from "../lib/utils";
 import { ChatPanel } from "./ai/ChatPanel";
 import { NewsPanel } from "./ai/NewsPanel";
@@ -100,16 +100,6 @@ export const RightPanel = () => {
                         </button>
                     );
                 })}
-                <div className="flex-1 border-b-2 border-transparent h-full" />
-                <div
-                    className="px-3 h-full flex items-center border-b-2 border-transparent"
-                    title="FinTrace AI"
-                >
-                    <Sparkles
-                        size={12}
-                        className="text-accent hover:opacity-80 transition-opacity cursor-pointer"
-                    />
-                </div>
             </div>
 
             {/* ── Content Area ── */}

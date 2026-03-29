@@ -1,22 +1,30 @@
 "use client";
 
-import PageLayout from "../../components/PageLayout";
-import { LeftSidebar } from "../../components/LeftSidebar";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
     AlertCircle,
-    ArrowDownLeft,
-    ArrowUpRight,
-    ArrowUp,
     ArrowDown,
-    RefreshCw,
+    ArrowDownLeft,
+    ArrowUp,
+    ArrowUpRight,
+    BarChart3,
+    Gauge,
+    Sigma,
 } from "lucide-react";
+import {
+    Line,
+    LineChart,
+    ReferenceLine,
+    Tooltip,
+    XAxis,
+    YAxis,
+} from "recharts";
+import { LeftSidebar } from "../../components/LeftSidebar";
+import { AppTopBar } from "../../components/shell/AppTopBar";
 import { cn } from "../../lib/utils";
-import { useEffect, useMemo, useState } from "react";
 import { useMarket } from "../../context/MarketContext";
 import { useTransactions } from "../../hooks/useTransactions";
-import { LineChart, Line, YAxis, Tooltip, XAxis, CartesianGrid, ReferenceLine } from "recharts";
 
-/** Giống `OrderBook` — format giá trên tape */
 const tradePriceFmt = (v: number) =>
     v < 0.001
         ? v.toFixed(6)
@@ -32,95 +40,15 @@ const compactUsdFmt = new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 2,
 });
 
-function MiniTradeSparkline({
-    data,
-    positive,
-    vwap,
-    variant = "compact",
-}: {
-    data: { v: number; ma: number; t: string }[];
-    positive: boolean;
-    vwap: number;
-    variant?: "compact" | "wide";
-}) {
-    const w = variant === "wide" ? 320 : 112;
-    const h = variant === "wide" ? 120 : 40;
-
-    if (!data || data.length < 2) {
-        return (
-            <div
-                className={cn(
-                    "flex items-center justify-center text-[11px] text-muted",
-                    variant === "wide" ? "h-[120px] w-full max-w-[320px]" : "h-10 w-28",
-                )}
-            >
-                --
-            </div>
-        );
-    }
-
-    return (
-        <div
-            className={cn(
-                "shrink-0",
-                variant === "wide" ? "w-full max-w-[320px]" : "h-10 w-28 min-w-[112px]",
-            )}
-        >
-            <LineChart width={w} height={h} data={data}>
-                {variant === "wide" && (
-                    <CartesianGrid stroke="var(--border-color)" strokeOpacity={0.25} vertical={false} />
-                )}
-                {variant === "wide" && <XAxis dataKey="t" hide />}
-                <YAxis hide domain={["dataMin", "dataMax"]} />
-                {variant === "wide" && Number.isFinite(vwap) && vwap > 0 && (
-                    <ReferenceLine y={vwap} stroke="var(--color-accent, #3b82f6)" strokeDasharray="3 3" />
-                )}
-                {variant === "wide" && (
-                    <Tooltip
-                        contentStyle={{
-                            background: "var(--bg-main)",
-                            border: "1px solid var(--border-color)",
-                            borderRadius: "6px",
-                            fontSize: "10px",
-                        }}
-                        formatter={(value: number, name) => [
-                            `$${tradePriceFmt(value)}`,
-                            name === "v" ? "Price" : "MA20",
-                        ]}
-                        labelFormatter={(label) => `Tick ${label}`}
-                    />
-                )}
-                <Line
-                    type="monotone"
-                    dataKey="v"
-                    stroke={positive ? "var(--color-up, #22c55e)" : "var(--color-down, #ef4444)"}
-                    strokeWidth={variant === "wide" ? 2 : 1.5}
-                    dot={false}
-                    isAnimationActive={false}
-                />
-                {variant === "wide" && (
-                    <Line
-                        type="monotone"
-                        dataKey="ma"
-                        stroke="var(--text-muted, #94a3b8)"
-                        strokeWidth={1.2}
-                        dot={false}
-                        isAnimationActive={false}
-                    />
-                )}
-            </LineChart>
-        </div>
-    );
-}
-
-/** 6 cột đều nhau, số căn phải */
 const TRADES_GRID =
-    "grid grid-cols-6 gap-x-3 px-3 items-center min-w-0";
+    "grid grid-cols-[90px_110px_1fr_1fr_1fr_110px] gap-x-3 px-3 items-center min-w-[760px]";
+
+type FilterKind = "all" | "buy" | "sell";
 
 export default function TransactionsPage() {
     const { assets, selectedSymbol, setSelectedSymbol, marketType } =
         useMarket();
-    const [filter, setFilter] = useState<"all" | "buy" | "sell">("all");
+    const [filter, setFilter] = useState<FilterKind>("all");
 
     const {
         transactions: txList,
@@ -131,7 +59,7 @@ export default function TransactionsPage() {
     } = useTransactions({
         symbol: selectedSymbol,
         marketType,
-        limit: 500,
+        limit: 800,
         pollingMs: 2000,
     });
 
@@ -172,23 +100,73 @@ export default function TransactionsPage() {
         }
 
         const vwap = totalQty > 0 ? totalQuote / totalQty : 0;
-        const positive = len >= 2 ? filtered[0].price >= filtered[len - 1].price : true;
+        const positive =
+            len >= 2 ? filtered[0].price >= filtered[len - 1].price : true;
+
         const priceSeries = filtered
             .slice()
             .reverse()
-            .slice(Math.max(0, filtered.length - 240));
+            .slice(Math.max(0, filtered.length - 280));
         const chartData = priceSeries.map((t, i, arr) => {
             const start = Math.max(0, i - 19);
             const window = arr.slice(start, i + 1);
             const ma =
                 window.reduce((sum, item) => sum + item.price, 0) /
                 Math.max(1, window.length);
-            return { v: t.price, ma, t: `${i + 1}` };
+            return {
+                idx: i + 1,
+                v: t.price,
+                ma,
+                timeLabel: t.timeLabel,
+                quote: t.quoteQty,
+            };
         });
+
         const firstChart = chartData[0]?.v ?? 0;
         const lastChart = chartData[chartData.length - 1]?.v ?? 0;
         const trendPct =
             firstChart > 0 ? ((lastChart - firstChart) / firstChart) * 100 : 0;
+
+        const latestTs = filtered[0]?.timeMs ?? 0;
+        const recent60s = latestTs
+            ? filtered.filter((t) => latestTs - t.timeMs <= 60_000)
+            : [];
+        const recentNotional = recent60s.reduce(
+            (sum, t) => sum + t.quoteQty,
+            0,
+        );
+
+        const imbalancePct =
+            totalQuote > 0 ? ((buyQuote - sellQuote) / totalQuote) * 100 : 0;
+        const buyDominance = totalQuote > 0 ? (buyQuote / totalQuote) * 100 : 0;
+
+        const sizeBuckets = [
+            { label: "Micro (<$1K)", min: 0, max: 1_000 },
+            { label: "Small ($1K-$10K)", min: 1_000, max: 10_000 },
+            { label: "Medium ($10K-$100K)", min: 10_000, max: 100_000 },
+            {
+                label: "Large (>$100K)",
+                min: 100_000,
+                max: Number.POSITIVE_INFINITY,
+            },
+        ].map((bucket) => {
+            const items = filtered.filter(
+                (t) => t.quoteQty >= bucket.min && t.quoteQty < bucket.max,
+            );
+            const notional = items.reduce((sum, t) => sum + t.quoteQty, 0);
+            const ratio = totalQuote > 0 ? (notional / totalQuote) * 100 : 0;
+            return {
+                ...bucket,
+                count: items.length,
+                notional,
+                ratio,
+            };
+        });
+
+        const bigPrints = filtered
+            .slice()
+            .sort((a, b) => b.quoteQty - a.quoteQty)
+            .slice(0, 12);
 
         return {
             len,
@@ -204,235 +182,492 @@ export default function TransactionsPage() {
             chartData,
             chartPoints: chartData.length,
             trendPct,
+            recentNotional,
+            recentTrades: recent60s.length,
+            imbalancePct,
+            buyDominance,
+            sizeBuckets,
+            bigPrints,
         };
     }, [filtered]);
 
     const showFullLoading = tradesLoading && txList.length === 0 && !tradeError;
 
     return (
-        <PageLayout title="Transactions" wide>
-            <div className="flex flex-col gap-4 min-h-0">
-                {/* Khung giống layout chart + sidebar: cao viewport, hai cột scroll nội bộ */}
-                <div className="flex rounded-xl border border-main overflow-hidden bg-main min-h-[min(720px,calc(100dvh-7.5rem))] h-[min(720px,calc(100dvh-7.5rem))]">
-                    <LeftSidebar embedded />
+        <div className="h-screen w-full bg-main text-main overflow-hidden flex flex-col">
+            <AppTopBar
+                onRefresh={refetch}
+                isRefreshing={isRefreshing}
+                refreshTitle="Reload transactions"
+                refreshAriaLabel="Reload transactions"
+                headerClassName="sticky top-0"
+            />
 
-                    <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-main">
-                        {/* Filter — không thay thế header tape */}
-                        <div className="px-3 py-2 border-b border-main bg-secondary/10 shrink-0 flex flex-wrap items-center justify-between gap-2">
-                            <div className="text-[10px] text-muted font-mono truncate">
-                                {selectedSymbol}
+            <main className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)_430px]">
+                <div className="min-h-0 border-r border-main bg-main">
+                    <LeftSidebar embedded />
+                </div>
+
+                <section className="min-h-0 min-w-0 flex flex-col border-r border-main bg-main">
+                    <div className="px-4 py-3 border-b border-main bg-gradient-to-r from-secondary/25 via-secondary/10 to-transparent shrink-0 flex items-center justify-between gap-3">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-main">
+                                    Market Trades
+                                </span>
+                                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                            </div>
+                            <div className="text-[11px] text-muted font-mono">
+                                {selectedSymbol} · {marketType.toUpperCase()} ·{" "}
+                                {filtered.length} rows
                                 {tradeError && txList.length > 0 ? (
                                     <span className="text-amber-500 ml-2">
                                         • Poll lỗi, đang giữ dữ liệu cũ
                                     </span>
                                 ) : null}
                             </div>
-                            <div className="flex items-center gap-1">
-                                {(["all", "buy", "sell"] as const).map((t) => (
-                                    <button
-                                        key={t}
-                                        type="button"
-                                        onClick={() => setFilter(t)}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                            {(["all", "buy", "sell"] as const).map((kind) => (
+                                <button
+                                    key={kind}
+                                    type="button"
+                                    onClick={() => setFilter(kind)}
+                                    className={cn(
+                                        "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border transition-colors",
+                                        filter === kind
+                                            ? "bg-accent/15 text-accent border-accent/30"
+                                            : "border-transparent text-muted hover:text-main hover:bg-secondary",
+                                    )}
+                                >
+                                    {kind}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div
+                        className={cn(
+                            TRADES_GRID,
+                            "py-2 text-[9px] font-semibold uppercase tracking-wider text-muted border-b border-main bg-secondary/10 shrink-0",
+                        )}
+                    >
+                        <span className="text-left">Type</span>
+                        <span className="text-right">ID</span>
+                        <span className="text-right">Price (USDT)</span>
+                        <span className="text-right">Qty</span>
+                        <span className="text-right">Notional</span>
+                        <span className="text-right">Time</span>
+                    </div>
+
+                    <div className="flex-1 min-h-0 overflow-x-auto">
+                        <div className="min-h-full min-w-[760px] overflow-y-auto thin-scrollbar">
+                            {tradeError && txList.length === 0 ? (
+                                <div className="h-full flex items-center justify-center gap-2 text-[11px] text-rose-500 px-3 text-center">
+                                    <AlertCircle
+                                        size={14}
+                                        className="shrink-0"
+                                    />
+                                    <span>Lỗi tải trades: {tradeError}</span>
+                                </div>
+                            ) : showFullLoading ? (
+                                <div className="h-full flex items-center justify-center text-[11px] text-muted">
+                                    Đang tải trades...
+                                </div>
+                            ) : filtered.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-[11px] text-muted">
+                                    Không có dữ liệu trades.
+                                </div>
+                            ) : (
+                                filtered.map((t) => (
+                                    <div
+                                        key={`${t.pair}-${t.id}-${t.timeMs}`}
                                         className={cn(
-                                            "px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider border transition-colors",
-                                            filter === t
-                                                ? "bg-accent/15 text-accent border-accent/30"
-                                                : "border-transparent text-muted hover:text-main hover:bg-secondary",
+                                            TRADES_GRID,
+                                            "py-[4px] border-b border-main last:border-0 hover:bg-secondary/40 transition-colors",
                                         )}
                                     >
-                                        {t === "all"
-                                            ? "All"
-                                            : t === "buy"
-                                              ? "Buy"
-                                              : "Sell"}
-                                    </button>
+                                        <div className="min-w-0 flex justify-start">
+                                            <span
+                                                className={cn(
+                                                    "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-bold font-mono tabular-nums",
+                                                    t.isBuy
+                                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                                        : "bg-rose-500/10 text-rose-500 border-rose-500/20",
+                                                )}
+                                            >
+                                                {t.isBuy ? (
+                                                    <ArrowDownLeft
+                                                        size={12}
+                                                        className="shrink-0"
+                                                    />
+                                                ) : (
+                                                    <ArrowUpRight
+                                                        size={12}
+                                                        className="shrink-0"
+                                                    />
+                                                )}
+                                                {t.isBuy ? "BUY" : "SELL"}
+                                            </span>
+                                        </div>
+                                        <span className="text-right text-[10px] font-mono tabular-nums text-muted truncate">
+                                            {t.id}
+                                        </span>
+                                        <span className="text-right text-[10px] font-mono font-semibold tabular-nums text-main">
+                                            {tradePriceFmt(t.price)}
+                                        </span>
+                                        <span className="text-right text-[10px] font-mono tabular-nums text-muted">
+                                            {t.qty.toFixed(4)}
+                                        </span>
+                                        <span className="text-right text-[10px] font-mono font-semibold tabular-nums text-main">
+                                            ${compactUsdFmt.format(t.quoteQty)}
+                                        </span>
+                                        <span className="text-right text-[10px] font-mono tabular-nums text-muted whitespace-nowrap">
+                                            {t.timeLabel}
+                                        </span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </section>
+
+                <aside className="min-h-0 bg-main flex flex-col">
+                    <div className="px-4 py-3 border-b border-main shrink-0">
+                        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-main">
+                            Tóm tắt tape (All / Buy / Sell)
+                        </div>
+                        <div className="text-[10px] text-muted mt-1">
+                            Khai thác trực tiếp từ luồng {selectedSymbol}{" "}
+                            realtime
+                        </div>
+                    </div>
+
+                    <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar p-4 space-y-4">
+                        <div className="grid grid-cols-2 gap-2">
+                            <StatCard
+                                label="Total Notional"
+                                value={`$${compactUsdFmt.format(stats.totalQuote)}`}
+                                icon={<Sigma size={12} />}
+                            />
+                            <StatCard
+                                label="VWAP"
+                                value={
+                                    stats.vwap
+                                        ? `$${tradePriceFmt(stats.vwap)}`
+                                        : "--"
+                                }
+                                icon={<BarChart3 size={12} />}
+                            />
+                            <StatCard
+                                label="Last 60s"
+                                value={`$${compactUsdFmt.format(stats.recentNotional)}`}
+                                icon={<Gauge size={12} />}
+                            />
+                            <StatCard
+                                label="Flow Imbalance"
+                                value={`${stats.imbalancePct >= 0 ? "+" : ""}${stats.imbalancePct.toFixed(2)}%`}
+                                accent={
+                                    stats.imbalancePct >= 0
+                                        ? "text-emerald-500"
+                                        : "text-rose-500"
+                                }
+                                icon={
+                                    stats.imbalancePct >= 0 ? (
+                                        <ArrowUp size={12} />
+                                    ) : (
+                                        <ArrowDown size={12} />
+                                    )
+                                }
+                            />
+                        </div>
+
+                        <div className="rounded-lg border border-main bg-secondary/10 p-3 space-y-2">
+                            <div className="flex items-center justify-between text-[10px] uppercase tracking-wider font-bold text-muted">
+                                <span>Buy/Sell Dominance</span>
+                                <span>
+                                    {stats.buyDominance.toFixed(1)}% Buy
+                                </span>
+                            </div>
+                            <div className="h-2 rounded-full overflow-hidden bg-secondary">
+                                <div
+                                    className="h-full bg-emerald-500"
+                                    style={{ width: `${stats.buyDominance}%` }}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] font-mono">
+                                <span className="text-emerald-500">
+                                    Buy ${compactUsdFmt.format(stats.buyQuote)}
+                                </span>
+                                <span className="text-rose-500">
+                                    Sell $
+                                    {compactUsdFmt.format(stats.sellQuote)}
+                                </span>
+                            </div>
+                            <div className="text-[10px] text-muted font-mono">
+                                Trades:{" "}
+                                <span className="text-emerald-500">
+                                    {stats.buyCount}B
+                                </span>{" "}
+                                /{" "}
+                                <span className="text-rose-500">
+                                    {stats.sellCount}S
+                                </span>{" "}
+                                · 60s: {stats.recentTrades}
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border border-main bg-secondary/10 p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <div className="text-[10px] uppercase tracking-wider font-bold text-muted">
+                                    Price Action
+                                </div>
+                                <div
+                                    className={cn(
+                                        "text-[10px] font-mono flex items-center gap-1",
+                                        stats.trendPct >= 0
+                                            ? "text-emerald-500"
+                                            : "text-rose-500",
+                                    )}
+                                >
+                                    {stats.trendPct >= 0 ? (
+                                        <ArrowUp size={11} />
+                                    ) : (
+                                        <ArrowDown size={11} />
+                                    )}
+                                    {stats.trendPct >= 0 ? "+" : ""}
+                                    {stats.trendPct.toFixed(2)}%
+                                </div>
+                            </div>
+                            <SizedChartContainer className="h-52 w-full min-w-0">
+                                {({ width, height }) => (
+                                    <LineChart
+                                        width={width}
+                                        height={height}
+                                        data={stats.chartData}
+                                        margin={{
+                                            top: 8,
+                                            right: 4,
+                                            left: 0,
+                                            bottom: 0,
+                                        }}
+                                    >
+                                        <XAxis dataKey="idx" hide />
+                                        <YAxis
+                                            hide
+                                            domain={["dataMin", "dataMax"]}
+                                        />
+                                        {Number.isFinite(stats.vwap) &&
+                                            stats.vwap > 0 && (
+                                                <ReferenceLine
+                                                    y={stats.vwap}
+                                                    stroke="var(--color-accent, #3b82f6)"
+                                                    strokeDasharray="3 3"
+                                                />
+                                            )}
+                                        <Tooltip
+                                            contentStyle={{
+                                                background: "var(--bg-main)",
+                                                border: "1px solid var(--border-color)",
+                                                borderRadius: "6px",
+                                                fontSize: "10px",
+                                            }}
+                                            formatter={(
+                                                value: number,
+                                                name,
+                                            ) => [
+                                                `$${tradePriceFmt(value)}`,
+                                                name === "v" ? "Price" : "MA20",
+                                            ]}
+                                            labelFormatter={(label) => {
+                                                const point =
+                                                    stats.chartData[
+                                                        Number(label) - 1
+                                                    ];
+                                                return point
+                                                    ? `Tick ${label} · ${point.timeLabel}`
+                                                    : `Tick ${label}`;
+                                            }}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="v"
+                                            stroke={
+                                                stats.positive
+                                                    ? "var(--color-up, #22c55e)"
+                                                    : "var(--color-down, #ef4444)"
+                                            }
+                                            strokeWidth={2}
+                                            dot={false}
+                                            isAnimationActive={false}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="ma"
+                                            stroke="var(--text-muted, #94a3b8)"
+                                            strokeWidth={1.2}
+                                            dot={false}
+                                            isAnimationActive={false}
+                                        />
+                                    </LineChart>
+                                )}
+                            </SizedChartContainer>
+                            <div className="text-[10px] text-muted font-mono">
+                                Range:{" "}
+                                {stats.len
+                                    ? `$${tradePriceFmt(stats.low)} - $${tradePriceFmt(stats.high)}`
+                                    : "--"}{" "}
+                                · Points: {stats.chartPoints}
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border border-main bg-secondary/10 p-3 space-y-2">
+                            <div className="text-[10px] uppercase tracking-wider font-bold text-muted">
+                                Size Distribution
+                            </div>
+                            <div className="space-y-2">
+                                {stats.sizeBuckets.map((bucket) => (
+                                    <div
+                                        key={bucket.label}
+                                        className="space-y-1"
+                                    >
+                                        <div className="flex items-center justify-between text-[10px]">
+                                            <span className="text-muted">
+                                                {bucket.label}
+                                            </span>
+                                            <span className="font-mono">
+                                                {bucket.count} · $
+                                                {compactUsdFmt.format(
+                                                    bucket.notional,
+                                                )}
+                                            </span>
+                                        </div>
+                                        <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                                            <div
+                                                className="h-full bg-accent/80"
+                                                style={{
+                                                    width: `${bucket.ratio}%`,
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Market Trades — cùng markup/class với OrderBook RecentTrades */}
-                        <div className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
-                            <div className="flex-1 min-h-0 min-w-0 overflow-x-auto flex flex-col">
-                                <div className="min-w-[720px] flex flex-col flex-1 min-h-0 min-w-0">
-                            <div className="px-3 py-3 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-between">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-main">
-                                    Market Trades
-                                </span>
-                                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                        <div className="rounded-lg border border-main bg-secondary/10 p-3">
+                            <div className="text-[10px] uppercase tracking-wider font-bold text-muted mb-2">
+                                Top Big Prints
                             </div>
-
-                            <div
-                                className={cn(
-                                    TRADES_GRID,
-                                    "py-2 text-[9px] font-semibold uppercase tracking-wider text-muted border-b border-main bg-secondary/10 shrink-0",
-                                )}
-                            >
-                                <span className="text-left">Type</span>
-                                <span className="text-right">ID</span>
-                                <span className="text-right">Price (USDT)</span>
-                                <span className="text-right">Qty</span>
-                                <span className="text-right">Total (USDT)</span>
-                                <span className="text-right">Time</span>
-                            </div>
-
-                            <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar">
-                                {tradeError && txList.length === 0 ? (
-                                    <div className="h-full flex items-center justify-center gap-2 text-[11px] text-rose-500 px-3 text-center">
-                                        <AlertCircle
-                                            size={14}
-                                            className="shrink-0"
-                                        />
-                                        <span>
-                                            Lỗi tải trades: {tradeError}
-                                        </span>
-                                    </div>
-                                ) : showFullLoading ? (
-                                    <div className="h-full flex items-center justify-center text-[11px] text-muted">
-                                        Đang tải trades...
-                                    </div>
-                                ) : filtered.length === 0 ? (
-                                    <div className="h-full flex items-center justify-center text-[11px] text-muted">
-                                        Không có dữ liệu trades.
+                            <div className="max-h-64 overflow-y-auto thin-scrollbar space-y-1">
+                                {stats.bigPrints.length === 0 ? (
+                                    <div className="text-[10px] text-muted">
+                                        No large prints yet.
                                     </div>
                                 ) : (
-                                    filtered.map((t) => (
+                                    stats.bigPrints.map((t) => (
                                         <div
-                                            key={`${t.pair}-${t.id}-${t.timeMs}`}
-                                            className={cn(
-                                                TRADES_GRID,
-                                                "py-[3px] border-b border-main last:border-0 hover:bg-secondary",
-                                            )}
+                                            key={`big-${t.id}-${t.timeMs}`}
+                                            className="flex items-center justify-between text-[10px] font-mono border-b border-main pb-1"
                                         >
-                                            <div className="min-w-0 flex justify-start">
-                                                <span
-                                                    className={cn(
-                                                        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-bold font-mono tabular-nums",
-                                                        t.isBuy
-                                                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                                            : "bg-rose-500/10 text-rose-500 border-rose-500/20",
-                                                    )}
-                                                >
-                                                    {t.isBuy ? (
-                                                        <ArrowDownLeft
-                                                            size={12}
-                                                            className="shrink-0"
-                                                        />
-                                                    ) : (
-                                                        <ArrowUpRight
-                                                            size={12}
-                                                            className="shrink-0"
-                                                        />
-                                                    )}
-                                                    {t.isBuy ? "BUY" : "SELL"}
-                                                </span>
-                                            </div>
-                                            <span className="text-right text-[10px] font-mono tabular-nums text-muted truncate">
-                                                {t.id}
+                                            <span
+                                                className={
+                                                    t.isBuy
+                                                        ? "text-emerald-500"
+                                                        : "text-rose-500"
+                                                }
+                                            >
+                                                {t.isBuy ? "BUY" : "SELL"}
                                             </span>
-                                            <span className="text-right text-[10px] font-mono font-semibold tabular-nums text-main">
-                                                {tradePriceFmt(t.price)}
-                                            </span>
-                                            <span className="text-right text-[10px] font-mono tabular-nums text-muted">
-                                                {t.qty.toFixed(4)}
-                                            </span>
-                                            <span className="text-right text-[10px] font-mono font-semibold tabular-nums text-main">
-                                                ${compactUsdFmt.format(
+                                            <span className="text-main">
+                                                $
+                                                {compactUsdFmt.format(
                                                     t.quoteQty,
                                                 )}
                                             </span>
-                                            <span className="text-right text-[10px] font-mono tabular-nums text-muted whitespace-nowrap">
+                                            <span className="text-muted">
+                                                {tradePriceFmt(t.price)}
+                                            </span>
+                                            <span className="text-muted">
                                                 {t.timeLabel}
                                             </span>
                                         </div>
                                     ))
                                 )}
                             </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
-                </div>
+                </aside>
+            </main>
+        </div>
+    );
+}
 
-                {/* Tóm tắt + chart — dưới khung chính */}
-                <div className="rounded-xl border border-main bg-secondary/10 p-4 sm:p-5">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-muted mb-4">
-                        Tóm tắt tape (theo bộ lọc All / Buy / Sell)
-                    </div>
-                    <div className="flex flex-col xl:flex-row xl:items-stretch xl:justify-between gap-6">
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 flex-1 min-w-0">
-                            <div className="rounded-lg border border-main bg-main px-3 py-2.5">
-                                <div className="text-[9px] text-muted uppercase tracking-widest font-bold mb-1">
-                                    Total
-                                </div>
-                                <div className="text-[14px] font-mono font-semibold tabular-nums">
-                                    ${compactUsdFmt.format(stats.totalQuote)}
-                                </div>
-                            </div>
-                            <div className="rounded-lg border border-main bg-main px-3 py-2.5">
-                                <div className="text-[9px] text-muted uppercase tracking-widest font-bold mb-1">
-                                    VWAP
-                                </div>
-                                <div className="text-[14px] font-mono font-semibold tabular-nums">
-                                    {stats.vwap
-                                        ? `$${tradePriceFmt(stats.vwap)}`
-                                        : "--"}
-                                </div>
-                            </div>
-                            <div className="rounded-lg border border-main bg-main px-3 py-2.5 lg:col-span-2">
-                                <div className="text-[9px] text-muted uppercase tracking-widest font-bold mb-1">
-                                    Range
-                                </div>
-                                <div className="text-[13px] font-mono font-semibold tabular-nums break-words">
-                                    {stats.len
-                                        ? `$${tradePriceFmt(stats.low)}`
-                                        : "--"}{" "}
-                                    <span className="text-muted">—</span>{" "}
-                                    {stats.len
-                                        ? `$${tradePriceFmt(stats.high)}`
-                                        : "--"}
-                                </div>
-                            </div>
-                            <div className="rounded-lg border border-main bg-main px-3 py-2.5 col-span-2 lg:col-span-4">
-                                <div className="text-[9px] text-muted uppercase tracking-widest font-bold mb-1">
-                                    Đếm lệnh
-                                </div>
-                                <div className="text-[14px] font-mono font-semibold tabular-nums">
-                                    <span className="text-emerald-500">
-                                        {stats.buyCount}B
-                                    </span>
-                                    <span className="text-muted mx-1">/</span>
-                                    <span className="text-rose-500">
-                                        {stats.sellCount}S
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="shrink-0 flex flex-col items-stretch sm:items-center xl:items-end gap-2">
-                            <div className="text-[9px] text-muted uppercase tracking-widest font-bold text-center xl:text-right">
-                                Giá ({stats.chartPoints} tick gần nhất)
-                            </div>
-                            <div
-                                className={cn(
-                                    "text-[10px] font-mono tabular-nums flex items-center justify-center xl:justify-end gap-1",
-                                    stats.trendPct >= 0 ? "text-emerald-500" : "text-rose-500",
-                                )}
-                            >
-                                {stats.trendPct >= 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
-                                {stats.trendPct >= 0 ? "+" : ""}
-                                {stats.trendPct.toFixed(2)}%
-                            </div>
-                            <div className="flex justify-center xl:justify-end w-full">
-                                <MiniTradeSparkline
-                                    data={stats.chartData}
-                                    positive={stats.positive}
-                                    vwap={stats.vwap}
-                                    variant="wide"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
+function StatCard({
+    label,
+    value,
+    accent,
+    icon,
+}: {
+    label: string;
+    value: string;
+    accent?: string;
+    icon?: ReactNode;
+}) {
+    return (
+        <div className="rounded-lg border border-main bg-main px-3 py-2.5 space-y-1">
+            <div className="text-[9px] text-muted uppercase tracking-widest font-bold flex items-center gap-1">
+                {icon}
+                <span>{label}</span>
             </div>
-        </PageLayout>
+            <div
+                className={cn(
+                    "text-[13px] font-mono font-semibold tabular-nums",
+                    accent ?? "text-main",
+                )}
+            >
+                {value}
+            </div>
+        </div>
+    );
+}
+
+function SizedChartContainer({
+    className,
+    children,
+}: {
+    className: string;
+    children: (size: { width: number; height: number }) => ReactNode;
+}) {
+    const ref = useRef<HTMLDivElement>(null);
+    const [size, setSize] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+
+        const updateSize = () => {
+            const rect = el.getBoundingClientRect();
+            const width = Math.floor(rect.width);
+            const height = Math.floor(rect.height);
+            if (width <= 0 || height <= 0) return;
+            setSize((prev) =>
+                prev.width === width && prev.height === height
+                    ? prev
+                    : { width, height },
+            );
+        };
+
+        updateSize();
+        const observer = new ResizeObserver(updateSize);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
+    return (
+        <div ref={ref} className={className}>
+            {size.width > 0 && size.height > 0 ? children(size) : null}
+        </div>
     );
 }

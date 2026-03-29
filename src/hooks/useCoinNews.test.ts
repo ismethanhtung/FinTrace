@@ -7,6 +7,9 @@ vi.mock("../services/newsService", () => ({
         getNews: vi.fn(),
     },
 }));
+vi.mock("../context/UniverseContext", () => ({
+    useUniverse: vi.fn(() => ({ universe: "coin" })),
+}));
 
 import { newsService } from "../services/newsService";
 import { useCoinNews } from "./useCoinNews";

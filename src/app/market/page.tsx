@@ -11,23 +11,14 @@ import {
     ChevronRight,
     Filter,
     RefreshCw,
-    Moon,
-    Sun,
-    Palette,
-    LayoutGrid,
-    BookOpenText,
     TrendingUp,
-    Database,
 } from "lucide-react";
 import { LineChart, Line, YAxis } from "recharts";
-import { useAppSettings, AppTheme } from "../../context/AppSettingsContext";
 import { useMarket } from "../../context/MarketContext";
 import { useMarketPageData } from "../../hooks/useMarketPageData";
 import { useRouter } from "next/navigation";
-import { QuickSearchDropdown } from "../../components/AssetList";
-import { UserMenu } from "../../components/UserMenu";
 import { cn } from "../../lib/utils";
-import { WorldSwitch } from "../../components/shell/WorldSwitch";
+import { AppTopBar } from "../../components/shell/AppTopBar";
 import {
     NetworkMapPayload,
     shouldKeepByNetwork,
@@ -102,15 +93,6 @@ const FILTER_CHIPS = [
 const MARKET_TABS = ["Spot", "Futures"];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-const THEME_META: Record<AppTheme, { icon: React.ReactNode; label: string }> = {
-    light: { icon: <Sun size={14} />, label: "Light" },
-    dark1: { icon: <Moon size={14} />, label: "Dark I" },
-    dark2: { icon: <Moon size={14} />, label: "Dark II" },
-    dark3: { icon: <Palette size={14} />, label: "Dark III" },
-    dark4: { icon: <Palette size={14} />, label: "Dark IV" },
-    dark5: { icon: <Moon size={14} />, label: "Dark V" },
-};
 
 function MiniSparkline({
     data,
@@ -496,7 +478,6 @@ function CoinAvatar({ symbol, logoUrl }: { symbol: string; logoUrl?: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function MarketPage() {
     const router = useRouter();
-    const { theme, toggleTheme } = useAppSettings();
     const { marketType, setMarketType, setSelectedSymbol, isMockUniverse, universe } = useMarket();
     const { rows, stats, isLoading, refetch } = useMarketPageData();
 
@@ -519,8 +500,6 @@ export default function MarketPage() {
         bySymbol: {},
         bySymbolPrimary: {},
     });
-
-    const meta = THEME_META[theme];
 
     useEffect(() => {
         setActiveMarket(marketType === "futures" ? "Futures" : "Spot");
@@ -616,56 +595,13 @@ export default function MarketPage() {
 
     return (
         <div className="min-h-screen bg-main text-main flex flex-col">
-            {/* ── Header ─────────────────────────────────────────────────────── */}
-            <header className="h-12 border-b border-main flex items-center justify-between px-6 bg-main z-50 shrink-0 sticky top-0">
-                <div className="flex items-center gap-8">
-                    <Link href="/" className="flex items-center gap-2.5">
-                        <Image
-                            src="/logo.gif"
-                            alt="FinTrace"
-                            width={36}
-                            height={36}
-                            unoptimized
-                            className=" "
-                            priority
-                        />
-                        <span className="font-bold text-[14px] tracking-tight">
-                            FinTrace
-                        </span>
-                    </Link>
-
-                    <nav className="flex items-center gap-1">
-                        <Link
-                            href="/"
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
-                        >
-                            <span>Chart</span>
-                        </Link>
-                        <Link
-                            href="/heatmap"
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
-                        >
-                            <span>Heatmap</span>
-                        </Link>
-                        <Link
-                            href="/news"
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
-                        >
-                            <span>News</span>
-                        </Link>
-                        <Link
-                            href="/data-stream"
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
-                        >
-                            <span>Data Streams</span>
-                        </Link>
-                        <div className="h-4 w-px border-l border-main mx-2" />
-                        <WorldSwitch />
-                        <QuickSearchDropdown />
-                    </nav>
-                </div>
-
-                <div className="flex items-center gap-3">
+            <AppTopBar
+                onRefresh={handleRefresh}
+                isRefreshing={isRefreshing}
+                refreshTitle="Refresh markets"
+                refreshAriaLabel="Refresh markets"
+                headerClassName="sticky top-0 px-6"
+                rightExtra={
                     <div className="relative hidden md:block">
                         <Search
                             size={13}
@@ -679,27 +615,8 @@ export default function MarketPage() {
                             className="bg-secondary border border-transparent hover:border-main rounded-md py-1.5 pl-8 pr-3 text-[12px] w-48 focus:w-64 focus:outline-none focus:ring-1 focus:ring-accent/30 transition-all"
                         />
                     </div>
-                    <div className="h-4 w-px border-l border-main" />
-                    <button
-                        onClick={toggleTheme}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main"
-                        title={`Theme: ${meta.label}`}
-                    >
-                        {meta.icon}
-                        <span className="text-[11px] font-medium hidden sm:inline">
-                            {meta.label}
-                        </span>
-                    </button>
-                    <button
-                        onClick={handleRefresh}
-                        className={`p-1.5 text-muted hover:text-main rounded-md hover:bg-secondary transition-colors ${isRefreshing ? "animate-spin" : ""}`}
-                    >
-                        <RefreshCw size={14} />
-                    </button>
-                    <div className="h-4 w-px border-l border-main" />
-                    <UserMenu />
-                </div>
-            </header>
+                }
+            />
 
             <main className="flex-1 max-w-[1600px] w-full mx-auto px-6 py-6 space-y-6">
                 {/* ── Sub-tabs + Insights row ──────────────────────────────── */}

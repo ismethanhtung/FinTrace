@@ -78,6 +78,10 @@ type DataStreamWsController = {
 export function useDataStream() {
     const { selectedSymbol, marketType } = useMarket();
     const { universe } = useUniverse();
+    const resolvedSelectedSymbol =
+        universe === "coin" && !selectedSymbol.toUpperCase().endsWith("USDT")
+            ? "BTCUSDT"
+            : selectedSymbol;
 
     const [config, setConfig] = useState<DataStreamConfig>(DEFAULT_CONFIG);
     const [records, setRecords] = useState<any[]>([]);
@@ -115,7 +119,7 @@ export function useDataStream() {
     const [soundEnabled, setSoundEnabled] = useState(false);
     const [soundArmed, setSoundArmed] = useState(false);
 
-    const pair = selectedSymbol;
+    const pair = resolvedSelectedSymbol;
     const pairLower = pair.toLowerCase();
 
     const market: DataStreamMarketType = marketType;
@@ -386,7 +390,7 @@ export function useDataStream() {
             soundEnabled,
             soundArmed,
             toggleSoundEnabled: soundToggle,
-            selectedSymbol: selectedSymbol,
+            selectedSymbol: resolvedSelectedSymbol,
             marketType: marketType,
         }),
         [
@@ -404,7 +408,7 @@ export function useDataStream() {
             soundEnabled,
             soundArmed,
             soundToggle,
-            selectedSymbol,
+            resolvedSelectedSymbol,
             marketType,
         ],
     );

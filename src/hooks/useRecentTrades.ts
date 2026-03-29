@@ -53,6 +53,10 @@ export const useRecentTrades = (
     limit = 80,
 ) => {
     const { universe } = useUniverse();
+    const resolvedSymbol =
+        universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
+            ? "BTCUSDT"
+            : symbol;
     const [trades, setTrades] = useState<RecentTradeItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -86,7 +90,7 @@ export const useRecentTrades = (
                 marketType === "futures"
                     ? binanceService.getFuturesRecentTrades.bind(binanceService)
                     : binanceService.getRecentTrades.bind(binanceService);
-            const raw = await getTrades(symbol, limit);
+            const raw = await getTrades(resolvedSymbol, limit);
             const next = raw.map(mapTrade).sort((a, b) => b.time - a.time);
             if (!mountedRef.current) return;
             setTrades(next);
@@ -100,7 +104,7 @@ export const useRecentTrades = (
         } finally {
             if (mountedRef.current) setIsLoading(false);
         }
-    }, [symbol, marketType, limit, universe]);
+    }, [symbol, marketType, limit, universe, resolvedSymbol]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -117,8 +121,8 @@ export const useRecentTrades = (
 
         subscriptionRef.current?.unsubscribe();
         subscriptionRef.current = subscribeSharedStream<TradeStreamEvent>({
-            key: tradeKey(symbol, marketType),
-            url: tradeUrl(symbol, marketType),
+            key: tradeKey(resolvedSymbol, marketType),
+            url: tradeUrl(resolvedSymbol, marketType),
             parser: (raw) => (raw && raw.e === "trade" ? raw : null),
             onMessage: (raw) => {
                 const item = normalizeTradeStreamEvent(raw);
@@ -140,7 +144,7 @@ export const useRecentTrades = (
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [fetchSnapshot, limit, marketType, symbol, universe]);
+    }, [fetchSnapshot, limit, marketType, symbol, universe, resolvedSymbol]);
 
     return {
         trades,

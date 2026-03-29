@@ -3,43 +3,18 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { MainChart } from "../components/MainChart";
 import { RightPanel } from "../components/RightPanel";
-import { UserMenu } from "../components/UserMenu";
 import { LeftSidebar } from "../components/LeftSidebar";
 import { OrderBook } from "../components/OrderBook";
 import { TickerBar } from "../components/TickerBar";
-import { QuickSearchDropdown } from "../components/AssetList";
-import { WorldSwitch } from "../components/shell/WorldSwitch";
-import { useMarket } from "../context/MarketContext";
-import {
-    useAppSettings,
-    THEME_CYCLE,
-    AppTheme,
-} from "../context/AppSettingsContext";
-import { Moon, Sun, RefreshCw, Palette } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
+import { AppTopBar } from "../components/shell/AppTopBar";
 
 const BOTTOM_MIN = 100;
 const BOTTOM_MAX = 460;
 const BOTTOM_DEFAULT = 240;
 
-// ─── Per-theme icon & label ─────────────────────────────────────────────────
-const THEME_META: Record<AppTheme, { icon: React.ReactNode; label: string }> = {
-    light: { icon: <Sun size={14} />, label: "Light" },
-    dark1: { icon: <Moon size={14} />, label: "Dark I" },
-    dark2: { icon: <Moon size={14} />, label: "Dark II" },
-    dark3: { icon: <Palette size={14} />, label: "Dark III" },
-    dark4: { icon: <Palette size={14} />, label: "Dark IV" },
-    dark5: { icon: <Moon size={14} />, label: "Dark V" },
-};
-
 export default function App() {
-    const { theme, toggleTheme } = useAppSettings();
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [bottomHeight, setBottomHeight] = useState(BOTTOM_DEFAULT);
-    const { assets, selectedSymbol } = useMarket();
-
-    const currentAsset = assets.find((a) => a.id === selectedSymbol);
 
     const handleRefresh = () => {
         setIsRefreshing(true);
@@ -89,91 +64,14 @@ export default function App() {
         };
     }, []);
 
-    const meta = THEME_META[theme];
-
     return (
         <div className="flex flex-col h-screen w-full bg-main text-main overflow-hidden">
-            {/* ── Global Header ── */}
-            <header className="h-12 border-b border-main flex items-center justify-between px-4 bg-main z-50 shrink-0">
-                <div className="flex items-center space-x-6">
-                    {/* Logo */}
-                    <div className="flex items-center space-x-2">
-                        <Image
-                            src="/logo.gif"
-                            alt="FinTrace logo"
-                            width={36}
-                            height={36}
-                            className="rounded-sm"
-                            unoptimized
-                            priority
-                        />
-                        <span className="font-bold text-[14px] tracking-tight">
-                            FinTrace
-                        </span>
-                    </div>
-
-                    {/* Nav: watchlist dropdown + quick search */}
-                    <nav className="flex items-center space-x-2">
-                        <Link
-                            href="/market"
-                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
-                        >
-                            <span>Markets</span>
-                        </Link>
-                        <Link
-                            href="/heatmap"
-                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
-                        >
-                            <span>Heatmap</span>
-                        </Link>
-                        <Link
-                            href="/data-stream"
-                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
-                        >
-                            <span>Data Streams</span>
-                        </Link>
-                        <Link
-                            href="/news"
-                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main text-[12px] font-medium"
-                        >
-                            <span>News</span>
-                        </Link>
-                        <div className="h-4 w-px bg-main border-l border-main" />
-                        <WorldSwitch />
-                        <QuickSearchDropdown />
-                    </nav>
-                </div>
-
-                {/* Right controls */}
-                <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-1">
-                        {/* Theme toggle */}
-                        <button
-                            onClick={toggleTheme}
-                            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main"
-                            title={`Current: ${meta.label} — click to cycle theme`}
-                        >
-                            {meta.icon}
-                            <span className="text-[11px] font-medium hidden sm:inline">
-                                {meta.label}
-                            </span>
-                        </button>
-                        <button
-                            onClick={handleRefresh}
-                            className={`p-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary ${isRefreshing ? "animate-spin" : ""}`}
-                        >
-                            <RefreshCw size={14} />
-                        </button>
-                    </div>
-
-                    <button className="px-4 py-1.5 bg-accent text-white rounded-md text-[11px] font-semibold hover:bg-accent/90 transition-colors shadow-sm">
-                        Trade
-                    </button>
-
-                    <div className="h-5 w-px border-l border-main" />
-                    <UserMenu />
-                </div>
-            </header>
+            <AppTopBar
+                onRefresh={handleRefresh}
+                isRefreshing={isRefreshing}
+                refreshTitle="Refresh"
+                refreshAriaLabel="Refresh"
+            />
 
             {/* ── Main Layout ── */}
             <div className="flex-1 flex min-h-0">

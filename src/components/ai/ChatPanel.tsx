@@ -87,9 +87,9 @@ const ModelSelector = ({
         shortModel.length > 22 ? shortModel.slice(0, 20) + "…" : shortModel;
 
     return (
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 min-w-0">
             {/* Provider selector */}
-            <div ref={providerRef} className="relative">
+            <div ref={providerRef} className="relative flex-shrink-0">
                 <button
                     onClick={() => {
                         setShowProviderMenu((v) => !v);
@@ -99,7 +99,9 @@ const ModelSelector = ({
                     title="Select provider"
                 >
                     <Zap size={9} className="text-accent" />
-                    <span>{providerName}</span>
+                    <span className="truncate max-w-[80px]">
+                        {providerName}
+                    </span>
                     <ChevronDown size={8} className="text-muted" />
                 </button>
                 <AnimatePresence>
@@ -155,21 +157,55 @@ const ModelSelector = ({
                     )}
                 </AnimatePresence>
             </div>
-
             {/* Model selector */}
-            <div ref={modelRef} className="relative">
+            <div ref={modelRef} className="relative flex-shrink flex-1 min-w-0">
                 <button
                     onClick={() => {
                         setShowModelMenu((v) => !v);
                         setShowProviderMenu(false);
                     }}
                     disabled={isLoadingModels}
-                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-secondary border border-main hover:border-accent/40 transition-colors text-[10px] font-medium text-muted hover:text-main disabled:opacity-60"
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-secondary border border-main hover:border-accent/40 transition-colors text-[10px] font-medium text-muted hover:text-main disabled:opacity-60 w-full min-w-0"
                     title="Select model"
                 >
                     <Cpu size={9} />
-                    <span className="font-mono">
-                        {isLoadingModels ? "loading…" : displayModel}
+                    <span
+                        className="font-mono truncate"
+                        style={{ maxWidth: "96px" }}
+                        title={
+                            isLoadingModels
+                                ? "loading…"
+                                : // Show full model on hover
+                                  displayModel !== shortModel
+                                  ? shortModel
+                                  : undefined
+                        }
+                    >
+                        {/* 
+                            Linh hoạt hiển thị tên đầy đủ khi đủ chiều rộng,
+                            chỉ rút gọn với "…" nếu không đủ
+                         */}
+                        {isLoadingModels ? (
+                            "loading…"
+                        ) : (
+                            <span
+                                style={{ display: "inline-block", minWidth: 0 }}
+                            >
+                                <span
+                                    style={{
+                                        display: "inline-block",
+                                        minWidth: 0,
+                                        maxWidth: "100%",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        verticalAlign: "bottom",
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    {shortModel}
+                                </span>
+                            </span>
+                        )}
                     </span>
                     <ChevronDown size={8} />
                 </button>
@@ -635,7 +671,7 @@ ${
                         )}
                         placeholder={
                             canChat
-                                ? `Let AI cook ${selectedSymbol.replace("USDT", "")}...`
+                                ? `Lets cook ${selectedSymbol.replace("USDT", "")}...`
                                 : "AI is disabled — enable a provider in Settings"
                         }
                         value={input}
@@ -647,7 +683,7 @@ ${
                             }
                         }}
                         disabled={!canChat}
-                        className="w-full bg-secondary border border-main rounded-lg py-2.5 pl-4 pr-12 text-[12px] text-main focus:outline-none focus:border-accent/50 resize-none thin-scrollbar leading-relaxed placeholder:text-muted"
+                        className="w-full bg-secondary border border-main rounded-lg py-2 pl-4 pr-12 text-[12px] text-main focus:outline-none focus:border-accent/50 resize-none thin-scrollbar leading-relaxed placeholder:text-muted"
                         style={{ minHeight: "40px" }}
                     />
                     {isStreaming ? (

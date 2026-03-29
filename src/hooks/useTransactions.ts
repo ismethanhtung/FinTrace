@@ -70,6 +70,10 @@ export const useTransactions = ({
     limit = 500,
 }: UseTransactionsOptions) => {
     const { universe } = useUniverse();
+    const resolvedSymbol =
+        universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
+            ? "BTCUSDT"
+            : symbol;
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -129,9 +133,9 @@ export const useTransactions = ({
                         ? binanceService.getFuturesRecentTrades.bind(binanceService)
                         : binanceService.getRecentTrades.bind(binanceService);
 
-                const raw = await getTrades(symbol, limit);
+                const raw = await getTrades(resolvedSymbol, limit);
                 const next = raw
-                    .map((t) => mapTrade(t, symbol))
+                    .map((t) => mapTrade(t, resolvedSymbol))
                     .sort((a, b) => b.timeMs - a.timeMs);
 
                 if (mountedRef.current) {
@@ -158,7 +162,7 @@ export const useTransactions = ({
                 }
             }
         },
-        [marketType, symbol, limit, universe],
+        [marketType, symbol, limit, universe, resolvedSymbol],
     );
 
     useEffect(() => {
@@ -177,16 +181,16 @@ export const useTransactions = ({
 
         subscriptionRef.current?.unsubscribe();
         subscriptionRef.current = subscribeSharedStream<TradeStreamEvent>({
-            key: `transactions:${marketType}:${symbol}`,
+            key: `transactions:${marketType}:${resolvedSymbol}`,
             url:
                 marketType === "futures"
-                    ? `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@trade`
-                    : `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@trade`,
+                    ? `wss://fstream.binance.com/ws/${resolvedSymbol.toLowerCase()}@trade`
+                    : `wss://stream.binance.com:9443/ws/${resolvedSymbol.toLowerCase()}@trade`,
             parser: (raw) => (raw && raw.e === "trade" ? raw : null),
             onMessage: (raw) => {
                 const item = normalizeTradeStreamEvent(raw);
                 if (!item || !mountedRef.current) return;
-                const pair = symbol;
+                const pair = resolvedSymbol;
                 const tx = mapTrade(
                     {
                         id: item.id,
@@ -209,7 +213,7 @@ export const useTransactions = ({
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [fetchTrades, limit, marketType, symbol, universe]);
+    }, [fetchTrades, limit, marketType, symbol, universe, resolvedSymbol]);
 
     return {
         transactions,

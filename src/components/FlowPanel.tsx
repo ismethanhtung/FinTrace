@@ -173,40 +173,52 @@ export const FlowPanel = () => {
         [buckets],
     );
 
-    const lsChartData = (data?.longShortRatio ?? []).map((d) => ({
-        time: new Date(d.timestamp).toLocaleDateString("vi-VN", {
-            month: "2-digit",
-            day: "2-digit",
-        }),
-        ratio: parseFloat(d.longShortRatio),
-        long: parseFloat(d.longAccount),
-        short: parseFloat(d.shortAccount),
-    }));
+    const lsChartData = useMemo(
+        () =>
+            (data?.longShortRatio ?? []).map((d) => ({
+                time: new Date(d.timestamp).toLocaleDateString("vi-VN", {
+                    month: "2-digit",
+                    day: "2-digit",
+                }),
+                ratio: parseFloat(d.longShortRatio),
+                long: parseFloat(d.longAccount),
+                short: parseFloat(d.shortAccount),
+            })),
+        [data?.longShortRatio],
+    );
 
-    const takerChartData = (data?.takerFlow ?? []).map((d) => ({
-        time: new Date(d.timestamp).toLocaleDateString("vi-VN", {
-            month: "2-digit",
-            day: "2-digit",
-        }),
-        buyVol: parseFloat(d.buyVol),
-        sellVol: parseFloat(d.sellVol),
-        net: parseFloat(d.buyVol) - parseFloat(d.sellVol),
-        ratio: parseFloat(d.buySellRatio),
-    }));
+    const takerChartData = useMemo(
+        () =>
+            (data?.takerFlow ?? []).map((d) => ({
+                time: new Date(d.timestamp).toLocaleDateString("vi-VN", {
+                    month: "2-digit",
+                    day: "2-digit",
+                }),
+                buyVol: parseFloat(d.buyVol),
+                sellVol: parseFloat(d.sellVol),
+                net: parseFloat(d.buyVol) - parseFloat(d.sellVol),
+                ratio: parseFloat(d.buySellRatio),
+            })),
+        [data?.takerFlow],
+    );
 
-    const oiChartData = (data?.openInterest ?? []).map((d, i, arr) => {
-        const prev = arr[i - 1];
-        const curr = parseFloat(d.sumOpenInterest);
-        const prevVal = prev ? parseFloat(prev.sumOpenInterest) : curr;
-        return {
-            time: new Date(d.timestamp).toLocaleDateString("vi-VN", {
-                month: "2-digit",
-                day: "2-digit",
+    const oiChartData = useMemo(
+        () =>
+            (data?.openInterest ?? []).map((d, i, arr) => {
+                const prev = arr[i - 1];
+                const curr = parseFloat(d.sumOpenInterest);
+                const prevVal = prev ? parseFloat(prev.sumOpenInterest) : curr;
+                return {
+                    time: new Date(d.timestamp).toLocaleDateString("vi-VN", {
+                        month: "2-digit",
+                        day: "2-digit",
+                    }),
+                    oi: curr,
+                    change: prev ? ((curr - prevVal) / prevVal) * 100 : 0,
+                };
             }),
-            oi: curr,
-            change: prev ? ((curr - prevVal) / prevVal) * 100 : 0,
-        };
-    });
+        [data?.openInterest],
+    );
 
     if (error) {
         return (
@@ -281,6 +293,7 @@ export const FlowPanel = () => {
                                         outerRadius={54}
                                         stroke="none"
                                         dataKey="value"
+                                        isAnimationActive={false}
                                     >
                                         {donutData.map((entry, index) => (
                                             <Cell
@@ -444,7 +457,11 @@ export const FlowPanel = () => {
                                     y={0}
                                     stroke="var(--border-color)"
                                 />
-                                <Bar dataKey="net" radius={[3, 3, 0, 0]}>
+                                <Bar
+                                    dataKey="net"
+                                    radius={[3, 3, 0, 0]}
+                                    isAnimationActive={false}
+                                >
                                     {takerChartData.map((e, i) => (
                                         <Cell
                                             key={i}
@@ -490,6 +507,7 @@ export const FlowPanel = () => {
                                     strokeWidth={2}
                                     fill="#eab308"
                                     fillOpacity={0.15}
+                                    isAnimationActive={false}
                                 />
                             </AreaChart>
                         )}
@@ -546,6 +564,7 @@ export const FlowPanel = () => {
                                     strokeWidth={2}
                                     fill="#eab308"
                                     fillOpacity={0.15}
+                                    isAnimationActive={false}
                                 />
                             </AreaChart>
                         )}

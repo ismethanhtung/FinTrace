@@ -65,6 +65,7 @@ export const TickerBar = () => {
         "good" | "weak" | "offline"
     >("good");
     const [stableOrderIds, setStableOrderIds] = useState<string[]>([]);
+    const modeKeyRef = useRef<string>(`${tickerMode}:${marketType}`);
     const settingsRef = useRef<HTMLDivElement>(null);
     const streamStatus =
         marketType === "futures" ? futuresStreamStatus : spotStreamStatus;
@@ -183,22 +184,29 @@ export const TickerBar = () => {
         return [...assets].sort((a, b) => b.quoteVolumeRaw - a.quoteVolumeRaw);
     }, [assets, tickerMode]);
 
-    // Keep ticker order stable for smooth marquee. Re-rank in short intervals
-    // instead of every websocket tick to avoid visual "jump back" glitches.
+    // Keep ticker order stable across websocket ticks to avoid marquee jumps.
     useEffect(() => {
+        const modeKey = `${tickerMode}:${marketType}`;
         const topIds = rankedAssets.slice(0, 140).map((asset) => asset.id);
-        setStableOrderIds(topIds);
-    }, [tickerMode, marketType]);
+        setStableOrderIds((prev) => {
+            if (!topIds.length) return [];
 
-    useEffect(() => {
-        const rebalance = () => {
-            const topIds = rankedAssets.slice(0, 140).map((asset) => asset.id);
-            setStableOrderIds(topIds);
-        };
-        rebalance();
-        const id = setInterval(rebalance, 8000);
-        return () => clearInterval(id);
-    }, [rankedAssets]);
+            const modeChanged = modeKeyRef.current !== modeKey;
+            modeKeyRef.current = modeKey;
+            if (modeChanged || prev.length === 0) return topIds;
+
+            const topSet = new Set(topIds);
+            const kept = prev.filter((id) => topSet.has(id));
+            const seen = new Set(kept);
+            for (const id of topIds) {
+                if (!seen.has(id)) {
+                    kept.push(id);
+                    seen.add(id);
+                }
+            }
+            return kept.slice(0, 140);
+        });
+    }, [rankedAssets, tickerMode, marketType]);
 
     const assetById = useMemo(
         () => new Map(assets.map((asset) => [asset.id, asset])),
@@ -393,14 +401,14 @@ export const TickerBar = () => {
                             <button
                                 key={`${asset.id}-${i}`}
                                 onClick={() => setSelectedSymbol(asset.id)}
-                                className="flex items-center space-x-1.5 px-4 h-8 hover:bg-secondary/80 transition-colors border-r border-main last:border-r-0 shrink-0"
+                                className="flex items-center space-x-1 px-2.5 h-8 hover:bg-secondary/80 transition-colors border-r border-main last:border-r-0 shrink-0 w-[210px]"
                             >
                                 <TokenAvatar
                                     symbol={asset.symbol}
                                     logoUrl={asset.logoUrl}
                                     size={14}
                                 />
-                                <span className="text-[10px] font-semibold whitespace-nowrap">
+                                <span className="text-[10px] font-semibold whitespace-nowrap w-[72px]">
                                     {asset.symbol}
                                     <span className="text-muted font-normal">
                                         /USDT
@@ -408,7 +416,7 @@ export const TickerBar = () => {
                                 </span>
                                 <span
                                     className={cn(
-                                        "text-[10px] font-bold tabular-nums w-[6px] text-right",
+                                        "text-[10px] font-bold tabular-nums w-[48px] text-right",
                                         asset.changePercent >= 0
                                             ? "text-emerald-500"
                                             : "text-rose-500",
@@ -417,7 +425,7 @@ export const TickerBar = () => {
                                     {asset.changePercent >= 0 ? "+" : ""}
                                     {asset.changePercent.toFixed(2)}%
                                 </span>
-                                <span className="text-[10px] font-mono tabular-nums text-muted whitespace-nowrap w-[78px] text-right">
+                                <span className="text-[10px] font-mono tabular-nums text-muted whitespace-nowrap w-[68px] text-right">
                                     {priceFmt(asset.price)}
                                 </span>
                             </button>

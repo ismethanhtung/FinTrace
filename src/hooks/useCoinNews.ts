@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { newsService, NewsItem } from '../services/newsService';
+import { useUniverse } from '../context/UniverseContext';
 
 interface UseCoinNewsOptions {
   symbol: string;          // e.g. "BTCUSDT" or "BTC"
@@ -10,13 +11,18 @@ export const useCoinNews = ({
   symbol,
   refreshIntervalMs = 5 * 60_000, // 5 minutes
 }: UseCoinNewsOptions) => {
+  const { universe } = useUniverse();
   const [news, setNews] = useState<NewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
 
   // Normalise symbol: "BTCUSDT" → "BTC", "BTC" → "BTC"
-  const baseSymbol = symbol.replace(/USDT$/, '').replace(/USD$/, '').toUpperCase();
+  const normalizedSymbol =
+    universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
+      ? "BTCUSDT"
+      : symbol;
+  const baseSymbol = normalizedSymbol.replace(/USDT$/, '').replace(/USD$/, '').toUpperCase();
 
   const isMounted = useRef(true);
 
@@ -50,4 +56,3 @@ export const useCoinNews = ({
 
   return { news, isLoading, error, lastFetched, refetch: fetchNews, baseSymbol };
 };
-

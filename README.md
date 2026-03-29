@@ -80,5 +80,6 @@ tasks/          → Task tracking
 |---|---|---|
 | `GEMINI_API_KEY` | For AI features | Google Gemini API Key (server-side only) |
 | `NEXT_PUBLIC_APP_ENV` | No | `development` or `production` |
+| `NEXT_PUBLIC_STOCK_LAMBDA_URL` | For stock real data | Lambda URL for stock listing + chart endpoints |
 
 See [`.env.example`](.env.example) for the full template.
