@@ -13,7 +13,6 @@ import {
     type MarketStreamStatus,
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
-import { createMockStockChart } from "../lib/mockStockData";
 import { stockLambdaService } from "../services/stockLambdaService";
 
 export type ChartType = "candlestick" | "area";
@@ -33,16 +32,6 @@ export type ChartInterval = (typeof CHART_INTERVALS)[number];
 
 const INITIAL_LIMIT = 300;
 const HISTORY_BATCH = 200;
-const INTERVAL_MS: Record<ChartInterval, number> = {
-    "1m": 60_000,
-    "5m": 5 * 60_000,
-    "15m": 15 * 60_000,
-    "1H": 60 * 60_000,
-    "4H": 4 * 60 * 60_000,
-    "1D": 24 * 60 * 60_000,
-    "1W": 7 * 24 * 60 * 60_000,
-    "1M": 30 * 24 * 60 * 60_000,
-};
 const STOCK_RESOLUTION_BY_INTERVAL: Record<ChartInterval, string> = {
     "1m": "1",
     "5m": "5",
@@ -54,14 +43,24 @@ const STOCK_RESOLUTION_BY_INTERVAL: Record<ChartInterval, string> = {
     "1M": "1M",
 };
 const STOCK_DAYS_BY_INTERVAL: Record<ChartInterval, number> = {
-    "1m": 2,
-    "5m": 3,
-    "15m": 7,
-    "1H": 14,
-    "4H": 30,
-    "1D": 120,
-    "1W": 365,
-    "1M": 900,
+    "1m": 21,
+    "5m": 45,
+    "15m": 180,
+    "1H": 1800,
+    "4H": 3650,
+    "1D": 3650,
+    "1W": 3650,
+    "1M": 3650,
+};
+const STOCK_HISTORY_DAYS_BY_INTERVAL: Record<ChartInterval, number> = {
+    "1m": 14,
+    "5m": 30,
+    "15m": 180,
+    "1H": 180,
+    "4H": 365,
+    "1D": 3650,
+    "1W": 3650,
+    "1M": 3650,
 };
 
 export type EnrichedPoint = OhlcvPoint & {
@@ -137,7 +136,10 @@ function enrich(mapped: OhlcvPoint[]): EnrichedPoint[] {
  * @param symbol - Trading pair symbol (e.g. "BTCUSDT")
  * @param marketType - Which market to fetch klines from. Futures uses fapi; spot/margin use api.
  */
-export const useChartData = (symbol: string, marketType: MarketType = 'spot') => {
+export const useChartData = (
+    symbol: string,
+    marketType: MarketType = "spot",
+) => {
     const { universe } = useUniverse();
     const resolvedSymbol =
         universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
@@ -156,53 +158,60 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
     const [error, setError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] =
         useState<MarketStreamStatus>("connecting");
-    const subscriptionRef = useRef<ReturnType<typeof subscribeSharedStream> | null>(
-        null,
-    );
+    const subscriptionRef = useRef<ReturnType<
+        typeof subscribeSharedStream
+    > | null>(null);
 
     const fetchInitial = useCallback(
         async (sym: string, intv: ChartInterval) => {
             try {
                 setIsLoading(true);
                 if (universe === "stock") {
-                    let points = createMockStockChart(
-                        sym,
-                        INTERVAL_MS[intv],
-                        INITIAL_LIMIT,
-                    );
-                    if (stockLambdaService.isConfigured()) {
-                        try {
-                            const stockSymbol = sym.replace(/-C|-F/gi, "");
-                            const livePoints =
-                                await stockLambdaService.getStockChart(
-                                    stockSymbol,
-                                    STOCK_RESOLUTION_BY_INTERVAL[intv],
-                                    STOCK_DAYS_BY_INTERVAL[intv],
-                                );
-                            if (livePoints.length > 0) {
-                                points = livePoints.slice(-INITIAL_LIMIT);
-                            }
-                        } catch (stockErr) {
-                            console.error(
-                                "[useChartData] Failed to fetch stock chart from lambda, fallback to mock:",
-                                stockErr,
-                            );
-                        }
+                    if (!stockLambdaService.isConfigured()) {
+                        allDataRef.current = [];
+                        setAllData([]);
+                        setError("Missing NEXT_PUBLIC_STOCK_LAMBDA_URL env");
+                        setConnectionStatus("error");
+                        return;
                     }
-                    const mapped = points.map((p) => ({
+                    const stockSymbol = sym.replace(/-C|-F/gi, "");
+                    const startDate = format(
+                        new Date(
+                            Date.now() -
+                                STOCK_DAYS_BY_INTERVAL[intv] *
+                                    24 *
+                                    60 *
+                                    60 *
+                                    1000,
+                        ),
+                        "yyyy-MM-dd",
+                    );
+                    const livePoints = await stockLambdaService.getStockChart(
+                        stockSymbol,
+                        STOCK_RESOLUTION_BY_INTERVAL[intv],
+                        STOCK_DAYS_BY_INTERVAL[intv],
+                        { startDate },
+                    );
+                    const mapped = livePoints.map((p) => ({
                         ...p,
                         time: formatTime(p.timestamp, intv),
                     }));
                     const enriched = enrich(mapped);
                     allDataRef.current = enriched;
                     setAllData(enriched);
-                    setError(null);
-                    setConnectionStatus("connected");
+                    if (enriched.length > 0) {
+                        setError(null);
+                        setConnectionStatus("connected");
+                    } else {
+                        setError(`No chart data for ${stockSymbol} at ${intv}`);
+                        setConnectionStatus("error");
+                    }
                     return;
                 }
-                const getKlines = marketType === 'futures'
-                    ? binanceService.getFuturesKlines.bind(binanceService)
-                    : binanceService.getKlines.bind(binanceService);
+                const getKlines =
+                    marketType === "futures"
+                        ? binanceService.getFuturesKlines.bind(binanceService)
+                        : binanceService.getKlines.bind(binanceService);
                 const raw = await getKlines(sym, intv, INITIAL_LIMIT);
                 const mapped: OhlcvPoint[] = raw.map((k: any[]) => ({
                     ...binanceService.mapKline(k),
@@ -218,6 +227,8 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
                     err instanceof Error ? err.message : "Failed to load chart",
                 );
                 if (universe === "stock") {
+                    allDataRef.current = [];
+                    setAllData([]);
                     setConnectionStatus("error");
                 }
             } finally {
@@ -229,14 +240,46 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
 
     const fetchHistory = useCallback(async () => {
         if (isFetchingHistory) return;
-        if (universe === "stock") return;
         const oldest = allDataRef.current[0];
         if (!oldest) return;
         try {
             setIsFetchingHistory(true);
-            const getKlines = marketType === 'futures'
-                ? binanceService.getFuturesKlines.bind(binanceService)
-                : binanceService.getKlines.bind(binanceService);
+            if (universe === "stock") {
+                const stockSymbol = resolvedSymbol.replace(/-C|-F/gi, "");
+                const endDate = format(
+                    new Date(oldest.timestamp - 24 * 60 * 60 * 1000),
+                    "yyyy-MM-dd",
+                );
+                const raw = await stockLambdaService.getStockChart(
+                    stockSymbol,
+                    STOCK_RESOLUTION_BY_INTERVAL[interval],
+                    STOCK_HISTORY_DAYS_BY_INTERVAL[interval],
+                    { endDate },
+                );
+                if (raw.length === 0) return;
+                const mapped: OhlcvPoint[] = raw.map((p) => ({
+                    ...p,
+                    time: formatTime(p.timestamp, interval),
+                }));
+                setAllData((prev) => {
+                    const existing = new Set(prev.map((p) => p.timestamp));
+                    const newOnes = mapped.filter(
+                        (p) => !existing.has(p.timestamp),
+                    );
+                    if (!newOnes.length) return prev;
+                    const merged = [...newOnes, ...prev].sort(
+                        (a, b) => a.timestamp - b.timestamp,
+                    );
+                    const enriched = enrich(merged);
+                    allDataRef.current = enriched;
+                    return enriched;
+                });
+                return;
+            }
+            const getKlines =
+                marketType === "futures"
+                    ? binanceService.getFuturesKlines.bind(binanceService)
+                    : binanceService.getKlines.bind(binanceService);
             const raw = await getKlines(
                 resolvedSymbol,
                 interval,
@@ -272,7 +315,6 @@ export const useChartData = (symbol: string, marketType: MarketType = 'spot') =>
         if (universe === "stock") {
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
-            setConnectionStatus("connected");
             return;
         }
         const streamInterval = INTERVAL_MAP[interval] ?? interval;

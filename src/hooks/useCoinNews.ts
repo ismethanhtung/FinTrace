@@ -23,13 +23,21 @@ export const useCoinNews = ({
       ? "BTCUSDT"
       : symbol;
   const baseSymbol = normalizedSymbol.replace(/USDT$/, '').replace(/USD$/, '').toUpperCase();
+  const safeBaseSymbol = baseSymbol.trim();
 
   const isMounted = useRef(true);
 
   const fetchNews = useCallback(async () => {
+    if (!safeBaseSymbol) {
+      if (!isMounted.current) return;
+      setNews([]);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
-      const items = await newsService.getNews(baseSymbol);
+      const items = await newsService.getNews(safeBaseSymbol);
       if (!isMounted.current) return;
       setNews(items);
       setLastFetched(new Date());
@@ -41,7 +49,7 @@ export const useCoinNews = ({
     } finally {
       if (isMounted.current) setIsLoading(false);
     }
-  }, [baseSymbol]);
+  }, [safeBaseSymbol]);
 
   // Fetch on symbol change + set up polling
   useEffect(() => {
@@ -54,5 +62,5 @@ export const useCoinNews = ({
     };
   }, [fetchNews, refreshIntervalMs]);
 
-  return { news, isLoading, error, lastFetched, refetch: fetchNews, baseSymbol };
+  return { news, isLoading, error, lastFetched, refetch: fetchNews, baseSymbol: safeBaseSymbol };
 };

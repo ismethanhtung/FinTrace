@@ -35,10 +35,9 @@ export const WorldSwitch = () => {
             })}
             {isMockUniverse && (
                 <span className="ml-1 px-1.5 py-0.5 rounded border border-amber-400/25 bg-amber-400/15 text-amber-400 text-[9px] font-bold uppercase tracking-wide">
-                    Mock
+                    Beta
                 </span>
             )}
         </div>
     );
 };
-

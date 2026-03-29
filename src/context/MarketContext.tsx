@@ -14,11 +14,12 @@ import {
 import { useUniverse } from "./UniverseContext";
 import { coinMarketAdapter } from "../services/adapters/coinMarketAdapter";
 import { stockLambdaMarketAdapter } from "../services/adapters/stockLambdaMarketAdapter";
+import { stockLambdaService } from "../services/stockLambdaService";
 import { type AssetUniverse } from "../lib/marketUniverse";
 
 const DEFAULT_SYMBOL_BY_UNIVERSE: Record<AssetUniverse, string> = {
     coin: "BTCUSDT",
-    stock: "FPT",
+    stock: "",
 };
 
 interface MarketContextType {
@@ -41,6 +42,7 @@ interface MarketContextType {
     futuresStreamStatus: MarketStreamStatus;
     lastSpotStreamUpdateAt: number | null;
     lastFuturesStreamUpdateAt: number | null;
+    hydrateStockSymbols: (symbols: string[]) => Promise<void>;
 }
 
 const MarketContext = React.createContext<MarketContextType | undefined>(
@@ -72,6 +74,10 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
     const mountedRef = useRef(true);
     const spotRequestSeqRef = useRef(0);
     const futuresRequestSeqRef = useRef(0);
+    const hydratedStockSpotRef = useRef<Set<string>>(new Set());
+    const hydratingStockSpotRef = useRef<Set<string>>(new Set());
+    const hydratedStockFuturesRef = useRef<Set<string>>(new Set());
+    const hydratingStockFuturesRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         mountedRef.current = true;
@@ -145,14 +151,74 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         setSpotAssets([]);
         setIsLoading(true);
         setError(null);
+        hydratedStockSpotRef.current.clear();
+        hydratingStockSpotRef.current.clear();
         fetchSpotAssets();
     }, [fetchSpotAssets]);
 
     useEffect(() => {
         setFuturesAssets([]);
         setIsFuturesLoading(true);
+        hydratedStockFuturesRef.current.clear();
+        hydratingStockFuturesRef.current.clear();
         fetchFuturesAssets();
     }, [fetchFuturesAssets]);
+
+    const hydrateStockSymbols = useCallback(
+        async (symbols: string[]) => {
+            if (universe !== "stock") return;
+            if (!symbols.length) return;
+
+            const isFutures = marketType === "futures";
+            const hydratedRef = isFutures
+                ? hydratedStockFuturesRef
+                : hydratedStockSpotRef;
+            const hydratingRef = isFutures
+                ? hydratingStockFuturesRef
+                : hydratingStockSpotRef;
+
+            const nextSymbols = Array.from(
+                new Set(
+                    symbols
+                        .map((s) => s.trim().toUpperCase())
+                        .filter(
+                            (s) =>
+                                Boolean(s) &&
+                                !hydratedRef.current.has(s) &&
+                                !hydratingRef.current.has(s),
+                        ),
+                ),
+            );
+            if (!nextSymbols.length) return;
+
+            nextSymbols.forEach((s) => hydratingRef.current.add(s));
+
+            try {
+                const snapshotMap = await stockLambdaService.getBulkSnapshots(
+                    nextSymbols,
+                    marketType,
+                );
+                if (!mountedRef.current || !snapshotMap.size) return;
+                const mergeAssets = (prev: Asset[]) =>
+                    prev.map((asset) => snapshotMap.get(asset.id) ?? asset);
+
+                if (isFutures) {
+                    setFuturesAssets(mergeAssets);
+                } else {
+                    setSpotAssets(mergeAssets);
+                }
+
+                nextSymbols.forEach((s) => {
+                    if (snapshotMap.has(s)) hydratedRef.current.add(s);
+                });
+            } catch (err) {
+                console.error("[MarketProvider] Failed to hydrate stock symbols:", err);
+            } finally {
+                nextSymbols.forEach((s) => hydratingRef.current.delete(s));
+            }
+        },
+        [marketType, universe],
+    );
 
     // ── Live market tickers via websocket ───────────────────────────────────────
     useEffect(() => {
@@ -203,7 +269,12 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         const nextDefault = DEFAULT_SYMBOL_BY_UNIVERSE[universe];
-        setSelectedSymbol(nextDefault);
+        if (nextDefault) {
+            setSelectedSymbol(nextDefault);
+            return;
+        }
+        // For stock universe, don't force a hardcoded symbol on reload.
+        setSelectedSymbol("");
     }, [universe]);
 
     useEffect(() => {
@@ -238,6 +309,7 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
                 futuresStreamStatus,
                 lastSpotStreamUpdateAt,
                 lastFuturesStreamUpdateAt,
+                hydrateStockSymbols,
             }}
         >
             {children}

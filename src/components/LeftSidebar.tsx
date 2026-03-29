@@ -138,19 +138,19 @@ const MarketBar = () => {
         spotStreamStatus,
         futuresStreamStatus,
         universe,
-        isMockUniverse,
     } = useMarket();
     const isFutures = marketType === "futures";
     const loading = isFutures ? isFuturesLoading : isLoading;
     const streamStatus = isFutures ? futuresStreamStatus : spotStreamStatus;
 
-    const label = universe === "stock"
-        ? isFutures
-            ? "Derivatives · Mock Stock Feed"
-            : "Primary Market · Mock Stock Feed"
-        : isFutures
-          ? "USD-M Perpetual · Binance Futures"
-          : "Spot Market · Binance";
+    const label =
+        universe === "stock"
+            ? isFutures
+                ? "Derivatives · Stock Feed"
+                : "Primary Market · Stock Feed"
+            : isFutures
+              ? "USD-M Perpetual · Binance Futures"
+              : "Spot Market · Binance";
 
     return (
         <div className="px-3 py-1.5 border-b border-main bg-secondary/10 shrink-0 space-y-1.5">
@@ -161,10 +161,10 @@ const MarketBar = () => {
                         streamStatus === "connected" && !loading
                             ? "bg-emerald-500"
                             : loading || streamStatus === "connecting"
-                            ? "animate-pulse bg-amber-400"
-                            : streamStatus === "error"
-                              ? "bg-rose-500"
-                              : "bg-sky-500",
+                              ? "animate-pulse bg-amber-400"
+                              : streamStatus === "error"
+                                ? "bg-rose-500"
+                                : "bg-sky-500",
                     )}
                 />
                 <span className="text-[9px] text-muted truncate flex-1">
@@ -222,11 +222,6 @@ const MarketBar = () => {
                     {universe === "stock" ? "Derivatives" : "Futures"}
                 </button>
             </div>
-            {isMockUniverse && (
-                <div className="text-[9px] text-amber-400 font-semibold uppercase tracking-wider">
-                    Mock data mode
-                </div>
-            )}
         </div>
     );
 };
@@ -244,6 +239,7 @@ const SortIcon = ({ mode }: { mode: SortMode }) => {
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 420;
 const DEFAULT_WIDTH = 260;
+const STOCK_PAGE_SIZE = 25;
 
 export type LeftSidebarProps = {
     /**
@@ -254,11 +250,19 @@ export type LeftSidebarProps = {
 };
 
 export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
-    const { assets, selectedSymbol, setSelectedSymbol } = useMarket();
+    const {
+        assets,
+        selectedSymbol,
+        setSelectedSymbol,
+        universe,
+        hydrateStockSymbols,
+    } = useMarket();
     const [isOpen, setIsOpen] = useState(true);
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [search, setSearch] = useState("");
     const [sortMode, setSortMode] = useState<SortMode>("volume");
+    const [stockVisibleCount, setStockVisibleCount] = useState(STOCK_PAGE_SIZE);
+    const listRef = useRef<HTMLDivElement | null>(null);
 
     const isDragging = useRef(false);
     const startX = useRef(0);
@@ -274,8 +278,47 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         ),
         sortMode,
     );
+    const visibleAssets =
+        universe === "stock"
+            ? displayAssets.slice(0, stockVisibleCount)
+            : displayAssets;
 
     const panelOpen = embedded || isOpen;
+
+    useEffect(() => {
+        if (universe !== "stock") return;
+        setStockVisibleCount(STOCK_PAGE_SIZE);
+    }, [search, sortMode, universe, assets.length]);
+
+    useEffect(() => {
+        if (universe !== "stock") return;
+        const symbols = visibleAssets
+            .slice(0, STOCK_PAGE_SIZE)
+            .map((a) => a.id);
+        void hydrateStockSymbols(symbols);
+    }, [universe, visibleAssets, hydrateStockSymbols]);
+
+    const handleListScroll = useCallback(() => {
+        if (universe !== "stock") return;
+        const el = listRef.current;
+        if (!el) return;
+        const nearBottom =
+            el.scrollTop + el.clientHeight >= el.scrollHeight - 60;
+        if (!nearBottom) return;
+        setStockVisibleCount((prev) =>
+            Math.min(prev + STOCK_PAGE_SIZE, displayAssets.length),
+        );
+    }, [displayAssets.length, universe]);
+
+    useEffect(() => {
+        if (universe !== "stock") return;
+        const start = Math.max(0, stockVisibleCount - STOCK_PAGE_SIZE);
+        const nextSymbols = displayAssets
+            .slice(start, stockVisibleCount)
+            .map((asset) => asset.id);
+        if (!nextSymbols.length) return;
+        void hydrateStockSymbols(nextSymbols);
+    }, [displayAssets, hydrateStockSymbols, stockVisibleCount, universe]);
 
     // ── Resize drag ──────────────────────────────────────────────────────────────
     const onMouseDown = useCallback(
@@ -355,13 +398,17 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
             </div>
 
             {/* Coin list */}
-            <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar">
+            <div
+                ref={listRef}
+                onScroll={handleListScroll}
+                className="flex-1 min-h-0 overflow-y-auto thin-scrollbar"
+            >
                 {displayAssets.length === 0 ? (
                     <div className="p-6 text-center text-muted text-[11px]">
                         No assets found
                     </div>
                 ) : (
-                    displayAssets.map((asset) => (
+                    visibleAssets.map((asset) => (
                         <CoinRow
                             key={asset.id}
                             asset={asset}

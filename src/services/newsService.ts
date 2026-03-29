@@ -35,15 +35,17 @@ export const newsService = {
         _authToken?: string,
         limit = 10,
     ): Promise<NewsItem[]> {
+        const safeSymbol = String(symbol || "").trim().toUpperCase();
+        if (!safeSymbol) return [];
         try {
             const res = await fetch(
-                `/api/news?symbol=${encodeURIComponent(symbol)}`,
+                `/api/news?symbol=${encodeURIComponent(safeSymbol)}`,
             );
             if (!res.ok) throw new Error(`News API Error: ${res.status}`);
             const data = await res.json();
 
             if (!data.items || data.items.length === 0) {
-                return newsService._mockNews(symbol);
+                return newsService._mockNews(safeSymbol);
             }
 
             return data.items.slice(0, limit).map((item: any) => ({
@@ -55,14 +57,14 @@ export const newsService = {
                 relativeTime: relativeTime(item.publishedAt),
                 description: item.description,
                 sentiment: "neutral", // Hard to extract from basic RSS
-                currencies: [symbol.replace("USDT", "")],
+                currencies: [safeSymbol.replace("USDT", "")],
             }));
         } catch (err) {
             console.warn(
                 "[newsService] Real news request failed, using mock fallback:",
                 err,
             );
-            return newsService._mockNews(symbol);
+            return newsService._mockNews(safeSymbol);
         }
     },
 

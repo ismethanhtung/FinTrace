@@ -603,10 +603,18 @@ export const MainChart = () => {
         const visibleRange = ts.getVisibleLogicalRange();
 
         const toTime = (t: number) => (t / 1000) as UTCTimestamp;
+        const normalizedData = Array.from(
+            new Map(
+                data
+                    .slice()
+                    .sort((a, b) => a.timestamp - b.timestamp)
+                    .map((d) => [d.timestamp, d] as const),
+            ).values(),
+        );
 
         if (candleSeriesRef.current) {
             candleSeriesRef.current.setData(
-                data.map((d) => ({
+                normalizedData.map((d) => ({
                     time: toTime(d.timestamp),
                     open: d.open,
                     high: d.high,
@@ -618,7 +626,7 @@ export const MainChart = () => {
 
         if (areaSeriesRef.current) {
             areaSeriesRef.current.setData(
-                data.map((d) => ({
+                normalizedData.map((d) => ({
                     time: toTime(d.timestamp),
                     value: d.close,
                 })),
@@ -627,7 +635,7 @@ export const MainChart = () => {
 
         if (volumeSeriesRef.current) {
             volumeSeriesRef.current.setData(
-                data.map((d) => ({
+                normalizedData.map((d) => ({
                     time: toTime(d.timestamp),
                     value: d.volume,
                     color:
@@ -640,7 +648,7 @@ export const MainChart = () => {
 
         if (ma7SeriesRef.current) {
             ma7SeriesRef.current.setData(
-                data
+                normalizedData
                     .filter((d) => d.MA7 != null)
                     .map((d) => ({
                         time: toTime(d.timestamp),
@@ -650,7 +658,7 @@ export const MainChart = () => {
         }
         if (ma25SeriesRef.current) {
             ma25SeriesRef.current.setData(
-                data
+                normalizedData
                     .filter((d) => d.MA25 != null)
                     .map((d) => ({
                         time: toTime(d.timestamp),
@@ -660,7 +668,7 @@ export const MainChart = () => {
         }
         if (ema99SeriesRef.current) {
             ema99SeriesRef.current.setData(
-                data
+                normalizedData
                     .filter((d) => d.EMA99 != null)
                     .map((d) => ({
                         time: toTime(d.timestamp),
@@ -909,12 +917,6 @@ export const MainChart = () => {
                         </div>
                     )}
                 </div>
-
-                {isMockUniverse && (
-                    <div className="pb-1 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-                        Mock stock data active
-                    </div>
-                )}
 
                 {/* Controls (chart tab only) */}
                 {activeTab === "chart" && (

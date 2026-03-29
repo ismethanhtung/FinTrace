@@ -2,11 +2,15 @@ import type { Asset, MarketType, OhlcvPoint } from "./binanceService";
 
 const STOCK_LAMBDA_URL = process.env.NEXT_PUBLIC_STOCK_LAMBDA_URL;
 const STOCK_LIST_LIMIT = Number.parseInt(
-    process.env.NEXT_PUBLIC_STOCK_LIST_LIMIT || "80",
+    process.env.NEXT_PUBLIC_STOCK_LIST_LIMIT || "1607",
     10,
 );
 const STOCK_HISTORY_CONCURRENCY = Number.parseInt(
-    process.env.NEXT_PUBLIC_STOCK_HISTORY_CONCURRENCY || "8",
+    process.env.NEXT_PUBLIC_STOCK_HISTORY_CONCURRENCY || "16",
+    10,
+);
+const STOCK_LISTING_CACHE_TTL_MS = Number.parseInt(
+    process.env.NEXT_PUBLIC_STOCK_LISTING_CACHE_TTL_MS || `${10 * 60 * 1000}`,
     10,
 );
 
@@ -33,9 +37,33 @@ type HistoryRow = {
     low?: number;
     close?: number;
     volume?: number;
+    ticker?: string;
+};
+
+type SnapshotRow = {
+    ticker?: string;
+    symbol?: string;
+    open?: NumberLike;
+    high?: NumberLike;
+    low?: NumberLike;
+    close?: NumberLike;
+    lastPrice?: NumberLike;
+    matchedPrice?: NumberLike;
+    matchPrice?: NumberLike;
+    volume?: NumberLike;
+    totalVolume?: NumberLike;
+    totalMatchVolume?: NumberLike;
+    prev_close?: NumberLike;
+    prevClose?: NumberLike;
+    change?: NumberLike;
+    change_percent?: NumberLike;
+    changePercent?: NumberLike;
+    changePc?: NumberLike;
 };
 
 type NumberLike = number | string | null | undefined;
+let listingCache: ListingRow[] | null = null;
+let listingCacheAt = 0;
 
 function parseNum(v: NumberLike): number {
     if (typeof v === "number") return Number.isFinite(v) ? v : 0;
@@ -48,8 +76,10 @@ function parseNum(v: NumberLike): number {
 
 function compactUsd(value: number): string {
     if (!Number.isFinite(value) || value <= 0) return "-";
-    if (value >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
-    if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
+    if (value >= 1_000_000_000_000)
+        return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
+    if (value >= 1_000_000_000)
+        return `$${(value / 1_000_000_000).toFixed(2)}B`;
     if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
     return `$${value.toFixed(0)}`;
 }
@@ -62,7 +92,10 @@ function dateToMs(value?: string): number {
 
 function toRecordList(value: unknown): Record<string, unknown>[] {
     if (!Array.isArray(value)) return [];
-    return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+    return value.filter(
+        (item): item is Record<string, unknown> =>
+            Boolean(item && typeof item === "object"),
+    );
 }
 
 function requireLambdaUrl(): string {
@@ -72,7 +105,9 @@ function requireLambdaUrl(): string {
     return STOCK_LAMBDA_URL;
 }
 
-async function getLambda<T>(params: Record<string, string>): Promise<LambdaEnvelope<T>> {
+async function getLambda<T>(
+    params: Record<string, string>,
+): Promise<LambdaEnvelope<T>> {
     const baseUrl = requireLambdaUrl();
     const query = new URLSearchParams(params).toString();
     const response = await fetch(`${baseUrl}?${query}`, {
@@ -90,56 +125,31 @@ async function getLambda<T>(params: Record<string, string>): Promise<LambdaEnvel
     return (await response.json()) as LambdaEnvelope<T>;
 }
 
-function toStockAsset(
-    ticker: string,
-    historyRows: HistoryRow[],
-    marketType: MarketType,
-    nameMap: Map<string, string>,
-): Asset {
-    const sorted = [...historyRows].sort(
-        (a, b) => dateToMs(a.time ?? a.date ?? a.tradingDate) - dateToMs(b.time ?? b.date ?? b.tradingDate),
-    );
-    const latest = sorted.at(-1);
-    const previous = sorted.length >= 2 ? sorted.at(-2) : undefined;
-
-    const lastClose = parseNum(latest?.close);
-    const prevClose = parseNum(previous?.close) || lastClose;
-    const change = lastClose - prevClose;
-    const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
-
-    const high24h = Math.max(...sorted.slice(-5).map((row) => parseNum(row.high)), lastClose);
-    const low24h = Math.min(...sorted.slice(-5).map((row) => parseNum(row.low)).filter((v) => v > 0), lastClose || 0);
-    const latestVolume = parseNum(latest?.volume);
-    const quoteVolumeRaw = latestVolume * Math.max(lastClose, 0);
-
-    return {
-        id: ticker,
-        symbol: ticker,
-        name: nameMap.get(ticker) || ticker,
-        price: lastClose,
-        change,
-        changePercent,
-        marketCap: "-",
-        volume24h: compactUsd(quoteVolumeRaw),
-        high24h,
-        low24h,
-        baseVolume: latestVolume,
-        quoteVolumeRaw,
-        sparkline: sorted.slice(-20).map((row) => parseNum(row.close)).filter((v) => v > 0),
-        marketType,
-        isMock: false,
-    };
-}
-
 function mapChartRows(rows: Record<string, unknown>[]): OhlcvPoint[] {
-    return rows
+    const normalized = rows
         .map((row) => {
             const tsRaw = row.timestamp;
             const timeRaw = row.time ?? row.date ?? row.tradingDate;
-            const timestamp =
+            const normalizedTimestamp =
                 typeof tsRaw === "number"
-                    ? tsRaw
-                    : dateToMs(typeof timeRaw === "string" ? timeRaw : undefined);
+                    ? tsRaw < 1_000_000_000_000
+                        ? tsRaw * 1000
+                        : tsRaw
+                    : typeof tsRaw === "string"
+                      ? (() => {
+                            const parsed = Number.parseInt(tsRaw, 10);
+                            if (!Number.isFinite(parsed)) return NaN;
+                            return parsed < 1_000_000_000_000
+                                ? parsed * 1000
+                                : parsed;
+                        })()
+                      : NaN;
+            const timestamp =
+                Number.isFinite(normalizedTimestamp)
+                    ? normalizedTimestamp
+                    : dateToMs(
+                          typeof timeRaw === "string" ? timeRaw : undefined,
+                      );
             return {
                 timestamp,
                 time: "",
@@ -152,6 +162,143 @@ function mapChartRows(rows: Record<string, unknown>[]): OhlcvPoint[] {
         })
         .filter((row) => row.close > 0)
         .sort((a, b) => a.timestamp - b.timestamp);
+
+    const dedup = new Map<number, OhlcvPoint>();
+    normalized.forEach((row) => {
+        dedup.set(row.timestamp, row);
+    });
+    return Array.from(dedup.values()).sort((a, b) => a.timestamp - b.timestamp);
+}
+
+function toBaseAsset(
+    ticker: string,
+    nameMap: Map<string, string>,
+    marketType: MarketType,
+): Asset {
+    return {
+        id: ticker,
+        symbol: ticker,
+        name: nameMap.get(ticker) || ticker,
+        price: 0,
+        change: 0,
+        changePercent: 0,
+        marketCap: "-",
+        volume24h: "-",
+        high24h: 0,
+        low24h: 0,
+        baseVolume: 0,
+        quoteVolumeRaw: 0,
+        sparkline: [],
+        marketType,
+        isMock: false,
+    };
+}
+
+function toAssetFromSnapshot(
+    row: SnapshotRow,
+    nameMap: Map<string, string>,
+    marketType: MarketType,
+): Asset | null {
+    const ticker = String(row.ticker || row.symbol || "").trim().toUpperCase();
+    if (!ticker) return null;
+
+    const close = parseNum(
+        row.close ?? row.lastPrice ?? row.matchedPrice ?? row.matchPrice,
+    );
+    if (close <= 0) return null;
+
+    const prevClose = parseNum(row.prev_close ?? row.prevClose);
+    const changeDirect = parseNum(row.change);
+    const change =
+        Number.isFinite(changeDirect) && changeDirect !== 0
+            ? changeDirect
+            : prevClose > 0
+              ? close - prevClose
+              : 0;
+    const changePercentDirect = parseNum(
+        row.change_percent ?? row.changePercent ?? row.changePc,
+    );
+    const changePercent =
+        Number.isFinite(changePercentDirect) && changePercentDirect !== 0
+            ? changePercentDirect
+            : prevClose > 0
+              ? (change / prevClose) * 100
+              : 0;
+    const volume = parseNum(
+        row.volume ?? row.totalVolume ?? row.totalMatchVolume,
+    );
+
+    return {
+        id: ticker,
+        symbol: ticker,
+        name: nameMap.get(ticker) || ticker,
+        price: close,
+        change,
+        changePercent,
+        marketCap: "-",
+        volume24h: compactUsd(volume * close),
+        high24h: parseNum(row.high) || close,
+        low24h: parseNum(row.low) || close,
+        baseVolume: volume,
+        quoteVolumeRaw: volume * close,
+        sparkline: [],
+        marketType,
+        isMock: false,
+    };
+}
+
+function toAssetFromHistoryRows(
+    ticker: string,
+    rows: HistoryRow[],
+    nameMap: Map<string, string>,
+    marketType: MarketType,
+): Asset | null {
+    const sorted = [...rows].sort(
+        (a, b) =>
+            dateToMs(a.time ?? a.date ?? a.tradingDate) -
+            dateToMs(b.time ?? b.date ?? b.tradingDate),
+    );
+    const latest = sorted.at(-1);
+    if (!latest) return null;
+    const previous = sorted.length >= 2 ? sorted.at(-2) : latest;
+
+    const close = parseNum(latest.close);
+    if (close <= 0) return null;
+    const prevClose = parseNum(previous?.close) || close;
+    const change = close - prevClose;
+    const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+    const volume = parseNum(latest.volume);
+
+    return {
+        id: ticker,
+        symbol: ticker,
+        name: nameMap.get(ticker) || ticker,
+        price: close,
+        change,
+        changePercent,
+        marketCap: "-",
+        volume24h: compactUsd(volume * close),
+        high24h: parseNum(latest.high) || close,
+        low24h: parseNum(latest.low) || close,
+        baseVolume: volume,
+        quoteVolumeRaw: volume * close,
+        sparkline: sorted
+            .slice(-20)
+            .map((r) => parseNum(r.close))
+            .filter((v) => v > 0),
+        marketType,
+        isMock: false,
+    };
+}
+
+async function getHistoryDaily(symbol: string): Promise<HistoryRow[]> {
+    const payload = await getLambda<HistoryRow[]>({
+        cmd: "stock_historical_data",
+        symbol,
+        days: "8",
+        resolution: "1D",
+    });
+    return toRecordList(payload.data) as unknown as HistoryRow[];
 }
 
 export const stockLambdaService = {
@@ -160,27 +307,48 @@ export const stockLambdaService = {
     },
 
     async getListingCompanies(): Promise<ListingRow[]> {
+        const now = Date.now();
+        if (
+            listingCache &&
+            now - listingCacheAt <
+                Math.max(5_000, STOCK_LISTING_CACHE_TTL_MS || 0)
+        ) {
+            return listingCache;
+        }
+
         const payload = await getLambda<ListingRow[]>({ cmd: "listing_companies" });
         const rows = toRecordList(payload.data);
-        return rows
+        const normalized = rows
             .map((row) => ({
-                ticker: typeof row.ticker === "string" ? row.ticker.toUpperCase() : undefined,
-                organName: typeof row.organName === "string" ? row.organName : undefined,
-                exchange: typeof row.exchange === "string" ? row.exchange : undefined,
+                ticker:
+                    typeof row.ticker === "string"
+                        ? row.ticker.toUpperCase()
+                        : undefined,
+                organName:
+                    typeof row.organName === "string"
+                        ? row.organName
+                        : undefined,
+                exchange:
+                    typeof row.exchange === "string"
+                        ? row.exchange
+                        : undefined,
                 comGroupCode:
-                    typeof row.comGroupCode === "string" ? row.comGroupCode : undefined,
+                    typeof row.comGroupCode === "string"
+                        ? row.comGroupCode
+                        : undefined,
             }))
             .filter((row) => Boolean(row.ticker));
+        listingCache = normalized;
+        listingCacheAt = now;
+        return normalized;
     },
 
     async getStockAssets(marketType: MarketType): Promise<Asset[]> {
         const listings = await this.getListingCompanies();
         const safeLimit = Number.isFinite(STOCK_LIST_LIMIT)
-            ? Math.min(Math.max(STOCK_LIST_LIMIT, 10), 300)
-            : 80;
-        const safeConcurrency = Number.isFinite(STOCK_HISTORY_CONCURRENCY)
-            ? Math.min(Math.max(STOCK_HISTORY_CONCURRENCY, 2), 20)
-            : 8;
+            ? Math.min(Math.max(STOCK_LIST_LIMIT, 10), 5000)
+            : 1607;
+
         const shortlist = listings
             .map((row) => row.ticker)
             .filter((ticker): ticker is string => Boolean(ticker))
@@ -193,45 +361,86 @@ export const stockLambdaService = {
             }
         });
 
-        const histories: { ticker: string; rows: HistoryRow[] }[] = [];
-        for (let i = 0; i < shortlist.length; i += safeConcurrency) {
-            const batch = shortlist.slice(i, i + safeConcurrency);
-            const batchResult = await Promise.allSettled(
-                batch.map(async (ticker) => {
-                    const payload = await getLambda<HistoryRow[]>({
-                        cmd: "stock_historical_data",
-                        symbol: ticker,
-                        days: "8",
-                        resolution: "1D",
-                    });
-                    const records = toRecordList(
-                        payload.data,
-                    ) as unknown as HistoryRow[];
-                    return { ticker, rows: records };
+        return shortlist.map((ticker) => toBaseAsset(ticker, nameMap, marketType));
+    },
+
+    async getBulkSnapshots(
+        symbols: string[],
+        marketType: MarketType,
+        nameMap?: Map<string, string>,
+    ): Promise<Map<string, Asset>> {
+        const names = nameMap || new Map<string, string>();
+        const dedupSymbols = Array.from(
+            new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean)),
+        );
+        if (!dedupSymbols.length) return new Map();
+        const out = new Map<string, Asset>();
+
+        // Fast path: get batch prices for requested symbols in one call.
+        try {
+            const payload = await getLambda<SnapshotRow[]>({
+                cmd: "price_board",
+                symbols: dedupSymbols.join(","),
+            });
+            const rows = toRecordList(payload.data) as unknown as SnapshotRow[];
+            rows.forEach((row) => {
+                const asset = toAssetFromSnapshot(row, names, marketType);
+                if (asset) out.set(asset.id, asset);
+            });
+            if (out.size >= dedupSymbols.length) return out;
+        } catch {
+            // fallback below
+        }
+
+        // Fallback path: parallel history per symbol.
+        const safeConcurrency = Number.isFinite(STOCK_HISTORY_CONCURRENCY)
+            ? Math.min(Math.max(STOCK_HISTORY_CONCURRENCY, 2), 40)
+            : 16;
+        const missingSymbols = dedupSymbols.filter((symbol) => !out.has(symbol));
+
+        for (let i = 0; i < missingSymbols.length; i += safeConcurrency) {
+            const batch = missingSymbols.slice(i, i + safeConcurrency);
+            const rows = await Promise.allSettled(
+                batch.map(async (symbol) => {
+                    const historyRows = await getHistoryDaily(symbol);
+                    return { symbol, historyRows };
                 }),
             );
-            batchResult.forEach((item) => {
-                if (item.status === "fulfilled") {
-                    histories.push(item.value);
-                }
+
+            rows.forEach((result) => {
+                if (result.status !== "fulfilled") return;
+                const asset = toAssetFromHistoryRows(
+                    result.value.symbol,
+                    result.value.historyRows,
+                    names,
+                    marketType,
+                );
+                if (asset) out.set(asset.id, asset);
             });
         }
 
-        return histories
-            .filter((item) => item.rows.length > 0)
-            .map((item) =>
-                toStockAsset(item.ticker, item.rows, marketType, nameMap),
-            )
-            .sort((a, b) => b.quoteVolumeRaw - a.quoteVolumeRaw);
+        return out;
     },
 
-    async getStockChart(symbol: string, resolution: string, days: number): Promise<OhlcvPoint[]> {
-        const payload = await getLambda<Record<string, unknown>[]>({
+    async getStockChart(
+        symbol: string,
+        resolution: string,
+        days: number,
+        opts?: {
+            startDate?: string;
+            endDate?: string;
+        },
+    ): Promise<OhlcvPoint[]> {
+        const params: Record<string, string> = {
             cmd: "stock_historical_data",
             symbol,
             resolution,
             days: String(days),
-        });
+        };
+        if (opts?.startDate) params.start_date = opts.startDate;
+        if (opts?.endDate) params.end_date = opts.endDate;
+
+        const payload = await getLambda<Record<string, unknown>[]>(params);
         return mapChartRows(toRecordList(payload.data));
     },
 };
