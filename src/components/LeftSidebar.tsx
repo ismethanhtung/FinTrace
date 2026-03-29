@@ -13,6 +13,7 @@ import {
     ArrowUpDown,
     ArrowDown,
     ArrowUp,
+    Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -256,6 +257,9 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         setSelectedSymbol,
         universe,
         hydrateStockSymbols,
+        marketType,
+        isLoading,
+        isFuturesLoading,
     } = useMarket();
     const [isOpen, setIsOpen] = useState(true);
     const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -284,6 +288,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
             : displayAssets;
 
     const panelOpen = embedded || isOpen;
+    const assetsLoading = marketType === "futures" ? isFuturesLoading : isLoading;
 
     useEffect(() => {
         if (universe !== "stock") return;
@@ -405,7 +410,14 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
             >
                 {displayAssets.length === 0 ? (
                     <div className="p-6 text-center text-muted text-[11px]">
-                        No assets found
+                        {assetsLoading ? (
+                            <span className="inline-flex items-center gap-2">
+                                <Loader2 size={14} className="animate-spin" />
+                                Loading...
+                            </span>
+                        ) : (
+                            "No assets found"
+                        )}
                     </div>
                 ) : (
                     visibleAssets.map((asset) => (

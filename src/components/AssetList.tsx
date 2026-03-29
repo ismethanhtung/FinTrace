@@ -16,6 +16,7 @@ import {
     Search,
     Clock,
     Flame,
+    Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useMarket } from "../context/MarketContext";
@@ -125,7 +126,16 @@ export const WatchlistDropdown = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [filter, setFilter] = useState("");
     const [recents, setRecents] = useState<string[]>([]);
-    const { assets, selectedSymbol, setSelectedSymbol, isMockUniverse } = useMarket();
+    const {
+        assets,
+        selectedSymbol,
+        setSelectedSymbol,
+        isMockUniverse,
+        marketType,
+        isLoading,
+        isFuturesLoading,
+    } = useMarket();
+    const assetsLoading = marketType === "futures" ? isFuturesLoading : isLoading;
 
     // Load recents from localStorage on mount
     useEffect(() => {
@@ -269,7 +279,17 @@ export const WatchlistDropdown = () => {
                                         </div>
                                         {filteredAssets.length === 0 ? (
                                             <div className="p-8 text-center text-muted text-[12px]">
-                                                No assets found
+                                                {assetsLoading ? (
+                                                    <span className="inline-flex items-center gap-2">
+                                                        <Loader2
+                                                            size={14}
+                                                            className="animate-spin"
+                                                        />
+                                                        Loading...
+                                                    </span>
+                                                ) : (
+                                                    "No assets found"
+                                                )}
                                             </div>
                                         ) : (
                                             filteredAssets.map((asset) => (
@@ -414,7 +434,16 @@ export const QuickSearchDropdown = () => {
     const [filter, setFilter] = useState("");
     const [recents, setRecents] = useState<string[]>([]);
 
-    const { assets, selectedSymbol, setSelectedSymbol, isMockUniverse } = useMarket();
+    const {
+        assets,
+        selectedSymbol,
+        setSelectedSymbol,
+        isMockUniverse,
+        marketType,
+        isLoading,
+        isFuturesLoading,
+    } = useMarket();
+    const assetsLoading = marketType === "futures" ? isFuturesLoading : isLoading;
 
     const MAX_QUICK_RESULTS = 20;
     const MAX_TOP_ASSETS_PREVIEW = 30;
@@ -568,7 +597,17 @@ export const QuickSearchDropdown = () => {
                                         </div>
                                         {shownFilteredAssets.length === 0 ? (
                                             <div className="p-8 text-center text-muted text-[12px]">
-                                                No assets found
+                                                {assetsLoading ? (
+                                                    <span className="inline-flex items-center gap-2">
+                                                        <Loader2
+                                                            size={14}
+                                                            className="animate-spin"
+                                                        />
+                                                        Loading...
+                                                    </span>
+                                                ) : (
+                                                    "No assets found"
+                                                )}
                                             </div>
                                         ) : (
                                             shownFilteredAssets.map((asset) => (

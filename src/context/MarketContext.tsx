@@ -21,6 +21,8 @@ const DEFAULT_SYMBOL_BY_UNIVERSE: Record<AssetUniverse, string> = {
     coin: "BTCUSDT",
     stock: "",
 };
+const STOCK_AUTO_HYDRATE_BATCH_SIZE = 25;
+const STOCK_AUTO_HYDRATE_DELAY_MS = 120;
 
 interface MarketContextType {
     universe: AssetUniverse;
@@ -289,6 +291,52 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         () => (marketType === "futures" ? futuresAssets : spotAssets),
         [marketType, spotAssets, futuresAssets],
     );
+
+    useEffect(() => {
+        if (universe !== "stock") return;
+        const activeAssets = marketType === "futures" ? futuresAssets : spotAssets;
+        if (!activeAssets.length) return;
+
+        const symbols = activeAssets.map((asset) => asset.id).filter(Boolean);
+        if (!symbols.length) return;
+
+        let cancelled = false;
+
+        const hydrateAllInBatches = async () => {
+            for (
+                let i = 0;
+                i < symbols.length && !cancelled;
+                i += STOCK_AUTO_HYDRATE_BATCH_SIZE
+            ) {
+                const batch = symbols.slice(
+                    i,
+                    i + STOCK_AUTO_HYDRATE_BATCH_SIZE,
+                );
+                await hydrateStockSymbols(batch);
+                if (
+                    cancelled ||
+                    i + STOCK_AUTO_HYDRATE_BATCH_SIZE >= symbols.length
+                ) {
+                    continue;
+                }
+                await new Promise((resolve) =>
+                    setTimeout(resolve, STOCK_AUTO_HYDRATE_DELAY_MS),
+                );
+            }
+        };
+
+        void hydrateAllInBatches();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        futuresAssets.length,
+        hydrateStockSymbols,
+        marketType,
+        spotAssets.length,
+        universe,
+    ]);
 
     return (
         <MarketContext.Provider
