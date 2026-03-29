@@ -1,7 +1,7 @@
 /**
  * GET /api/general-news
  *
- * Fetches up to ~90 general crypto news articles from Google News RSS.
+ * Fetches up to ~90 general market news articles from Google News RSS.
  * Results are cached server-side for 30 minutes to avoid rate limits.
  *
  * Returns NewsArticle[] sorted by most recent first.
@@ -9,6 +9,8 @@
 
 import { NextResponse } from "next/server";
 import Parser from "rss-parser";
+import { normalizeUniverse } from "../../../lib/marketUniverse";
+import type { AssetUniverse } from "../../../lib/marketUniverse";
 
 export const runtime = "nodejs";
 
@@ -31,7 +33,10 @@ type CacheEntry = {
     fetchedAt: number;
 };
 
-let _cache: CacheEntry | null = null;
+const _cache: Record<AssetUniverse, CacheEntry | null> = {
+    coin: null,
+    stock: null,
+};
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -47,20 +52,52 @@ function relativeTime(isoDate: string): string {
     return `${days}d ago`;
 }
 
-const RSS_QUERIES = [
+const COIN_RSS_QUERIES = [
     "cryptocurrency",
     "bitcoin ethereum market",
     "crypto news blockchain",
     "digital assets trading",
 ];
 
-async function fetchNewsArticles(): Promise<GeneralNewsArticle[]> {
+const STOCK_RSS_QUERIES = [
+    "chứng khoán",
+    "thị trường chứng khoán",
+    "cổ phiếu",
+    "tin tức chứng khoán",
+];
+
+function buildRssPlan(universe: AssetUniverse): {
+    queries: string[];
+    hl: string;
+    gl: string;
+    ceid: string;
+} {
+    if (universe === "stock") {
+        return {
+            queries: STOCK_RSS_QUERIES,
+            hl: "vi",
+            gl: "VN",
+            ceid: "VN:vi",
+        };
+    }
+    return {
+        queries: COIN_RSS_QUERIES,
+        hl: "en-US",
+        gl: "US",
+        ceid: "US:en",
+    };
+}
+
+async function fetchNewsArticles(
+    universe: AssetUniverse,
+): Promise<GeneralNewsArticle[]> {
     const parser = new Parser();
+    const { queries, hl, gl, ceid } = buildRssPlan(universe);
 
     try {
         const feedResults = await Promise.allSettled(
-            RSS_QUERIES.map(async (query) => {
-                const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+            queries.map(async (query) => {
+                const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
                 return parser.parseURL(rssUrl);
             }),
         );
@@ -134,21 +171,23 @@ async function fetchNewsArticles(): Promise<GeneralNewsArticle[]> {
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const forceRefresh = searchParams.get("refresh") === "1";
+    const universe = normalizeUniverse(searchParams.get("universe"));
     const limitParam = Number.parseInt(searchParams.get("limit") || "", 10);
     const limit = Number.isFinite(limitParam)
         ? Math.min(Math.max(limitParam, 12), 120)
         : 90;
+    const cacheEntry = _cache[universe];
 
     // Serve from cache if fresh
     if (
         !forceRefresh &&
-        _cache &&
-        Date.now() - _cache.fetchedAt < CACHE_TTL_MS
+        cacheEntry &&
+        Date.now() - cacheEntry.fetchedAt < CACHE_TTL_MS
     ) {
         return NextResponse.json(
             {
-                articles: _cache.articles.slice(0, limit),
-                cachedAt: new Date(_cache.fetchedAt).toISOString(),
+                articles: cacheEntry.articles.slice(0, limit),
+                cachedAt: new Date(cacheEntry.fetchedAt).toISOString(),
                 cacheValid: true,
             },
             {
@@ -161,13 +200,16 @@ export async function GET(request: Request) {
     }
 
     try {
-        const articles = await fetchNewsArticles();
-        _cache = { articles, fetchedAt: Date.now() };
+        const articles = await fetchNewsArticles(universe);
+        _cache[universe] = { articles, fetchedAt: Date.now() };
+        const freshCache = _cache[universe];
 
         return NextResponse.json(
             {
                 articles: articles.slice(0, limit),
-                cachedAt: new Date(_cache.fetchedAt).toISOString(),
+                cachedAt: freshCache
+                    ? new Date(freshCache.fetchedAt).toISOString()
+                    : new Date().toISOString(),
                 cacheValid: true,
             },
             {
@@ -181,11 +223,11 @@ export async function GET(request: Request) {
         console.error("[general-news] Error:", error);
 
         // If we have stale cache, serve it rather than fail
-        if (_cache) {
+        if (cacheEntry) {
             return NextResponse.json(
                 {
-                    articles: _cache.articles.slice(0, limit),
-                    cachedAt: new Date(_cache.fetchedAt).toISOString(),
+                    articles: cacheEntry.articles.slice(0, limit),
+                    cachedAt: new Date(cacheEntry.fetchedAt).toISOString(),
                     cacheValid: false,
                     warning: "Stale cache served due to fetch error",
                 },

@@ -113,7 +113,7 @@ const fallbackCryptoPrices = [
 export const NewsPageClient = () => {
     const router = useRouter();
     const { assets, setSelectedSymbol } = useMarket();
-    const { isMockUniverse } = useUniverse();
+    const { universe } = useUniverse();
     const [isMarketMenuOpen, setIsMarketMenuOpen] = useState(false);
     const [marketQuery, setMarketQuery] = useState("");
     const marketMenuRef = useRef<HTMLDivElement>(null);
@@ -127,7 +127,9 @@ export const NewsPageClient = () => {
     // ─── Fetch news from API ───────────────────────────────────────────────────
     const fetchNews = async () => {
         try {
-            const res = await fetch("/api/general-news?limit=90");
+            const res = await fetch(
+                `/api/general-news?limit=90&universe=${encodeURIComponent(universe)}`,
+            );
             if (!res.ok) throw new Error(`API Error: ${res.status}`);
             const data = await res.json();
             if (data.articles && Array.isArray(data.articles)) {
@@ -157,7 +159,7 @@ export const NewsPageClient = () => {
                 clearInterval(refreshIntervalRef.current);
             }
         };
-    }, []);
+    }, [universe]);
 
     // ─── Pagination helpers ────────────────────────────────────────────────────
     const totalPages = Math.ceil(articles.length / ARTICLES_PER_PAGE);
@@ -388,11 +390,6 @@ export const NewsPageClient = () => {
                         )}
                     </div>
                     <div className="flex items-center gap-2 sm:ml-auto">
-                        {isMockUniverse && (
-                            <span className="text-[9px] px-1.5 py-0.5 border border-amber-700 text-amber-700 uppercase tracking-wider font-bold">
-                                Mock
-                            </span>
-                        )}
                         <Search size={14} />
                         <Menu size={14} />
                     </div>
