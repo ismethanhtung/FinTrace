@@ -84,6 +84,22 @@ export type Asset = {
   fundingRate?: number;
   /** Futures-specific: next funding settlement timestamp (ms) */
   nextFundingTime?: number;
+  /** Stock-only company profile sourced from listing_companies */
+  stockProfile?: {
+    exchange?: string;
+    organName?: string;
+    organShortName?: string;
+    organTypeCode?: string;
+    comTypeCode?: string;
+    sector?: string;
+    industry?: string;
+    group?: string;
+    subgroup?: string;
+    icbName?: string;
+    icbNamePath?: string;
+    icbCode?: number;
+    indexMembership?: string[];
+  };
 };
 
 export type OhlcvPoint = {

@@ -23,6 +23,7 @@ import { useMarket } from "../context/MarketContext";
 import { Asset } from "../services/binanceService";
 import { TokenAvatar } from "./TokenAvatar";
 import { usePathname, useRouter } from "next/navigation";
+import { useUniverse } from "../context/UniverseContext";
 
 const RECENTS_KEY = "fintrace_recent_symbols";
 const MAX_RECENTS = 5;
@@ -64,8 +65,10 @@ const AssetRow = ({
     isSelected: boolean;
     onClick: () => void;
     badge?: React.ReactNode;
-}) => (
-    <div
+}) => {
+    const { universe } = useUniverse();
+    return (
+        <div
         onClick={onClick}
         className={cn(
             "px-4 py-2.5 flex items-center justify-between hover:bg-secondary transition-colors cursor-pointer group border-b border-main last:border-0",
@@ -92,7 +95,11 @@ const AssetRow = ({
                     {badge}
                 </div>
                 <div className="text-[10px] text-muted">
-                    {asset.isMock ? "Mock feed" : "Binance"}
+                    {asset.isMock
+                        ? "Simulated feed"
+                        : universe === "stock"
+                          ? "VN Stock feed"
+                          : "Binance"}
                 </div>
             </div>
         </div>
@@ -117,7 +124,8 @@ const AssetRow = ({
             </div>
         </div>
     </div>
-);
+    );
+};
 
 // ─── WatchlistDropdown ────────────────────────────────────────────────────────
 export const WatchlistDropdown = () => {
@@ -396,7 +404,7 @@ export const WatchlistDropdown = () => {
                                         </div>
                                         {isMockUniverse && (
                                             <div className="px-3 py-2 text-[9px] font-bold text-amber-400 uppercase tracking-widest border-t border-main">
-                                                Mock universe data
+                                                Stock universe data
                                             </div>
                                         )}
                                         {assets.map((asset) => (
@@ -705,7 +713,7 @@ export const QuickSearchDropdown = () => {
                                         </div>
                                         {isMockUniverse && (
                                             <div className="px-3 py-2 text-[9px] font-bold text-amber-400 uppercase tracking-widest border-t border-main">
-                                                Mock universe data
+                                                Stock universe data
                                             </div>
                                         )}
                                         {topAssetsPreview.map((asset) => (

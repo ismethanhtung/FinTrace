@@ -239,7 +239,7 @@ export const TickerBar = () => {
     const statusLabel = !isOnline
         ? "Offline"
         : isMockUniverse
-          ? "Mock feed"
+          ? "Stock feed"
         : networkQuality === "weak"
           ? "Weak network"
           : isLikelyLive

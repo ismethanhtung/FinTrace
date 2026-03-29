@@ -145,7 +145,9 @@ export const useChartData = (
         universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
             ? "BTCUSDT"
             : symbol;
-    const [interval, setInterval] = useState<ChartInterval>("1H");
+    const [interval, setInterval] = useState<ChartInterval>(
+        universe === "stock" ? "1D" : "1H",
+    );
     const [chartType, setChartType] = useState<ChartType>("candlestick");
     const [activeIndicators, setActiveIndicators] = useState<Set<Indicator>>(
         new Set(["MA7", "MA25"]),
@@ -161,6 +163,10 @@ export const useChartData = (
     const subscriptionRef = useRef<ReturnType<
         typeof subscribeSharedStream
     > | null>(null);
+
+    useEffect(() => {
+        setInterval(universe === "stock" ? "1D" : "1H");
+    }, [universe]);
 
     const fetchInitial = useCallback(
         async (sym: string, intv: ChartInterval) => {

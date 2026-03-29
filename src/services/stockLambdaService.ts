@@ -22,9 +22,41 @@ type LambdaEnvelope<T = unknown> = {
 
 type ListingRow = {
     ticker?: string;
-    organName?: string;
     exchange?: string;
+    organName?: string;
+    organShortName?: string;
+    organTypeCode?: string;
+    comTypeCode?: string;
+    icbName?: string;
+    icbNamePath?: string;
+    sector?: string;
+    industry?: string;
+    group?: string;
+    subgroup?: string;
+    icbCode?: number;
     comGroupCode?: string;
+    VN30?: boolean;
+    VNMID?: boolean;
+    VN100?: boolean;
+    VNSML?: boolean;
+    VNALL?: boolean;
+    HNX30?: boolean;
+    VNX50?: boolean;
+    VNXALL?: boolean;
+    VNDIAMOND?: boolean;
+    VNFINLEAD?: boolean;
+    VNFINSELECT?: boolean;
+    VNSI?: boolean;
+    VNCOND?: boolean;
+    VNCONS?: boolean;
+    VNENE?: boolean;
+    VNFIN?: boolean;
+    VNHEAL?: boolean;
+    VNIND?: boolean;
+    VNIT?: boolean;
+    VNMAT?: boolean;
+    VNREAL?: boolean;
+    VNUTI?: boolean;
 };
 
 type HistoryRow = {
@@ -64,6 +96,30 @@ type SnapshotRow = {
 type NumberLike = number | string | null | undefined;
 let listingCache: ListingRow[] | null = null;
 let listingCacheAt = 0;
+const LISTING_INDEX_KEYS = [
+    "VN30",
+    "VNMID",
+    "VN100",
+    "VNSML",
+    "VNALL",
+    "HNX30",
+    "VNX50",
+    "VNXALL",
+    "VNDIAMOND",
+    "VNFINLEAD",
+    "VNFINSELECT",
+    "VNSI",
+    "VNCOND",
+    "VNCONS",
+    "VNENE",
+    "VNFIN",
+    "VNHEAL",
+    "VNIND",
+    "VNIT",
+    "VNMAT",
+    "VNREAL",
+    "VNUTI",
+] as const;
 
 function parseNum(v: NumberLike): number {
     if (typeof v === "number") return Number.isFinite(v) ? v : 0;
@@ -96,6 +152,29 @@ function toRecordList(value: unknown): Record<string, unknown>[] {
         (item): item is Record<string, unknown> =>
             Boolean(item && typeof item === "object"),
     );
+}
+
+function pickString(value: unknown): string | undefined {
+    return typeof value === "string" && value.trim()
+        ? value.trim()
+        : undefined;
+}
+
+function pickBoolean(value: unknown): boolean | undefined {
+    return typeof value === "boolean" ? value : undefined;
+}
+
+function pickNumber(value: unknown): number | undefined {
+    return typeof value === "number" && Number.isFinite(value)
+        ? value
+        : undefined;
+}
+
+function indexMembershipFromRow(
+    row: Record<string, unknown>,
+): string[] | undefined {
+    const indexes = LISTING_INDEX_KEYS.filter((key) => row[key] === true);
+    return indexes.length ? indexes : undefined;
 }
 
 function requireLambdaUrl(): string {
@@ -172,13 +251,14 @@ function mapChartRows(rows: Record<string, unknown>[]): OhlcvPoint[] {
 
 function toBaseAsset(
     ticker: string,
-    nameMap: Map<string, string>,
+    listingMap: Map<string, ListingRow>,
     marketType: MarketType,
 ): Asset {
+    const listing = listingMap.get(ticker);
     return {
         id: ticker,
         symbol: ticker,
-        name: nameMap.get(ticker) || ticker,
+        name: listing?.organName || ticker,
         price: 0,
         change: 0,
         changePercent: 0,
@@ -191,12 +271,31 @@ function toBaseAsset(
         sparkline: [],
         marketType,
         isMock: false,
+        stockProfile: listing
+            ? {
+                  exchange: listing.comGroupCode || listing.exchange,
+                  organName: listing.organName,
+                  organShortName: listing.organShortName,
+                  organTypeCode: listing.organTypeCode,
+                  comTypeCode: listing.comTypeCode,
+                  sector: listing.sector,
+                  industry: listing.industry,
+                  group: listing.group,
+                  subgroup: listing.subgroup,
+                  icbName: listing.icbName,
+                  icbNamePath: listing.icbNamePath,
+                  icbCode: listing.icbCode,
+                  indexMembership: indexMembershipFromRow(
+                      listing as unknown as Record<string, unknown>,
+                  ),
+              }
+            : undefined,
     };
 }
 
 function toAssetFromSnapshot(
     row: SnapshotRow,
-    nameMap: Map<string, string>,
+    listingMap: Map<string, ListingRow>,
     marketType: MarketType,
 ): Asset | null {
     const ticker = String(row.ticker || row.symbol || "").trim().toUpperCase();
@@ -228,10 +327,11 @@ function toAssetFromSnapshot(
         row.volume ?? row.totalVolume ?? row.totalMatchVolume,
     );
 
+    const listing = listingMap.get(ticker);
     return {
         id: ticker,
         symbol: ticker,
-        name: nameMap.get(ticker) || ticker,
+        name: listing?.organName || ticker,
         price: close,
         change,
         changePercent,
@@ -244,13 +344,32 @@ function toAssetFromSnapshot(
         sparkline: [],
         marketType,
         isMock: false,
+        stockProfile: listing
+            ? {
+                  exchange: listing.comGroupCode || listing.exchange,
+                  organName: listing.organName,
+                  organShortName: listing.organShortName,
+                  organTypeCode: listing.organTypeCode,
+                  comTypeCode: listing.comTypeCode,
+                  sector: listing.sector,
+                  industry: listing.industry,
+                  group: listing.group,
+                  subgroup: listing.subgroup,
+                  icbName: listing.icbName,
+                  icbNamePath: listing.icbNamePath,
+                  icbCode: listing.icbCode,
+                  indexMembership: indexMembershipFromRow(
+                      listing as unknown as Record<string, unknown>,
+                  ),
+              }
+            : undefined,
     };
 }
 
 function toAssetFromHistoryRows(
     ticker: string,
     rows: HistoryRow[],
-    nameMap: Map<string, string>,
+    listingMap: Map<string, ListingRow>,
     marketType: MarketType,
 ): Asset | null {
     const sorted = [...rows].sort(
@@ -269,10 +388,11 @@ function toAssetFromHistoryRows(
     const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
     const volume = parseNum(latest.volume);
 
+    const listing = listingMap.get(ticker);
     return {
         id: ticker,
         symbol: ticker,
-        name: nameMap.get(ticker) || ticker,
+        name: listing?.organName || ticker,
         price: close,
         change,
         changePercent,
@@ -288,6 +408,25 @@ function toAssetFromHistoryRows(
             .filter((v) => v > 0),
         marketType,
         isMock: false,
+        stockProfile: listing
+            ? {
+                  exchange: listing.comGroupCode || listing.exchange,
+                  organName: listing.organName,
+                  organShortName: listing.organShortName,
+                  organTypeCode: listing.organTypeCode,
+                  comTypeCode: listing.comTypeCode,
+                  sector: listing.sector,
+                  industry: listing.industry,
+                  group: listing.group,
+                  subgroup: listing.subgroup,
+                  icbName: listing.icbName,
+                  icbNamePath: listing.icbNamePath,
+                  icbCode: listing.icbCode,
+                  indexMembership: indexMembershipFromRow(
+                      listing as unknown as Record<string, unknown>,
+                  ),
+              }
+            : undefined,
     };
 }
 
@@ -319,24 +458,47 @@ export const stockLambdaService = {
         const payload = await getLambda<ListingRow[]>({ cmd: "listing_companies" });
         const rows = toRecordList(payload.data);
         const normalized = rows
-            .map((row) => ({
-                ticker:
-                    typeof row.ticker === "string"
-                        ? row.ticker.toUpperCase()
-                        : undefined,
-                organName:
-                    typeof row.organName === "string"
-                        ? row.organName
-                        : undefined,
-                exchange:
-                    typeof row.exchange === "string"
-                        ? row.exchange
-                        : undefined,
-                comGroupCode:
-                    typeof row.comGroupCode === "string"
-                        ? row.comGroupCode
-                        : undefined,
-            }))
+            .map((row) => {
+                const typed = row as Record<string, unknown>;
+                return {
+                    ticker: pickString(typed.ticker)?.toUpperCase(),
+                    exchange: pickString(typed.exchange),
+                    organName: pickString(typed.organName),
+                    organShortName: pickString(typed.organShortName),
+                    organTypeCode: pickString(typed.organTypeCode),
+                    comTypeCode: pickString(typed.comTypeCode),
+                    icbName: pickString(typed.icbName),
+                    icbNamePath: pickString(typed.icbNamePath),
+                    sector: pickString(typed.sector),
+                    industry: pickString(typed.industry),
+                    group: pickString(typed.group),
+                    subgroup: pickString(typed.subgroup),
+                    icbCode: pickNumber(typed.icbCode),
+                    comGroupCode: pickString(typed.comGroupCode),
+                    VN30: pickBoolean(typed.VN30),
+                    VNMID: pickBoolean(typed.VNMID),
+                    VN100: pickBoolean(typed.VN100),
+                    VNSML: pickBoolean(typed.VNSML),
+                    VNALL: pickBoolean(typed.VNALL),
+                    HNX30: pickBoolean(typed.HNX30),
+                    VNX50: pickBoolean(typed.VNX50),
+                    VNXALL: pickBoolean(typed.VNXALL),
+                    VNDIAMOND: pickBoolean(typed.VNDIAMOND),
+                    VNFINLEAD: pickBoolean(typed.VNFINLEAD),
+                    VNFINSELECT: pickBoolean(typed.VNFINSELECT),
+                    VNSI: pickBoolean(typed.VNSI),
+                    VNCOND: pickBoolean(typed.VNCOND),
+                    VNCONS: pickBoolean(typed.VNCONS),
+                    VNENE: pickBoolean(typed.VNENE),
+                    VNFIN: pickBoolean(typed.VNFIN),
+                    VNHEAL: pickBoolean(typed.VNHEAL),
+                    VNIND: pickBoolean(typed.VNIND),
+                    VNIT: pickBoolean(typed.VNIT),
+                    VNMAT: pickBoolean(typed.VNMAT),
+                    VNREAL: pickBoolean(typed.VNREAL),
+                    VNUTI: pickBoolean(typed.VNUTI),
+                } satisfies ListingRow;
+            })
             .filter((row) => Boolean(row.ticker));
         listingCache = normalized;
         listingCacheAt = now;
@@ -354,22 +516,30 @@ export const stockLambdaService = {
             .filter((ticker): ticker is string => Boolean(ticker))
             .slice(0, safeLimit);
 
-        const nameMap = new Map<string, string>();
+        const listingMap = new Map<string, ListingRow>();
         listings.forEach((row) => {
             if (row.ticker) {
-                nameMap.set(row.ticker, row.organName || row.ticker);
+                listingMap.set(row.ticker, row);
             }
         });
 
-        return shortlist.map((ticker) => toBaseAsset(ticker, nameMap, marketType));
+        return shortlist.map((ticker) =>
+            toBaseAsset(ticker, listingMap, marketType),
+        );
     },
 
     async getBulkSnapshots(
         symbols: string[],
         marketType: MarketType,
-        nameMap?: Map<string, string>,
+        listingByTicker?: Map<string, ListingRow>,
     ): Promise<Map<string, Asset>> {
-        const names = nameMap || new Map<string, string>();
+        const listingMap = new Map<string, ListingRow>(listingByTicker);
+        if (listingMap.size === 0) {
+            const listings = await this.getListingCompanies();
+            listings.forEach((row) => {
+                if (row.ticker) listingMap.set(row.ticker, row);
+            });
+        }
         const dedupSymbols = Array.from(
             new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean)),
         );
@@ -384,7 +554,7 @@ export const stockLambdaService = {
             });
             const rows = toRecordList(payload.data) as unknown as SnapshotRow[];
             rows.forEach((row) => {
-                const asset = toAssetFromSnapshot(row, names, marketType);
+                const asset = toAssetFromSnapshot(row, listingMap, marketType);
                 if (asset) out.set(asset.id, asset);
             });
             if (out.size >= dedupSymbols.length) return out;
@@ -412,7 +582,7 @@ export const stockLambdaService = {
                 const asset = toAssetFromHistoryRows(
                     result.value.symbol,
                     result.value.historyRows,
-                    names,
+                    listingMap,
                     marketType,
                 );
                 if (asset) out.set(asset.id, asset);

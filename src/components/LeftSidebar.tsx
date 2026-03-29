@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../lib/utils";
 import { useMarket } from "../context/MarketContext";
 import { Asset } from "../services/binanceService";
@@ -14,6 +15,7 @@ import {
     ArrowDown,
     ArrowUp,
     Loader2,
+    Info,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -45,6 +47,95 @@ function nextSortMode(current: SortMode): SortMode {
     return "volume";
 }
 
+function stockTooltipText(asset: Asset): string {
+    const profile = asset.stockProfile;
+    if (!profile) return "";
+    const lines = [
+        profile.organName || asset.name || asset.symbol,
+        profile.organShortName ? `Tên ngắn: ${profile.organShortName}` : "",
+        profile.exchange ? `Sàn: ${profile.exchange}` : "",
+        profile.sector ? `Sector: ${profile.sector}` : "",
+        profile.industry ? `Industry: ${profile.industry}` : "",
+        profile.subgroup ? `Subgroup: ${profile.subgroup}` : "",
+        profile.icbName ? `ICB: ${profile.icbName}` : "",
+        profile.icbCode ? `ICB Code: ${profile.icbCode}` : "",
+        profile.indexMembership?.length
+            ? `Index: ${profile.indexMembership.slice(0, 6).join(", ")}`
+            : "",
+    ].filter(Boolean);
+    return lines.join("\n");
+}
+
+const StockInfoTooltip = ({ text }: { text: string }) => {
+    const [open, setOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+    const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!open) return;
+        const computePos = () => {
+            const trigger = triggerRef.current;
+            if (!trigger) return;
+            const rect = trigger.getBoundingClientRect();
+            const width = 240;
+            const viewportPadding = 10;
+            let left = rect.right + 10;
+            if (left + width > window.innerWidth - viewportPadding) {
+                left = Math.max(viewportPadding, rect.left - width - 10);
+            }
+            const top = Math.min(
+                Math.max(viewportPadding, rect.top + rect.height / 2),
+                window.innerHeight - viewportPadding,
+            );
+            setTooltipPos({ top, left });
+        };
+
+        computePos();
+        window.addEventListener("resize", computePos);
+        window.addEventListener("scroll", computePos, true);
+        return () => {
+            window.removeEventListener("resize", computePos);
+            window.removeEventListener("scroll", computePos, true);
+        };
+    }, [open]);
+
+    return (
+        <>
+            <button
+                ref={triggerRef}
+                type="button"
+                aria-label="Stock info"
+                onMouseEnter={() => setOpen(true)}
+                onMouseLeave={() => setOpen(false)}
+                onFocus={() => setOpen(true)}
+                onBlur={() => setOpen(false)}
+                className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border border-main text-muted/80 hover:text-main transition-colors"
+            >
+                <Info size={9} />
+            </button>
+            {mounted &&
+                open &&
+                createPortal(
+                    <div
+                        className="pointer-events-none fixed z-[9999] w-60 -translate-y-1/2 whitespace-pre-line rounded-md border border-main bg-main p-2 text-[9px] leading-relaxed text-muted shadow-2xl"
+                        style={{
+                            top: tooltipPos.top,
+                            left: tooltipPos.left,
+                        }}
+                    >
+                        {text}
+                    </div>,
+                    document.body,
+                )}
+        </>
+    );
+};
+
 // ─── Coin Row ─────────────────────────────────────────────────────────────────
 const CoinRow = ({
     asset,
@@ -57,6 +148,7 @@ const CoinRow = ({
 }) => {
     const isFutures = asset.marketType === "futures";
     const fundingRate = asset.fundingRate;
+    const stockHint = stockTooltipText(asset);
 
     return (
         <div
@@ -83,6 +175,9 @@ const CoinRow = ({
                         >
                             {asset.symbol}
                         </span>
+                        {stockHint && (
+                            <StockInfoTooltip text={stockHint} />
+                        )}
                         {isFutures && (
                             <span className="text-[7px] font-bold px-1 py-px rounded bg-amber-400/15 text-amber-400 border border-amber-400/20 shrink-0">
                                 PERP
@@ -288,7 +383,8 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
             : displayAssets;
 
     const panelOpen = embedded || isOpen;
-    const assetsLoading = marketType === "futures" ? isFuturesLoading : isLoading;
+    const assetsLoading =
+        marketType === "futures" ? isFuturesLoading : isLoading;
 
     useEffect(() => {
         if (universe !== "stock") return;
