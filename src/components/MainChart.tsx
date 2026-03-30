@@ -109,7 +109,9 @@ const CoinInfoPanel = () => {
     const spotRows = [
         {
             label: "Last Price",
-            value: isStock ? priceFmt(asset.price) : `$${priceFmt(asset.price)}`,
+            value: isStock
+                ? priceFmt(asset.price)
+                : `$${priceFmt(asset.price)}`,
         },
         {
             label: "24h Change",
@@ -119,11 +121,15 @@ const CoinInfoPanel = () => {
         },
         {
             label: "24h High",
-            value: isStock ? priceFmt(asset.high24h ?? 0) : `$${priceFmt(asset.high24h ?? 0)}`,
+            value: isStock
+                ? priceFmt(asset.high24h ?? 0)
+                : `$${priceFmt(asset.high24h ?? 0)}`,
         },
         {
             label: "24h Low",
-            value: isStock ? priceFmt(asset.low24h ?? 0) : `$${priceFmt(asset.low24h ?? 0)}`,
+            value: isStock
+                ? priceFmt(asset.low24h ?? 0)
+                : `$${priceFmt(asset.low24h ?? 0)}`,
         },
         { label: "24h Volume", value: asset.volume24h },
         { label: "Market Cap", value: asset.marketCap },
@@ -131,7 +137,10 @@ const CoinInfoPanel = () => {
     const stockRows = [
         ...spotRows,
         { label: "Company", value: asset.stockProfile?.organName || "—" },
-        { label: "Short Name", value: asset.stockProfile?.organShortName || "—" },
+        {
+            label: "Short Name",
+            value: asset.stockProfile?.organShortName || "—",
+        },
         { label: "Exchange", value: asset.stockProfile?.exchange || "—" },
         { label: "Sector", value: asset.stockProfile?.sector || "—" },
         { label: "Industry", value: asset.stockProfile?.industry || "—" },
@@ -194,7 +203,11 @@ const CoinInfoPanel = () => {
         },
     ];
 
-    const rows = isFutures ? futuresRows : universe === "stock" ? stockRows : spotRows;
+    const rows = isFutures
+        ? futuresRows
+        : universe === "stock"
+          ? stockRows
+          : spotRows;
 
     const marketBadge = isFutures
         ? {
@@ -1128,12 +1141,12 @@ export const MainChart = () => {
                     {isLoading && data.length === 0 && (
                         <div className="absolute inset-0 flex items-center justify-center bg-main/60 z-10">
                             <div className="flex flex-col items-center space-y-2">
-                                <Activity
-                                    size={18}
-                                    className="text-accent animate-pulse"
+                                <Loader2
+                                    size={12}
+                                    className="text-muted animate-spin"
                                 />
                                 <span className="text-muted text-[11px]">
-                                    Loading chart…
+                                    Loading
                                 </span>
                             </div>
                         </div>

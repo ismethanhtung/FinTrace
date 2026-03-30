@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+    useState,
+    useEffect,
+    useRef,
+    useCallback,
+    useMemo,
+} from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../lib/utils";
 import { useMarket } from "../context/MarketContext";
@@ -15,6 +21,8 @@ import {
     ArrowDown,
     ArrowUp,
     Info,
+    Funnel,
+    X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -174,9 +182,7 @@ const CoinRow = ({
                         >
                             {asset.symbol}
                         </span>
-                        {stockHint && (
-                            <StockInfoTooltip text={stockHint} />
-                        )}
+                        {stockHint && <StockInfoTooltip text={stockHint} />}
                         {isFutures && (
                             <span className="text-[7px] font-bold px-1 py-px rounded bg-amber-400/15 text-amber-400 border border-amber-400/20 shrink-0">
                                 PERP
@@ -387,23 +393,73 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [search, setSearch] = useState("");
     const [sortMode, setSortMode] = useState<SortMode>("volume");
+    const [selectedExchanges, setSelectedExchanges] = useState<string[]>([]);
+    const [selectedIndexes, setSelectedIndexes] = useState<string[]>([]);
+    const [stockFilterOpen, setStockFilterOpen] = useState(false);
     const [stockVisibleCount, setStockVisibleCount] = useState(STOCK_PAGE_SIZE);
     const listRef = useRef<HTMLDivElement | null>(null);
+    const stockFilterRef = useRef<HTMLDivElement | null>(null);
 
     const isDragging = useRef(false);
     const startX = useRef(0);
     const startWidth = useRef(DEFAULT_WIDTH);
 
-    const q = search.toLowerCase();
-    // Filtered then sorted (symbol hoặc pair id)
+    const stockFilterOptions = useMemo(() => {
+        const exchanges = new Set<string>();
+        const indexes = new Set<string>();
+        for (const asset of assets) {
+            const exchange = asset.stockProfile?.exchange?.trim();
+            if (exchange) exchanges.add(exchange);
+            for (const indexName of asset.stockProfile?.indexMembership ?? []) {
+                const normalized = indexName.trim();
+                if (normalized) indexes.add(normalized);
+            }
+        }
+
+        return {
+            exchanges: Array.from(exchanges).sort((a, b) => a.localeCompare(b)),
+            indexes: Array.from(indexes).sort((a, b) => a.localeCompare(b)),
+        };
+    }, [assets]);
+
+    const q = search.trim().toLowerCase();
     const displayAssets = sortAssets(
-        assets.filter(
-            (a) =>
-                a.symbol.toLowerCase().includes(q) ||
-                a.id.toLowerCase().includes(q),
-        ),
+        assets.filter((a) => {
+            const symbolMatch = a.symbol.toLowerCase().includes(q);
+            const idMatch = a.id.toLowerCase().includes(q);
+            const exchangeMatch =
+                universe === "stock" &&
+                (a.stockProfile?.exchange ?? "").toLowerCase().includes(q);
+            const indexMatch =
+                universe === "stock" &&
+                (a.stockProfile?.indexMembership ?? []).some((idx) =>
+                    idx.toLowerCase().includes(q),
+                );
+            const searchMatched = q
+                ? symbolMatch || idMatch || exchangeMatch || indexMatch
+                : true;
+
+            if (!searchMatched) return false;
+            if (universe !== "stock") return true;
+
+            const matchExchange =
+                selectedExchanges.length === 0
+                    ? true
+                    : selectedExchanges.includes(
+                          a.stockProfile?.exchange ?? "",
+                      );
+            const membership = a.stockProfile?.indexMembership ?? [];
+            const matchIndex =
+                selectedIndexes.length === 0
+                    ? true
+                    : selectedIndexes.some((idx) => membership.includes(idx));
+            return matchExchange && matchIndex;
+        }),
         sortMode,
     );
+    const hasActiveStockFilter =
+        universe === "stock" &&
+        (selectedExchanges.length > 0 || selectedIndexes.length > 0);
     const visibleAssets =
         universe === "stock"
             ? displayAssets.slice(0, stockVisibleCount)
@@ -416,7 +472,42 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     useEffect(() => {
         if (universe !== "stock") return;
         setStockVisibleCount(STOCK_PAGE_SIZE);
-    }, [search, sortMode, universe, assets.length]);
+    }, [
+        search,
+        sortMode,
+        selectedExchanges,
+        selectedIndexes,
+        universe,
+        assets.length,
+    ]);
+
+    useEffect(() => {
+        if (universe !== "stock") return;
+        setSelectedExchanges((prev) =>
+            prev.filter((item) => stockFilterOptions.exchanges.includes(item)),
+        );
+        setSelectedIndexes((prev) =>
+            prev.filter((item) => stockFilterOptions.indexes.includes(item)),
+        );
+    }, [stockFilterOptions, universe]);
+
+    useEffect(() => {
+        if (universe === "stock") return;
+        setSelectedExchanges([]);
+        setSelectedIndexes([]);
+        setStockFilterOpen(false);
+    }, [universe]);
+
+    useEffect(() => {
+        if (!stockFilterOpen) return;
+        const onMouseDown = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (stockFilterRef.current?.contains(target)) return;
+            setStockFilterOpen(false);
+        };
+        document.addEventListener("mousedown", onMouseDown);
+        return () => document.removeEventListener("mousedown", onMouseDown);
+    }, [stockFilterOpen]);
 
     useEffect(() => {
         if (universe !== "stock") return;
@@ -498,11 +589,293 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                     />
                     <input
                         type="text"
-                        placeholder="Search assets..."
+                        placeholder={
+                            universe === "stock"
+                                ? "Search assets, exchange, index..."
+                                : "Search assets..."
+                        }
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-secondary border border-main rounded-md py-1.5 pl-7 pr-3 text-[11px] focus:outline-none focus:ring-1 focus:ring-accent/30"
+                        className={cn(
+                            "w-full bg-secondary border border-main rounded-md py-1.5 pl-7 text-[11px] focus:outline-none focus:ring-1 focus:ring-accent/30",
+                            universe === "stock" ? "pr-10" : "pr-3",
+                        )}
                     />
+                    {universe === "stock" && (
+                        <div
+                            ref={stockFilterRef}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 z-20"
+                        >
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setStockFilterOpen((prev) => !prev)
+                                }
+                                className={cn(
+                                    "inline-flex h-6 w-6 items-center justify-center rounded border transition-colors focus:outline-none focus:ring-1",
+                                    hasActiveStockFilter
+                                        ? "border-sky-500/40 bg-sky-500/15 text-sky-400 focus:ring-sky-500/40"
+                                        : "border-main bg-main text-muted hover:text-main focus:ring-accent/30",
+                                )}
+                                title="Filter stock"
+                                aria-label="Open stock filter"
+                            >
+                                <Funnel size={11} />
+                            </button>
+
+                            <AnimatePresence>
+                                {stockFilterOpen && (
+                                    <motion.div
+                                        initial={{
+                                            opacity: 0,
+                                            y: 6,
+                                            scale: 0.98,
+                                        }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                                        transition={{
+                                            duration: 0.12,
+                                            ease: "easeOut",
+                                        }}
+                                        className="absolute right-0 mt-1 w-60 overflow-hidden rounded-md border border-main bg-main shadow-2xl"
+                                    >
+                                        <div className="flex items-center justify-between border-b border-main px-2 py-1.5">
+                                            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted">
+                                                Filter Stocks
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedExchanges([]);
+                                                    setSelectedIndexes([]);
+                                                }}
+                                                className={cn(
+                                                    "inline-flex items-center gap-1 rounded px-1.5 py-1 text-[9px] font-semibold transition-colors",
+                                                    hasActiveStockFilter
+                                                        ? "text-sky-400 hover:bg-sky-500/10"
+                                                        : "text-muted hover:bg-secondary",
+                                                )}
+                                                title="Clear filter"
+                                            >
+                                                <X size={10} />
+                                                Clear
+                                            </button>
+                                        </div>
+
+                                        <div className="p-1.5 space-y-2">
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div className="rounded border border-main bg-secondary/10 p-1.5">
+                                                    <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
+                                                        Sàn
+                                                    </div>
+                                                    <div className="max-h-36 overflow-y-auto thin-scrollbar space-y-1 pr-0.5">
+                                                        {stockFilterOptions
+                                                            .exchanges
+                                                            .length === 0 ? (
+                                                            <div className="px-1 py-1 text-[9px] text-muted">
+                                                                Không có sàn
+                                                            </div>
+                                                        ) : (
+                                                            stockFilterOptions.exchanges.map(
+                                                                (exchange) => {
+                                                                    const selected =
+                                                                        selectedExchanges.includes(
+                                                                            exchange,
+                                                                        );
+                                                                    return (
+                                                                        <label
+                                                                            key={`exchange-${exchange}`}
+                                                                            className={cn(
+                                                                                "flex cursor-pointer items-center gap-1.5 rounded px-1 py-1 text-[10px] transition-colors",
+                                                                                selected
+                                                                                    ? "bg-sky-500/10 text-sky-300"
+                                                                                    : "text-main hover:bg-secondary",
+                                                                            )}
+                                                                        >
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={
+                                                                                    selected
+                                                                                }
+                                                                                onChange={() =>
+                                                                                    setSelectedExchanges(
+                                                                                        (
+                                                                                            prev,
+                                                                                        ) =>
+                                                                                            prev.includes(
+                                                                                                exchange,
+                                                                                            )
+                                                                                                ? prev.filter(
+                                                                                                      (
+                                                                                                          value,
+                                                                                                      ) =>
+                                                                                                          value !==
+                                                                                                          exchange,
+                                                                                                  )
+                                                                                                : [
+                                                                                                      ...prev,
+                                                                                                      exchange,
+                                                                                                  ],
+                                                                                    )
+                                                                                }
+                                                                                className="h-3 w-3 rounded border-main bg-secondary text-sky-400 focus:ring-sky-500/40"
+                                                                            />
+                                                                            <span className="truncate">
+                                                                                {
+                                                                                    exchange
+                                                                                }
+                                                                            </span>
+                                                                        </label>
+                                                                    );
+                                                                },
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="rounded border border-main bg-secondary/10 p-1.5">
+                                                    <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
+                                                        Index
+                                                    </div>
+                                                    <div className="max-h-36 overflow-y-auto thin-scrollbar space-y-1 pr-0.5">
+                                                        {stockFilterOptions
+                                                            .indexes.length ===
+                                                        0 ? (
+                                                            <div className="px-1 py-1 text-[9px] text-muted">
+                                                                Không có index
+                                                            </div>
+                                                        ) : (
+                                                            stockFilterOptions.indexes.map(
+                                                                (indexName) => {
+                                                                    const selected =
+                                                                        selectedIndexes.includes(
+                                                                            indexName,
+                                                                        );
+                                                                    return (
+                                                                        <label
+                                                                            key={`index-${indexName}`}
+                                                                            className={cn(
+                                                                                "flex cursor-pointer items-center gap-1.5 rounded px-1 py-1 text-[10px] transition-colors",
+                                                                                selected
+                                                                                    ? "bg-sky-500/10 text-sky-300"
+                                                                                    : "text-main hover:bg-secondary",
+                                                                            )}
+                                                                        >
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={
+                                                                                    selected
+                                                                                }
+                                                                                onChange={() =>
+                                                                                    setSelectedIndexes(
+                                                                                        (
+                                                                                            prev,
+                                                                                        ) =>
+                                                                                            prev.includes(
+                                                                                                indexName,
+                                                                                            )
+                                                                                                ? prev.filter(
+                                                                                                      (
+                                                                                                          value,
+                                                                                                      ) =>
+                                                                                                          value !==
+                                                                                                          indexName,
+                                                                                                  )
+                                                                                                : [
+                                                                                                      ...prev,
+                                                                                                      indexName,
+                                                                                                  ],
+                                                                                    )
+                                                                                }
+                                                                                className="h-3 w-3 rounded border-main bg-secondary text-sky-400 focus:ring-sky-500/40"
+                                                                            />
+                                                                            <span className="truncate">
+                                                                                {
+                                                                                    indexName
+                                                                                }
+                                                                            </span>
+                                                                        </label>
+                                                                    );
+                                                                },
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {(selectedExchanges.length > 0 ||
+                                                selectedIndexes.length > 0) && (
+                                                <div className="rounded border border-main bg-secondary/10 p-1.5">
+                                                    <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
+                                                        Selected
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {selectedExchanges.map(
+                                                            (exchange) => (
+                                                                <button
+                                                                    key={`chip-exchange-${exchange}`}
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setSelectedExchanges(
+                                                                            (
+                                                                                prev,
+                                                                            ) =>
+                                                                                prev.filter(
+                                                                                    (
+                                                                                        value,
+                                                                                    ) =>
+                                                                                        value !==
+                                                                                        exchange,
+                                                                                ),
+                                                                        )
+                                                                    }
+                                                                    className="inline-flex items-center gap-1 rounded border border-sky-500/35 bg-sky-500/10 px-1.5 py-1 text-[9px] font-semibold text-sky-400"
+                                                                    title={`Remove exchange ${exchange}`}
+                                                                >
+                                                                    {exchange}
+                                                                    <X
+                                                                        size={9}
+                                                                    />
+                                                                </button>
+                                                            ),
+                                                        )}
+                                                        {selectedIndexes.map(
+                                                            (indexName) => (
+                                                                <button
+                                                                    key={`chip-index-${indexName}`}
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setSelectedIndexes(
+                                                                            (
+                                                                                prev,
+                                                                            ) =>
+                                                                                prev.filter(
+                                                                                    (
+                                                                                        value,
+                                                                                    ) =>
+                                                                                        value !==
+                                                                                        indexName,
+                                                                                ),
+                                                                        )
+                                                                    }
+                                                                    className="inline-flex items-center gap-1 rounded border border-sky-500/35 bg-sky-500/10 px-1.5 py-1 text-[9px] font-semibold text-sky-400"
+                                                                    title={`Remove index ${indexName}`}
+                                                                >
+                                                                    {indexName}
+                                                                    <X
+                                                                        size={9}
+                                                                    />
+                                                                </button>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -532,7 +905,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                 className="flex-1 min-h-0 overflow-y-auto thin-scrollbar"
             >
                 {assetsLoading ? (
-                    <LeftSidebarSkeleton rows={10} />
+                    <LeftSidebarSkeleton rows={18} />
                 ) : displayAssets.length === 0 ? (
                     <div className="p-6 text-center text-muted text-[11px]">
                         No assets found
