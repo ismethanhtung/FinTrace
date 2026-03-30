@@ -187,21 +187,35 @@ function requireLambdaUrl(): string {
 }
 
 function resolveStockLogoUrl(ticker: string, listing?: ListingRow): string {
-    const logoPath =
-        (listing?.logo_url || listing?.logoUrl || "").trim() ||
-        `/stock/image/${encodeURIComponent(ticker)}`;
+    const configuredBase = STOCK_LAMBDA_URL?.trim() || "";
+    const fallbackPath = configuredBase.startsWith("/")
+        ? `${configuredBase.replace(/\/+$/, "")}/image/${encodeURIComponent(ticker)}`
+        : `/stock/image/${encodeURIComponent(ticker)}`;
+    const rawPath =
+        (listing?.logo_url || listing?.logoUrl || "").trim() || fallbackPath;
+    const logoPath = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
 
     if (/^https?:\/\//i.test(logoPath)) {
         return logoPath;
     }
 
-    const baseUrl = STOCK_LAMBDA_URL?.trim();
-    if (!baseUrl) {
+    if (!configuredBase) {
         return logoPath;
     }
 
+    if (configuredBase.startsWith("/")) {
+        const normalizedBase = configuredBase.replace(/\/+$/, "");
+        if (logoPath.startsWith(`${normalizedBase}/`)) {
+            return logoPath;
+        }
+        if (logoPath.startsWith("/stock/")) {
+            return `${normalizedBase}${logoPath.slice("/stock".length)}`;
+        }
+        return `${normalizedBase}${logoPath}`;
+    }
+
     try {
-        return new URL(logoPath, baseUrl).toString();
+        return new URL(logoPath, configuredBase).toString();
     } catch {
         return logoPath;
     }
