@@ -82,9 +82,6 @@ export const useAIChat = ({
     useEffect(() => {
         const saved = loadSessions();
         setSessions(saved);
-        if (saved.length > 0) {
-            setActiveSessionId(saved[saved.length - 1].id);
-        }
     }, []);
 
     // Derived: active session object
@@ -122,15 +119,12 @@ export const useAIChat = ({
             });
             setActiveSessionId((prev) => {
                 if (prev === id) {
-                    const remaining = sessions.filter((s) => s.id !== id);
-                    return remaining.length > 0
-                        ? remaining[remaining.length - 1].id
-                        : null;
+                    return null;
                 }
                 return prev;
             });
         },
-        [sessions],
+        [],
     );
 
     const clearSession = useCallback((id: string) => {

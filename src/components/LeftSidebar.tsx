@@ -14,7 +14,6 @@ import {
     ArrowUpDown,
     ArrowDown,
     ArrowUp,
-    Loader2,
     Info,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -219,6 +218,34 @@ const CoinRow = ({
                     {asset.changePercent.toFixed(2)}%
                 </div>
             </div>
+        </div>
+    );
+};
+
+const CoinRowSkeleton = () => {
+    return (
+        <div className="flex min-h-[40px] items-center justify-between px-3 py-2 border-b border-main last:border-0">
+            <div className="flex items-center space-x-2 min-w-0 flex-1">
+                <div className="h-6 w-6 rounded-full bg-secondary animate-pulse shrink-0" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="h-3.5 w-16 rounded bg-secondary animate-pulse" />
+                    <div className="h-3 w-24 rounded bg-secondary/80 animate-pulse" />
+                </div>
+            </div>
+            <div className="text-right shrink-0 ml-2 space-y-1.5">
+                <div className="h-3.5 w-14 rounded bg-secondary animate-pulse ml-auto" />
+                <div className="h-3 w-10 rounded bg-secondary/80 animate-pulse ml-auto" />
+            </div>
+        </div>
+    );
+};
+
+const LeftSidebarSkeleton = ({ rows = 10 }: { rows?: number }) => {
+    return (
+        <div>
+            {Array.from({ length: rows }).map((_, index) => (
+                <CoinRowSkeleton key={index} />
+            ))}
         </div>
     );
 };
@@ -504,16 +531,11 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                 onScroll={handleListScroll}
                 className="flex-1 min-h-0 overflow-y-auto thin-scrollbar"
             >
-                {displayAssets.length === 0 ? (
+                {assetsLoading ? (
+                    <LeftSidebarSkeleton rows={10} />
+                ) : displayAssets.length === 0 ? (
                     <div className="p-6 text-center text-muted text-[11px]">
-                        {assetsLoading ? (
-                            <span className="inline-flex items-center gap-2">
-                                <Loader2 size={14} className="animate-spin" />
-                                Loading...
-                            </span>
-                        ) : (
-                            "No assets found"
-                        )}
+                        No assets found
                     </div>
                 ) : (
                     visibleAssets.map((asset) => (

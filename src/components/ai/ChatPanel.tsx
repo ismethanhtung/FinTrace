@@ -18,7 +18,6 @@ import {
     MessageSquare,
     History,
     XCircle,
-    TerminalSquare,
     ExternalLink,
     ChevronDown,
     Cpu,
@@ -457,9 +456,10 @@ ${
             {/* ── Chat Header bar ── */}
             <div className="px-5 py-2 border-b border-main flex items-center justify-between shrink-0 bg-secondary/30">
                 <div className="flex items-center space-x-2 text-muted">
-                    {/*<TerminalSquare size={14} className="text-accent" />*/}
                     <span className="text-[10px] font-semibold tracking-wider text-main truncate max-w-[150px]">
-                        {activeSession ? activeSession.title : "New Chat"}
+                        {activeSession
+                            ? activeSession.title
+                            : "FinTrace AI Analyst"}
                     </span>
                 </div>
                 <div className="flex items-center space-x-1">
@@ -493,67 +493,73 @@ ${
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -5 }}
                         className="absolute inset-x-0 top-[45px] bottom-0 z-20 bg-main/95 backdrop-blur-sm border-b border-main flex flex-col"
+                        tabIndex={-1}
+                        // Hỗ trợ ESC thoát + click ra ngoài khoảng trắng để thoát
+                        onKeyDown={(e) => {
+                            if (e.key === "Escape") {
+                                setShowHistory(false);
+                            }
+                        }}
+                        ref={(el) => {
+                            if (el && showHistory) el.focus();
+                        }}
                     >
-                        <div className="p-4 border-b border-main/50 flex items-center justify-between bg-main">
-                            <span className="text-[12px] font-bold">
-                                Past Sessions
-                            </span>
-                            <button
-                                onClick={() => setShowHistory(false)}
-                                className="text-muted hover:text-rose-500 transition-colors"
-                            >
-                                <XCircle size={14} />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto thin-scrollbar p-3 space-y-1">
-                            {sessions.length === 0 ? (
-                                <div className="text-[11px] text-muted text-center py-6">
-                                    No previous chats.
-                                </div>
-                            ) : (
-                                sessions
-                                    .slice()
-                                    .reverse()
-                                    .map((session) => (
-                                        <div
-                                            key={session.id}
-                                            className={cn(
-                                                "flex items-center justify-between p-3 rounded-lg border group transition-all cursor-pointer",
-                                                activeSessionId === session.id
-                                                    ? "bg-accent/10 border-accent/50"
-                                                    : "hover:bg-secondary border-transparent",
-                                            )}
-                                            onClick={() => {
-                                                setActiveSessionId(session.id);
-                                                setShowHistory(false);
-                                            }}
-                                        >
-                                            <div className="flex items-center space-x-3 min-w-0 flex-1 pr-2">
-                                                <MessageSquare
-                                                    size={12}
-                                                    className={
-                                                        activeSessionId ===
+                        {/* Overlay để bắt click các vùng trống */}
+                        <div
+                            className="absolute inset-0 z-[-1] cursor-default"
+                            onClick={() => setShowHistory(false)}
+                            tabIndex={-1}
+                        />
+                        <div
+                            className="relative flex flex-col h-full"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex-1 overflow-y-auto thin-scrollbar p-3 space-y-1">
+                                {sessions.length === 0 ? (
+                                    <div className="text-[11px] text-muted text-center py-6">
+                                        No previous chats.
+                                    </div>
+                                ) : (
+                                    sessions
+                                        .slice()
+                                        .reverse()
+                                        .map((session) => (
+                                            <div
+                                                key={session.id}
+                                                className={cn(
+                                                    "flex items-center justify-between p-3 rounded-lg border group transition-all cursor-pointer",
+                                                    activeSessionId ===
                                                         session.id
-                                                            ? "text-accent"
-                                                            : "text-muted"
-                                                    }
-                                                />
-                                                <div className="truncate text-[12px] font-medium text-main">
-                                                    {session.title}
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    deleteSession(session.id);
+                                                        ? "bg-accent/10 border-accent/50"
+                                                        : "hover:bg-secondary border-transparent",
+                                                )}
+                                                onClick={() => {
+                                                    setActiveSessionId(
+                                                        session.id,
+                                                    );
+                                                    setShowHistory(false);
                                                 }}
-                                                className="opacity-0 group-hover:opacity-100 text-muted hover:text-rose-500 transition-all p-1 rounded-md"
                                             >
-                                                <Trash2 size={12} />
-                                            </button>
-                                        </div>
-                                    ))
-                            )}
+                                                <div className="flex items-center space-x-3 min-w-0 flex-1 pr-2">
+                                                    <div className="truncate text-[12px] font-medium text-main">
+                                                        {session.title}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteSession(
+                                                            session.id,
+                                                        );
+                                                    }}
+                                                    className="text-muted hover:text-rose-500 transition-all p-1 rounded-md"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
+                                        ))
+                                )}
+                            </div>
                         </div>
                     </motion.div>
                 )}

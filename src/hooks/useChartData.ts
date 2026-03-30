@@ -163,6 +163,7 @@ export const useChartData = (
     const subscriptionRef = useRef<ReturnType<
         typeof subscribeSharedStream
     > | null>(null);
+    const initialFetchSeqRef = useRef(0);
 
     useEffect(() => {
         setInterval(universe === "stock" ? "1D" : "1H");
@@ -170,10 +171,15 @@ export const useChartData = (
 
     const fetchInitial = useCallback(
         async (sym: string, intv: ChartInterval) => {
+            const requestSeq = ++initialFetchSeqRef.current;
             try {
                 setIsLoading(true);
+                setError(null);
+                allDataRef.current = [];
+                setAllData([]);
                 if (universe === "stock") {
                     if (!stockLambdaService.isConfigured()) {
+                        if (requestSeq !== initialFetchSeqRef.current) return;
                         allDataRef.current = [];
                         setAllData([]);
                         setError("Missing NEXT_PUBLIC_STOCK_LAMBDA_URL env");
@@ -198,6 +204,7 @@ export const useChartData = (
                         STOCK_DAYS_BY_INTERVAL[intv],
                         { startDate },
                     );
+                    if (requestSeq !== initialFetchSeqRef.current) return;
                     const mapped = livePoints.map((p) => ({
                         ...p,
                         time: formatTime(p.timestamp, intv),
@@ -219,6 +226,7 @@ export const useChartData = (
                         ? binanceService.getFuturesKlines.bind(binanceService)
                         : binanceService.getKlines.bind(binanceService);
                 const raw = await getKlines(sym, intv, INITIAL_LIMIT);
+                if (requestSeq !== initialFetchSeqRef.current) return;
                 const mapped: OhlcvPoint[] = raw.map((k: any[]) => ({
                     ...binanceService.mapKline(k),
                     time: formatTime(k[0], intv),
@@ -228,6 +236,7 @@ export const useChartData = (
                 setAllData(enriched);
                 setError(null);
             } catch (err) {
+                if (requestSeq !== initialFetchSeqRef.current) return;
                 console.error("[useChartData] Failed to fetch klines:", err);
                 setError(
                     err instanceof Error ? err.message : "Failed to load chart",
@@ -238,6 +247,7 @@ export const useChartData = (
                     setConnectionStatus("error");
                 }
             } finally {
+                if (requestSeq !== initialFetchSeqRef.current) return;
                 setIsLoading(false);
             }
         },
@@ -359,6 +369,7 @@ export const useChartData = (
         });
 
         return () => {
+            initialFetchSeqRef.current += 1;
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };

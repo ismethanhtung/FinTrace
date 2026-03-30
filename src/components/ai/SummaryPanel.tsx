@@ -2,12 +2,9 @@
 
 import React, { useState } from "react";
 import {
-    Target,
     Activity,
-    Zap,
     TrendingUp,
     TrendingDown,
-    Sparkles,
     Loader2,
     FileText,
 } from "lucide-react";
@@ -20,7 +17,8 @@ import { aiProviderService } from "../../services/aiProviderService";
 
 export const SummaryPanel = () => {
     const { selectedSymbol, assets } = useMarket();
-    const { activeProviderId, activeProvider, selectedModel } = useAppSettings();
+    const { activeProviderId, activeProvider, selectedModel } =
+        useAppSettings();
     const { news } = useCoinNews({ symbol: selectedSymbol });
 
     const [aiReport, setAiReport] = useState<string | null>(null);
@@ -129,7 +127,6 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
             <div className="p-4 border-b border-main bg-main space-y-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-1.5">
-                        <Sparkles size={12} className="text-accent" />
                         <span className="text-[11px] font-bold text-main uppercase">
                             AI Executive Report
                         </span>
@@ -140,11 +137,6 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
                             disabled={isGenerating}
                             className="px-2 py-1 bg-accent/10 hover:bg-accent/20 text-accent text-[9px] font-bold uppercase rounded transition-colors disabled:opacity-50 flex items-center gap-1"
                         >
-                            {isGenerating ? (
-                                <Loader2 size={10} className="animate-spin" />
-                            ) : (
-                                <FileText size={10} />
-                            )}
                             Generate
                         </button>
                     )}
@@ -172,7 +164,6 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
             {/* ── Actionable Sentiment ── */}
             <div className="p-4 border-b border-main">
                 <div className="flex items-center space-x-1.5 mb-2.5">
-                    <Target size={12} className="text-accent" />
                     <span className="text-[11px] font-bold text-main uppercase">
                         Intraday Momentum Bias
                     </span>
@@ -269,8 +260,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
             {/* ── Real Technical Tabular ── */}
             <div className="flex flex-col">
                 <div className="px-4 py-2 bg-secondary/20 border-b border-main flex items-center space-x-1.5">
-                    <Activity size={12} className="text-muted" />
-                    <span className="text-[10px] font-bold text-muted uppercase tracking-wider">
+                    <span className="text-[11px] font-bold text-main uppercase">
                         Exact Price Metrics (24H)
                     </span>
                 </div>
@@ -341,8 +331,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
             {/* ── Vol & Price Action ── */}
             <div className="flex flex-col mb-6">
                 <div className="px-4 py-2 bg-secondary/20 border-b border-main flex items-center space-x-1.5">
-                    <Zap size={12} className="text-muted" />
-                    <span className="text-[10px] font-bold text-muted uppercase tracking-wider">
+                    <span className="text-[11px] font-bold text-main uppercase">
                         Volume & Liquidity Profile
                     </span>
                 </div>
