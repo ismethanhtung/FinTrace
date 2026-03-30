@@ -23,6 +23,8 @@ type LambdaEnvelope<T = unknown> = {
 type ListingRow = {
     ticker?: string;
     exchange?: string;
+    logo_url?: string;
+    logoUrl?: string;
     organName?: string;
     organShortName?: string;
     organTypeCode?: string;
@@ -184,6 +186,27 @@ function requireLambdaUrl(): string {
     return STOCK_LAMBDA_URL;
 }
 
+function resolveStockLogoUrl(ticker: string, listing?: ListingRow): string {
+    const logoPath =
+        (listing?.logo_url || listing?.logoUrl || "").trim() ||
+        `/stock/image/${encodeURIComponent(ticker)}`;
+
+    if (/^https?:\/\//i.test(logoPath)) {
+        return logoPath;
+    }
+
+    const baseUrl = STOCK_LAMBDA_URL?.trim();
+    if (!baseUrl) {
+        return logoPath;
+    }
+
+    try {
+        return new URL(logoPath, baseUrl).toString();
+    } catch {
+        return logoPath;
+    }
+}
+
 async function getLambda<T>(
     params: Record<string, string>,
 ): Promise<LambdaEnvelope<T>> {
@@ -259,6 +282,7 @@ function toBaseAsset(
         id: ticker,
         symbol: ticker,
         name: listing?.organName || ticker,
+        logoUrl: resolveStockLogoUrl(ticker, listing),
         price: 0,
         change: 0,
         changePercent: 0,
@@ -332,6 +356,7 @@ function toAssetFromSnapshot(
         id: ticker,
         symbol: ticker,
         name: listing?.organName || ticker,
+        logoUrl: resolveStockLogoUrl(ticker, listing),
         price: close,
         change,
         changePercent,
@@ -393,6 +418,7 @@ function toAssetFromHistoryRows(
         id: ticker,
         symbol: ticker,
         name: listing?.organName || ticker,
+        logoUrl: resolveStockLogoUrl(ticker, listing),
         price: close,
         change,
         changePercent,
@@ -463,6 +489,8 @@ export const stockLambdaService = {
                 return {
                     ticker: pickString(typed.ticker)?.toUpperCase(),
                     exchange: pickString(typed.exchange),
+                    logo_url:
+                        pickString(typed.logo_url) ?? pickString(typed.logoUrl),
                     organName: pickString(typed.organName),
                     organShortName: pickString(typed.organShortName),
                     organTypeCode: pickString(typed.organTypeCode),
