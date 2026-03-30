@@ -101,20 +101,30 @@ const CoinInfoPanel = () => {
         );
 
     const isFutures = marketType === "futures";
+    const isStock = universe === "stock";
     const fundingRateNum = premiumData
         ? parseFloat(premiumData.lastFundingRate)
         : 0;
 
     const spotRows = [
-        { label: "Last Price", value: `$${priceFmt(asset.price)}` },
+        {
+            label: "Last Price",
+            value: isStock ? priceFmt(asset.price) : `$${priceFmt(asset.price)}`,
+        },
         {
             label: "24h Change",
             value: `${asset.changePercent >= 0 ? "+" : ""}${asset.changePercent.toFixed(2)}%`,
             color:
                 asset.changePercent >= 0 ? "text-emerald-500" : "text-rose-500",
         },
-        { label: "24h High", value: `$${priceFmt(asset.high24h ?? 0)}` },
-        { label: "24h Low", value: `$${priceFmt(asset.low24h ?? 0)}` },
+        {
+            label: "24h High",
+            value: isStock ? priceFmt(asset.high24h ?? 0) : `$${priceFmt(asset.high24h ?? 0)}`,
+        },
+        {
+            label: "24h Low",
+            value: isStock ? priceFmt(asset.low24h ?? 0) : `$${priceFmt(asset.low24h ?? 0)}`,
+        },
         { label: "24h Volume", value: asset.volume24h },
         { label: "Market Cap", value: asset.marketCap },
     ];
@@ -808,7 +818,9 @@ export const MainChart = () => {
                         </div>
                         <div className="flex items-baseline space-x-2 mt-0.5">
                             <span className="text-[24px] font-mono font-semibold tracking-tighter leading-none">
-                                ${priceFmt(currentAsset?.price ?? 0)}
+                                {universe === "stock"
+                                    ? priceFmt(currentAsset?.price ?? 0)
+                                    : `$${priceFmt(currentAsset?.price ?? 0)}`}
                             </span>
                             <span
                                 className={cn(
@@ -827,7 +839,7 @@ export const MainChart = () => {
                                     {isPositive ? "+" : ""}
                                     {currentAsset?.changePercent.toFixed(2)}%
                                     <span className="ml-1 opacity-75">
-                                        ({isPositive ? "+" : ""}$
+                                        ({isPositive ? "+" : ""}
                                         {Math.abs(
                                             currentAsset?.change ?? 0,
                                         ).toLocaleString("en-US", {
@@ -995,7 +1007,7 @@ export const MainChart = () => {
                                 <div className="flex items-center space-x-0.5">
                                     <span className="text-muted">
                                         Vol(
-                                        {universe === "stock" ? "USD" : "USDT"}
+                                        {universe === "stock" ? "VND" : "USDT"}
                                         ):
                                     </span>
                                     <span className="font-mono text-accent">

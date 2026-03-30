@@ -105,7 +105,9 @@ const AssetRow = ({
         </div>
         <div className="text-right">
             <div className="text-[12px] font-mono font-medium">
-                ${priceFmt(asset.price)}
+                {universe === "stock"
+                    ? priceFmt(asset.price)
+                    : `$${priceFmt(asset.price)}`}
             </div>
             <div
                 className={cn(

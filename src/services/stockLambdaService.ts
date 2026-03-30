@@ -13,6 +13,31 @@ const STOCK_LISTING_CACHE_TTL_MS = Number.parseInt(
     process.env.NEXT_PUBLIC_STOCK_LISTING_CACHE_TTL_MS || `${10 * 60 * 1000}`,
     10,
 );
+const STOCK_BULK_SNAPSHOT_TTL_MS = Number.parseInt(
+    process.env.NEXT_PUBLIC_STOCK_BULK_SNAPSHOT_TTL_MS ||
+        `${30 * 1000}`,
+    10,
+);
+const STOCK_BULK_SNAPSHOT_WORKERS = Number.parseInt(
+    process.env.NEXT_PUBLIC_STOCK_BULK_SNAPSHOT_WORKERS || "24",
+    10,
+);
+const STOCK_CHART_CACHE_TTL_MS = Number.parseInt(
+    process.env.NEXT_PUBLIC_STOCK_CHART_CACHE_TTL_MS || `${60 * 1000}`,
+    10,
+);
+const STOCK_CHART_CACHE_MAX_ENTRIES = Number.parseInt(
+    process.env.NEXT_PUBLIC_STOCK_CHART_CACHE_MAX_ENTRIES || "120",
+    10,
+);
+const STOCK_PRICE_BOARD_CHUNK_SIZE = Number.parseInt(
+    process.env.NEXT_PUBLIC_STOCK_PRICE_BOARD_CHUNK_SIZE || "80",
+    10,
+);
+const STOCK_PRICE_BOARD_CHUNK_CONCURRENCY = Number.parseInt(
+    process.env.NEXT_PUBLIC_STOCK_PRICE_BOARD_CHUNK_CONCURRENCY || "4",
+    10,
+);
 
 type LambdaEnvelope<T = unknown> = {
     success?: boolean;
@@ -98,6 +123,16 @@ type SnapshotRow = {
 type NumberLike = number | string | null | undefined;
 let listingCache: ListingRow[] | null = null;
 let listingCacheAt = 0;
+let bulkSnapshotCache: SnapshotRow[] | null = null;
+let bulkSnapshotCacheAt = 0;
+let bulkSnapshotInflight: Promise<SnapshotRow[]> | null = null;
+const chartCache = new Map<
+    string,
+    {
+        expiresAt: number;
+        value: OhlcvPoint[];
+    }
+>();
 const LISTING_INDEX_KEYS = [
     "VN30",
     "VNMID",
@@ -135,11 +170,11 @@ function parseNum(v: NumberLike): number {
 function compactUsd(value: number): string {
     if (!Number.isFinite(value) || value <= 0) return "-";
     if (value >= 1_000_000_000_000)
-        return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
+        return `${(value / 1_000_000_000_000).toFixed(2)}T`;
     if (value >= 1_000_000_000)
-        return `$${(value / 1_000_000_000).toFixed(2)}B`;
-    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-    return `$${value.toFixed(0)}`;
+        return `${(value / 1_000_000_000).toFixed(2)}B`;
+    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+    return value.toFixed(0);
 }
 
 function dateToMs(value?: string): number {
@@ -223,6 +258,9 @@ function resolveStockLogoUrl(ticker: string, listing?: ListingRow): string {
 
 async function getLambda<T>(
     params: Record<string, string>,
+    opts?: {
+        cache?: RequestCache;
+    },
 ): Promise<LambdaEnvelope<T>> {
     const baseUrl = requireLambdaUrl();
     const query = new URLSearchParams(params).toString();
@@ -231,7 +269,7 @@ async function getLambda<T>(
         headers: {
             Accept: "application/json",
         },
-        cache: "no-store",
+        cache: opts?.cache ?? "no-store",
     });
 
     if (!response.ok) {
@@ -239,6 +277,90 @@ async function getLambda<T>(
     }
 
     return (await response.json()) as LambdaEnvelope<T>;
+}
+
+function normalizeSafeLimit(limit: number): number {
+    if (!Number.isFinite(limit)) return 1607;
+    return Math.min(Math.max(Math.floor(limit), 10), 5000);
+}
+
+function getChartCacheKey(
+    symbol: string,
+    resolution: string,
+    days: number,
+    opts?: {
+        startDate?: string;
+        endDate?: string;
+    },
+): string {
+    return [
+        symbol.toUpperCase(),
+        resolution,
+        String(days),
+        opts?.startDate ?? "",
+        opts?.endDate ?? "",
+    ].join("|");
+}
+
+function setChartCacheEntry(key: string, value: OhlcvPoint[]): void {
+    chartCache.set(key, {
+        value,
+        expiresAt: Date.now() + Math.max(5_000, STOCK_CHART_CACHE_TTL_MS || 0),
+    });
+
+    if (chartCache.size <= Math.max(20, STOCK_CHART_CACHE_MAX_ENTRIES || 0)) {
+        return;
+    }
+
+    const oldestKey = chartCache.keys().next().value;
+    if (oldestKey) {
+        chartCache.delete(oldestKey);
+    }
+}
+
+async function getBulkSnapshotRows(limit: number): Promise<SnapshotRow[]> {
+    const safeLimit = normalizeSafeLimit(limit);
+    const ttl = Math.max(5_000, STOCK_BULK_SNAPSHOT_TTL_MS || 0);
+    const now = Date.now();
+
+    if (
+        bulkSnapshotCache &&
+        now - bulkSnapshotCacheAt < ttl &&
+        bulkSnapshotCache.length > 0
+    ) {
+        return bulkSnapshotCache.slice(0, safeLimit);
+    }
+
+    if (bulkSnapshotInflight) {
+        const rows = await bulkSnapshotInflight;
+        return rows.slice(0, safeLimit);
+    }
+
+    bulkSnapshotInflight = getLambda<SnapshotRow[]>(
+        {
+            cmd: "bulk_snapshot",
+            limit: String(safeLimit),
+            workers: String(
+                Math.min(
+                    64,
+                    Math.max(2, STOCK_BULK_SNAPSHOT_WORKERS || 24),
+                ),
+            ),
+        },
+        { cache: "no-store" },
+    )
+        .then((payload) => {
+            const rows = toRecordList(payload.data) as unknown as SnapshotRow[];
+            bulkSnapshotCache = rows;
+            bulkSnapshotCacheAt = Date.now();
+            return rows;
+        })
+        .finally(() => {
+            bulkSnapshotInflight = null;
+        });
+
+    const rows = await bulkSnapshotInflight;
+    return rows.slice(0, safeLimit);
 }
 
 function mapChartRows(rows: Record<string, unknown>[]): OhlcvPoint[] {
@@ -599,39 +721,10 @@ export const stockLambdaService = {
                 const asset = toAssetFromSnapshot(row, listingMap, marketType);
                 if (asset) out.set(asset.id, asset);
             });
-            if (out.size >= dedupSymbols.length) return out;
+            return out;
         } catch {
-            // fallback below
+            return out;
         }
-
-        // Fallback path: parallel history per symbol.
-        const safeConcurrency = Number.isFinite(STOCK_HISTORY_CONCURRENCY)
-            ? Math.min(Math.max(STOCK_HISTORY_CONCURRENCY, 2), 40)
-            : 16;
-        const missingSymbols = dedupSymbols.filter((symbol) => !out.has(symbol));
-
-        for (let i = 0; i < missingSymbols.length; i += safeConcurrency) {
-            const batch = missingSymbols.slice(i, i + safeConcurrency);
-            const rows = await Promise.allSettled(
-                batch.map(async (symbol) => {
-                    const historyRows = await getHistoryDaily(symbol);
-                    return { symbol, historyRows };
-                }),
-            );
-
-            rows.forEach((result) => {
-                if (result.status !== "fulfilled") return;
-                const asset = toAssetFromHistoryRows(
-                    result.value.symbol,
-                    result.value.historyRows,
-                    listingMap,
-                    marketType,
-                );
-                if (asset) out.set(asset.id, asset);
-            });
-        }
-
-        return out;
     },
 
     async getStockChart(
