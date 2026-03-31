@@ -87,8 +87,9 @@ describe("useChartData", () => {
             () => (coinQueue.shift()?.promise as Promise<any>) ?? Promise.resolve([]),
         );
 
-        const { result, rerender } = renderHook(() =>
-            useChartData("SSI", "spot"),
+        const { result, rerender } = renderHook(
+            ({ symbol }) => useChartData(symbol, "spot"),
+            { initialProps: { symbol: "SSI" } },
         );
 
         await waitFor(() => {
@@ -96,7 +97,7 @@ describe("useChartData", () => {
         });
 
         currentUniverse = "coin";
-        rerender();
+        rerender({ symbol: "BTCUSDT" });
 
         const coinPayload = [[1000, "65000", "65100", "64900", "65050", "10"]];
         coinReqA.resolve(coinPayload);
@@ -126,4 +127,3 @@ describe("useChartData", () => {
         expect(result.current.data.at(-1)?.close).toBe(65050);
     });
 });
-

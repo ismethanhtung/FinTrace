@@ -11,7 +11,7 @@ import {
     type TradeStreamEvent,
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
-import { createMockStockTradeTape } from "../lib/mockStockData";
+import { resolveUniverseSymbol } from "../lib/universeSymbol";
 
 export type RecentTradeItem = {
     id: number;
@@ -52,11 +52,9 @@ export const useRecentTrades = (
     marketType: MarketType,
     limit = 80,
 ) => {
-    const { universe } = useUniverse();
-    const resolvedSymbol =
-        universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
-            ? "BTCUSDT"
-            : symbol;
+    const { universe, isHydrated = true } = useUniverse();
+    const { normalized: resolvedSymbol, isValid: hasValidSymbol } =
+        resolveUniverseSymbol(symbol, universe);
     const [trades, setTrades] = useState<RecentTradeItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -70,20 +68,19 @@ export const useRecentTrades = (
 
     const fetchSnapshot = useCallback(async () => {
         try {
+            if (!isHydrated) return;
             if (universe === "stock") {
-                const next = createMockStockTradeTape(symbol, limit)
-                    .map((t) => ({
-                        id: t.id,
-                        price: t.price,
-                        qty: t.qty,
-                        time: t.time,
-                        isBuy: t.isBuy,
-                    }))
-                    .sort((a, b) => b.time - a.time);
                 if (!mountedRef.current) return;
-                setTrades(next);
-                setError(null);
-                setConnectionStatus("connected");
+                setTrades([]);
+                setError("Recent trades for stock universe are not implemented yet");
+                setConnectionStatus("disconnected");
+                return;
+            }
+            if (!hasValidSymbol || !resolvedSymbol) {
+                if (!mountedRef.current) return;
+                setTrades([]);
+                setError("Invalid coin symbol for recent trades");
+                setConnectionStatus("disconnected");
                 return;
             }
             const getTrades =
@@ -104,11 +101,20 @@ export const useRecentTrades = (
         } finally {
             if (mountedRef.current) setIsLoading(false);
         }
-    }, [symbol, marketType, limit, universe, resolvedSymbol]);
+    }, [hasValidSymbol, isHydrated, limit, marketType, resolvedSymbol, symbol, universe]);
 
     useEffect(() => {
         mountedRef.current = true;
         setIsLoading(true);
+        if (!isHydrated) {
+            setTrades([]);
+            setError(null);
+            setConnectionStatus("connecting");
+            setIsLoading(true);
+            return () => {
+                mountedRef.current = false;
+            };
+        }
         fetchSnapshot();
 
         if (universe === "stock") {
@@ -116,6 +122,16 @@ export const useRecentTrades = (
             subscriptionRef.current = null;
             return () => {
                 mountedRef.current = false;
+            };
+        }
+        if (!hasValidSymbol || !resolvedSymbol) {
+            subscriptionRef.current?.unsubscribe();
+            subscriptionRef.current = null;
+            setConnectionStatus("disconnected");
+            return () => {
+                mountedRef.current = false;
+                subscriptionRef.current?.unsubscribe();
+                subscriptionRef.current = null;
             };
         }
 
@@ -144,7 +160,16 @@ export const useRecentTrades = (
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [fetchSnapshot, limit, marketType, symbol, universe, resolvedSymbol]);
+    }, [
+        fetchSnapshot,
+        hasValidSymbol,
+        limit,
+        marketType,
+        resolvedSymbol,
+        symbol,
+        isHydrated,
+        universe,
+    ]);
 
     return {
         trades,

@@ -167,6 +167,17 @@ function parseNum(v: NumberLike): number {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function normalizeStockTicker(raw: string): string | null {
+    const ticker = String(raw || "")
+        .trim()
+        .toUpperCase()
+        .replace(/-(C|F)$/i, "");
+    if (!ticker) return null;
+    if (!/^[A-Z0-9]{1,12}$/.test(ticker)) return null;
+    if (ticker.endsWith("USDT")) return null;
+    return ticker;
+}
+
 function compactUsd(value: number): string {
     if (!Number.isFinite(value) || value <= 0) return "-";
     if (value >= 1_000_000_000_000)
@@ -430,7 +441,6 @@ function toBaseAsset(
         quoteVolumeRaw: 0,
         sparkline: [],
         marketType,
-        isMock: false,
         stockProfile: listing
             ? {
                   exchange: listing.comGroupCode || listing.exchange,
@@ -504,7 +514,6 @@ function toAssetFromSnapshot(
         quoteVolumeRaw: volume * close,
         sparkline: [],
         marketType,
-        isMock: false,
         stockProfile: listing
             ? {
                   exchange: listing.comGroupCode || listing.exchange,
@@ -569,7 +578,6 @@ function toAssetFromHistoryRows(
             .map((r) => parseNum(r.close))
             .filter((v) => v > 0),
         marketType,
-        isMock: false,
         stockProfile: listing
             ? {
                   exchange: listing.comGroupCode || listing.exchange,
@@ -705,7 +713,11 @@ export const stockLambdaService = {
             });
         }
         const dedupSymbols = Array.from(
-            new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean)),
+            new Set(
+                symbols
+                    .map((s) => normalizeStockTicker(s))
+                    .filter((s): s is string => Boolean(s)),
+            ),
         );
         if (!dedupSymbols.length) return new Map();
         const out = new Map<string, Asset>();
@@ -736,9 +748,13 @@ export const stockLambdaService = {
             endDate?: string;
         },
     ): Promise<OhlcvPoint[]> {
+        const safeTicker = normalizeStockTicker(symbol);
+        if (!safeTicker) {
+            throw new Error(`Invalid stock ticker: ${symbol}`);
+        }
         const params: Record<string, string> = {
             cmd: "stock_historical_data",
-            symbol,
+            symbol: safeTicker,
             resolution,
             days: String(days),
         };

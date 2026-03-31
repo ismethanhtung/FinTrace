@@ -323,7 +323,7 @@ const MarketBar = () => {
                     )}
                     title={
                         universe === "stock"
-                            ? "Hiển thị dữ liệu thị trường cơ sở (mock)"
+                            ? "Hiển thị dữ liệu thị trường cơ sở"
                             : "Hiển thị dữ liệu Spot"
                     }
                 >
@@ -344,7 +344,7 @@ const MarketBar = () => {
                     )}
                     title={
                         universe === "stock"
-                            ? "Hiển thị dữ liệu phái sinh (mock)"
+                            ? "Hiển thị dữ liệu phái sinh"
                             : "Hiển thị dữ liệu USD-M Futures"
                     }
                 >

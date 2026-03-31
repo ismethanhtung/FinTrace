@@ -7,6 +7,7 @@ import {
     type MarkPriceStreamEvent,
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
+import { resolveUniverseSymbol } from "../lib/universeSymbol";
 
 export type { FuturesPremiumIndex };
 
@@ -20,11 +21,9 @@ export const useFuturesPremiumIndex = (
     symbol: string,
     marketType: MarketType,
 ) => {
-    const { universe } = useUniverse();
-    const resolvedSymbol =
-        universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
-            ? "BTCUSDT"
-            : symbol;
+    const { universe, isHydrated = true } = useUniverse();
+    const { normalized: resolvedSymbol, isValid: hasValidSymbol } =
+        resolveUniverseSymbol(symbol, universe);
     const [data, setData] = useState<FuturesPremiumIndex | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -42,9 +41,23 @@ export const useFuturesPremiumIndex = (
             setIsLoading(false);
             return;
         }
+        if (!isHydrated) {
+            setData(null);
+            setError(null);
+            setConnectionStatus("connecting");
+            setIsLoading(false);
+            return;
+        }
         if (universe === "stock") {
             setData(null);
             setError(null);
+            setIsLoading(false);
+            return;
+        }
+        if (!hasValidSymbol || !resolvedSymbol) {
+            setData(null);
+            setError("Invalid coin symbol for futures premium index");
+            setConnectionStatus("disconnected");
             setIsLoading(false);
             return;
         }
@@ -69,13 +82,19 @@ export const useFuturesPremiumIndex = (
         } finally {
             setIsLoading(false);
         }
-    }, [marketType, universe, resolvedSymbol]);
+    }, [hasValidSymbol, isHydrated, marketType, resolvedSymbol, universe]);
 
     useEffect(() => {
         fetchData();
 
         subscriptionRef.current?.unsubscribe();
-        if (marketType !== "futures" || universe === "stock") {
+        if (
+            marketType !== "futures" ||
+            !isHydrated ||
+            universe === "stock" ||
+            !hasValidSymbol ||
+            !resolvedSymbol
+        ) {
             setConnectionStatus("disconnected");
             return () => {
                 abortRef.current?.abort();
@@ -111,7 +130,7 @@ export const useFuturesPremiumIndex = (
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [fetchData, marketType, universe, resolvedSymbol]);
+    }, [fetchData, hasValidSymbol, isHydrated, marketType, resolvedSymbol, universe]);
 
     /** Derived: funding rate as percentage string (e.g. "+0.0100%") */
     const fundingRatePct = data

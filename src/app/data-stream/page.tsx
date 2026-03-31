@@ -15,7 +15,6 @@ import {
     Trash2,
 } from "lucide-react";
 import { QuestionTooltip } from "../../components/ui/QuestionTooltip";
-import { useUniverse } from "../../context/UniverseContext";
 
 function netLabel(buyUsd30s: number, sellUsd30s: number): string {
     const net = buyUsd30s - sellUsd30s;
@@ -26,7 +25,6 @@ function netLabel(buyUsd30s: number, sellUsd30s: number): string {
 }
 
 export default function DataStreamPage() {
-    const { isMockUniverse } = useUniverse();
     const {
         config,
         setConfig,
@@ -94,11 +92,6 @@ export default function DataStreamPage() {
                                         {marketType.toUpperCase()} ·{" "}
                                         {selectedSymbol}
                                     </div>
-                                    {isMockUniverse && (
-                                        <div className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">
-                                            Mock stock stream
-                                        </div>
-                                    )}
                                 </div>
 
                                 <div className="flex items-center gap-2">

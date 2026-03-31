@@ -67,7 +67,7 @@ function msToCountdown(ms: number): string {
 
 // ─── Coin Info Panel ──────────────────────────────────────────────────────────
 const CoinInfoPanel = () => {
-    const { assets, selectedSymbol, marketType, universe, isMockUniverse } =
+    const { assets, selectedSymbol, marketType, universe } =
         useMarket();
     const asset = assets.find((a) => a.id === selectedSymbol);
     const {
@@ -246,9 +246,7 @@ const CoinInfoPanel = () => {
                         {asset.id} ·{" "}
                         {universe === "stock"
                             ? "VN Stock Feed"
-                            : isMockUniverse
-                              ? "Simulated Feed"
-                              : isFutures
+                            : isFutures
                                 ? "Binance Futures"
                                 : "Binance"}
                     </div>
@@ -345,9 +343,7 @@ const CoinInfoPanel = () => {
                     Dữ liệu{" "}
                     {universe === "stock"
                         ? "giá và khối lượng từ stock feed."
-                        : isMockUniverse
-                          ? "đang ở chế độ mô phỏng."
-                          : `giá và khối lượng thời gian thực từ ${
+                        : `giá và khối lượng thời gian thực từ ${
                                 isFutures
                                     ? "Binance Futures REST API"
                                     : "Binance REST API"
@@ -360,8 +356,7 @@ const CoinInfoPanel = () => {
 
 // ─── Main Chart ───────────────────────────────────────────────────────────────
 export const MainChart = () => {
-    const { selectedSymbol, assets, marketType, universe, isMockUniverse } =
-        useMarket();
+    const { selectedSymbol, assets, marketType, universe } = useMarket();
     const {
         data,
         isLoading,

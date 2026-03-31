@@ -74,8 +74,6 @@ export type Asset = {
   logoUrl?: string;
   /** Which market this asset belongs to */
   marketType?: MarketType;
-  /** Mock-only marker for non-production data feeds */
-  isMock?: boolean;
   /** Futures-specific: mark price from premiumIndex */
   markPrice?: number;
   /** Futures-specific: index price from premiumIndex */

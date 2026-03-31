@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { newsService, NewsItem } from '../services/newsService';
 import { useUniverse } from '../context/UniverseContext';
+import { toNewsBaseSymbol } from '../lib/universeSymbol';
 
 interface UseCoinNewsOptions {
   symbol: string;          // e.g. "BTCUSDT" or "BTC"
@@ -11,23 +12,18 @@ export const useCoinNews = ({
   symbol,
   refreshIntervalMs = 5 * 60_000, // 5 minutes
 }: UseCoinNewsOptions) => {
-  const { universe } = useUniverse();
+  const { universe, isHydrated = true } = useUniverse();
   const [news, setNews] = useState<NewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
 
-  // Normalise symbol: "BTCUSDT" → "BTC", "BTC" → "BTC"
-  const normalizedSymbol =
-    universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
-      ? "BTCUSDT"
-      : symbol;
-  const baseSymbol = normalizedSymbol.replace(/USDT$/, '').replace(/USD$/, '').toUpperCase();
-  const safeBaseSymbol = baseSymbol.trim();
+  const safeBaseSymbol = toNewsBaseSymbol(symbol, universe) ?? "";
 
   const isMounted = useRef(true);
 
   const fetchNews = useCallback(async () => {
+    if (!isHydrated) return;
     if (!safeBaseSymbol) {
       if (!isMounted.current) return;
       setNews([]);
@@ -54,18 +50,26 @@ export const useCoinNews = ({
     } finally {
       if (isMounted.current) setIsLoading(false);
     }
-  }, [safeBaseSymbol, universe]);
+  }, [isHydrated, safeBaseSymbol, universe]);
 
   // Fetch on symbol change + set up polling
   useEffect(() => {
     isMounted.current = true;
+    if (!isHydrated) {
+      setNews([]);
+      setError(null);
+      setIsLoading(true);
+      return () => {
+        isMounted.current = false;
+      };
+    }
     fetchNews();
     const id = setInterval(fetchNews, refreshIntervalMs);
     return () => {
       isMounted.current = false;
       clearInterval(id);
     };
-  }, [fetchNews, refreshIntervalMs]);
+  }, [fetchNews, isHydrated, refreshIntervalMs]);
 
   return { news, isLoading, error, lastFetched, refetch: fetchNews, baseSymbol: safeBaseSymbol };
 };

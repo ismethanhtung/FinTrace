@@ -10,7 +10,7 @@ import {
     type TradeStreamEvent,
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
-import { createMockStockTradeTape } from "../lib/mockStockData";
+import { resolveUniverseSymbol } from "../lib/universeSymbol";
 
 export type Transaction = {
     id: number;
@@ -69,11 +69,9 @@ export const useTransactions = ({
     marketType,
     limit = 500,
 }: UseTransactionsOptions) => {
-    const { universe } = useUniverse();
-    const resolvedSymbol =
-        universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
-            ? "BTCUSDT"
-            : symbol;
+    const { universe, isHydrated = true } = useUniverse();
+    const { normalized: resolvedSymbol, isValid: hasValidSymbol } =
+        resolveUniverseSymbol(symbol, universe);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -87,6 +85,7 @@ export const useTransactions = ({
     const fetchTrades = useCallback(
         async (mode: FetchMode = "initial") => {
             if (!symbol || inFlightRef.current) return;
+            if (!isHydrated) return;
             inFlightRef.current = true;
 
             try {
@@ -99,31 +98,18 @@ export const useTransactions = ({
                 }
 
                 if (universe === "stock") {
-                    const next = createMockStockTradeTape(symbol, limit)
-                        .map((t) => {
-                            const quoteQty = t.price * t.qty;
-                            const timeLabel = new Date(t.time).toLocaleTimeString("en", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                            });
-                            return {
-                                id: t.id,
-                                symbol: symbol.replace(/-(C|F)$/i, ""),
-                                pair: symbol,
-                                price: t.price,
-                                qty: t.qty,
-                                quoteQty,
-                                timeMs: t.time,
-                                timeLabel,
-                                isBuy: t.isBuy,
-                                type: t.isBuy ? "buy" : "sell",
-                            } as Transaction;
-                        })
-                        .sort((a, b) => b.timeMs - a.timeMs);
                     if (mountedRef.current) {
-                        setTransactions(next);
-                        setError(null);
+                        setTransactions([]);
+                        setError(
+                            "Transactions for stock universe are not implemented yet",
+                        );
+                    }
+                    return;
+                }
+                if (!hasValidSymbol || !resolvedSymbol) {
+                    if (mountedRef.current) {
+                        setTransactions([]);
+                        setError("Invalid coin symbol for transactions");
                     }
                     return;
                 }
@@ -162,14 +148,33 @@ export const useTransactions = ({
                 }
             }
         },
-        [marketType, symbol, limit, universe, resolvedSymbol],
+        [hasValidSymbol, isHydrated, limit, marketType, resolvedSymbol, symbol, universe],
     );
 
     useEffect(() => {
         mountedRef.current = true;
+        if (!isHydrated) {
+            setTransactions([]);
+            setError(null);
+            setIsLoading(true);
+            return () => {
+                mountedRef.current = false;
+                subscriptionRef.current?.unsubscribe();
+                subscriptionRef.current = null;
+            };
+        }
         fetchTrades("initial");
 
         if (universe === "stock") {
+            subscriptionRef.current?.unsubscribe();
+            subscriptionRef.current = null;
+            return () => {
+                mountedRef.current = false;
+                subscriptionRef.current?.unsubscribe();
+                subscriptionRef.current = null;
+            };
+        }
+        if (!hasValidSymbol || !resolvedSymbol) {
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
             return () => {
@@ -213,7 +218,16 @@ export const useTransactions = ({
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [fetchTrades, limit, marketType, symbol, universe, resolvedSymbol]);
+    }, [
+        fetchTrades,
+        hasValidSymbol,
+        limit,
+        marketType,
+        resolvedSymbol,
+        symbol,
+        isHydrated,
+        universe,
+    ]);
 
     return {
         transactions,

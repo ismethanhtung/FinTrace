@@ -30,8 +30,6 @@ import {
 } from "../../lib/marketSort";
 import { MarketNewsInsights } from "../../components/MarketNewsInsights";
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
 const statCardSparks = [
     [
         { v: 10 },
@@ -478,7 +476,7 @@ function CoinAvatar({ symbol, logoUrl }: { symbol: string; logoUrl?: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function MarketPage() {
     const router = useRouter();
-    const { marketType, setMarketType, setSelectedSymbol, isMockUniverse, universe } = useMarket();
+    const { marketType, setMarketType, setSelectedSymbol } = useMarket();
     const { rows, stats, isLoading, refetch } = useMarketPageData();
 
     const handleRowClick = (symbol: string) => {
@@ -622,11 +620,6 @@ export default function MarketPage() {
                 {/* ── Sub-tabs + Insights row ──────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar">
-                        {isMockUniverse && (
-                            <span className="px-2 py-1 rounded-md border border-amber-400/25 bg-amber-400/15 text-amber-400 text-[10px] font-semibold uppercase tracking-wider">
-                                {universe} mock
-                            </span>
-                        )}
                         {SUB_TABS.map((tab) => (
                             <div key={tab} className="relative">
                                 <button

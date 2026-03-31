@@ -26,7 +26,6 @@ const STOCK_AUTO_HYDRATE_DELAY_MS = 120;
 
 interface MarketContextType {
     universe: AssetUniverse;
-    isMockUniverse: boolean;
     selectedSymbol: string;
     setSelectedSymbol: (symbol: string) => void;
     marketType: MarketType;
@@ -52,7 +51,7 @@ const MarketContext = React.createContext<MarketContextType | undefined>(
 );
 
 export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
-    const { universe, isMockUniverse } = useUniverse();
+    const { universe, isHydrated = true } = useUniverse();
     const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
     const [marketType, setMarketType] = useState<MarketType>("spot");
 
@@ -150,24 +149,27 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
 
     // ── Initial bootstrap only ──────────────────────────────────────────────────
     useEffect(() => {
+        if (!isHydrated) return;
         setSpotAssets([]);
         setIsLoading(true);
         setError(null);
         hydratedStockSpotRef.current.clear();
         hydratingStockSpotRef.current.clear();
         fetchSpotAssets();
-    }, [fetchSpotAssets]);
+    }, [fetchSpotAssets, isHydrated]);
 
     useEffect(() => {
+        if (!isHydrated) return;
         setFuturesAssets([]);
         setIsFuturesLoading(true);
         hydratedStockFuturesRef.current.clear();
         hydratingStockFuturesRef.current.clear();
         fetchFuturesAssets();
-    }, [fetchFuturesAssets]);
+    }, [fetchFuturesAssets, isHydrated]);
 
     const hydrateStockSymbols = useCallback(
         async (symbols: string[]) => {
+            if (!isHydrated) return;
             if (universe !== "stock") return;
             if (!symbols.length) return;
 
@@ -219,11 +221,12 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
                 nextSymbols.forEach((s) => hydratingRef.current.delete(s));
             }
         },
-        [marketType, universe],
+        [isHydrated, marketType, universe],
     );
 
     // ── Live market tickers via websocket ───────────────────────────────────────
     useEffect(() => {
+        if (!isHydrated) return;
         if (universe === "stock") {
             setSpotStreamStatus("connected");
             setLastSpotStreamUpdateAt(Date.now());
@@ -244,9 +247,10 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         });
 
         return () => sub.unsubscribe();
-    }, [universe]);
+    }, [isHydrated, universe]);
 
     useEffect(() => {
+        if (!isHydrated) return;
         if (universe === "stock") {
             setFuturesStreamStatus("connected");
             setLastFuturesStreamUpdateAt(Date.now());
@@ -267,9 +271,10 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         });
 
         return () => sub.unsubscribe();
-    }, [universe]);
+    }, [isHydrated, universe]);
 
     useEffect(() => {
+        if (!isHydrated) return;
         const nextDefault = DEFAULT_SYMBOL_BY_UNIVERSE[universe];
         if (nextDefault) {
             setSelectedSymbol(nextDefault);
@@ -277,14 +282,15 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         }
         // For stock universe, don't force a hardcoded symbol on reload.
         setSelectedSymbol("");
-    }, [universe]);
+    }, [isHydrated, universe]);
 
     useEffect(() => {
+        if (!isHydrated) return;
         const current = marketType === "futures" ? futuresAssets : spotAssets;
         if (!current.length) return;
         if (current.some((asset) => asset.id === selectedSymbol)) return;
         setSelectedSymbol(current[0].id);
-    }, [marketType, futuresAssets, selectedSymbol, spotAssets, universe]);
+    }, [futuresAssets, isHydrated, marketType, selectedSymbol, spotAssets, universe]);
 
     // ── Active asset list based on marketType ────────────────────────────────────
     const assets = useMemo<Asset[]>(
@@ -293,6 +299,7 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     useEffect(() => {
+        if (!isHydrated) return;
         if (universe !== "stock") return;
         const activeAssets = marketType === "futures" ? futuresAssets : spotAssets;
         if (!activeAssets.length) return;
@@ -333,6 +340,7 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
     }, [
         futuresAssets.length,
         hydrateStockSymbols,
+        isHydrated,
         marketType,
         spotAssets.length,
         universe,
@@ -342,7 +350,6 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         <MarketContext.Provider
             value={{
                 universe,
-                isMockUniverse,
                 selectedSymbol,
                 setSelectedSymbol,
                 marketType,

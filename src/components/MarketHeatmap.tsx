@@ -14,7 +14,7 @@ export function MarketHeatmap({
     className?: string;
 }) {
     const { theme } = useAppSettings();
-    const { universe, isMockUniverse } = useUniverse();
+    const { universe } = useUniverse();
     const containerRef = useRef<HTMLDivElement>(null);
 
     const colorTheme = useMemo<"light" | "dark">(
@@ -76,7 +76,7 @@ export function MarketHeatmap({
             >
                 <div className="text-center space-y-2">
                     <div className="text-[12px] font-semibold uppercase tracking-wider text-amber-400">
-                        {isMockUniverse ? "Mock Stock Heatmap" : "Stock Heatmap"}
+                        Stock Heatmap
                     </div>
                     <p className="text-[12px] text-muted">
                         Stock heatmap sẽ được nối dữ liệu thật ở phase tiếp theo.

@@ -11,7 +11,7 @@ const OPTIONS: { value: AssetUniverse; label: string }[] = [
 ];
 
 export const WorldSwitch = () => {
-    const { universe, routeSwitch, isMockUniverse } = useUniverse();
+    const { universe, routeSwitch } = useUniverse();
 
     return (
         <div className="flex items-center gap-1 rounded-md border border-main bg-secondary/30 p-1">
@@ -33,11 +33,6 @@ export const WorldSwitch = () => {
                     </button>
                 );
             })}
-            {isMockUniverse && (
-                <span className="ml-1 px-1.5 py-0.5 rounded border border-amber-400/25 bg-amber-400/15 text-amber-400 text-[9px] font-bold uppercase tracking-wide">
-                    Beta
-                </span>
-            )}
         </div>
     );
 };

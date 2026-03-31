@@ -16,6 +16,7 @@ import {
     normalizeBinanceFuturesTradeEvent,
     normalizeBinanceSpotTradeEvent,
 } from "../services/dataStream/normalizeBinanceEvent";
+import { resolveUniverseSymbol } from "../lib/universeSymbol";
 
 const DEFAULT_CONFIG: DataStreamConfig = {
     minVolumeUsd: 1_000,
@@ -77,11 +78,11 @@ type DataStreamWsController = {
 
 export function useDataStream() {
     const { selectedSymbol, marketType } = useMarket();
-    const { universe } = useUniverse();
-    const resolvedSelectedSymbol =
-        universe === "coin" && !selectedSymbol.toUpperCase().endsWith("USDT")
-            ? "BTCUSDT"
-            : selectedSymbol;
+    const { universe, isHydrated = true } = useUniverse();
+    const {
+        normalized: resolvedSelectedSymbol,
+        isValid: hasValidSelectedSymbol,
+    } = resolveUniverseSymbol(selectedSymbol, universe);
 
     const [config, setConfig] = useState<DataStreamConfig>(DEFAULT_CONFIG);
     const [records, setRecords] = useState<any[]>([]);
@@ -119,7 +120,7 @@ export function useDataStream() {
     const [soundEnabled, setSoundEnabled] = useState(false);
     const [soundArmed, setSoundArmed] = useState(false);
 
-    const pair = resolvedSelectedSymbol;
+    const pair = resolvedSelectedSymbol ?? "";
     const pairLower = pair.toLowerCase();
 
     const market: DataStreamMarketType = marketType;
@@ -212,12 +213,28 @@ export function useDataStream() {
     }, [highlightSeq, soundEnabled]);
 
     const connect = useCallback(() => {
+        if (!isHydrated) {
+            wsRef.current.tradesWs?.close();
+            wsRef.current.fundingWs?.close();
+            wsRef.current = {};
+            setConnectionStatus("connecting");
+            setError(null);
+            return;
+        }
         if (universe === "stock") {
             wsRef.current.tradesWs?.close();
             wsRef.current.fundingWs?.close();
             wsRef.current = {};
             setConnectionStatus("connected");
             setError(null);
+            return;
+        }
+        if (!hasValidSelectedSymbol || !resolvedSelectedSymbol) {
+            wsRef.current.tradesWs?.close();
+            wsRef.current.fundingWs?.close();
+            wsRef.current = {};
+            setConnectionStatus("disconnected");
+            setError("Invalid coin symbol for stream");
             return;
         }
         // New connection attempt: clear any pending reconnect first.
@@ -341,7 +358,16 @@ export function useDataStream() {
                 }
             };
         }
-    }, [market, pair, pairLower, postEventToWorker, universe]);
+    }, [
+        hasValidSelectedSymbol,
+        market,
+        pair,
+        pairLower,
+        postEventToWorker,
+        resolvedSelectedSymbol,
+        isHydrated,
+        universe,
+    ]);
 
     // Reconnect when selected symbol or market type changes.
     useEffect(() => {
@@ -390,7 +416,7 @@ export function useDataStream() {
             soundEnabled,
             soundArmed,
             toggleSoundEnabled: soundToggle,
-            selectedSymbol: resolvedSelectedSymbol,
+            selectedSymbol: resolvedSelectedSymbol ?? selectedSymbol,
             marketType: marketType,
         }),
         [
@@ -409,6 +435,7 @@ export function useDataStream() {
             soundArmed,
             soundToggle,
             resolvedSelectedSymbol,
+            selectedSymbol,
             marketType,
         ],
     );

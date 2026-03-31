@@ -12,7 +12,7 @@ import {
     type DerivedOrderBookData,
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
-import { getMockStockBasePrice } from "../lib/mockStockData";
+import { resolveUniverseSymbol } from "../lib/universeSymbol";
 
 export type OrderBookEntry = {
     price: number;
@@ -167,11 +167,9 @@ export const useOrderBook = (
     grouping: Grouping,
     marketType: MarketType = "spot",
 ) => {
-    const { universe } = useUniverse();
-    const resolvedSymbol =
-        universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
-            ? "BTCUSDT"
-            : symbol;
+    const { universe, isHydrated = true } = useUniverse();
+    const { normalized: resolvedSymbol, isValid: hasValidSymbol } =
+        resolveUniverseSymbol(symbol, universe);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] =
@@ -227,9 +225,18 @@ export const useOrderBook = (
     const loadSnapshot = useCallback(async () => {
         if (universe === "stock") {
             setIsLoading(false);
-            setError(null);
-            setConnectionStatus("connected");
-            setLastUpdatedAt(Date.now());
+            setError("Order book for stock universe is not implemented yet");
+            setConnectionStatus("disconnected");
+            return;
+        }
+        if (!isHydrated) {
+            setIsLoading(true);
+            return;
+        }
+        if (!hasValidSymbol || !resolvedSymbol) {
+            setError("Invalid coin symbol for order book");
+            setConnectionStatus("disconnected");
+            setIsLoading(false);
             return;
         }
         if (loadingSnapshotRef.current) return;
@@ -265,7 +272,13 @@ export const useOrderBook = (
             }
             if (mountedRef.current) setIsLoading(false);
         }
-    }, [applyBufferedDiffs, marketType, resolvedSymbol, universe]);
+    }, [
+        applyBufferedDiffs,
+        hasValidSymbol,
+        marketType,
+        resolvedSymbol,
+        universe,
+    ]);
 
     const resync = useCallback(() => {
         pendingDiffsRef.current = [];
@@ -282,9 +295,20 @@ export const useOrderBook = (
     useEffect(() => {
         if (universe === "stock") {
             setIsLoading(false);
-            setError(null);
-            setConnectionStatus("connected");
-            setLastUpdatedAt(Date.now());
+            setError("Order book for stock universe is not implemented yet");
+            setConnectionStatus("disconnected");
+            subscriptionRef.current?.unsubscribe();
+            bookTickerSubscriptionRef.current?.unsubscribe();
+            return;
+        }
+        if (!isHydrated) {
+            setIsLoading(true);
+            return;
+        }
+        if (!hasValidSymbol || !resolvedSymbol) {
+            setIsLoading(false);
+            setError("Invalid coin symbol for order book");
+            setConnectionStatus("disconnected");
             subscriptionRef.current?.unsubscribe();
             bookTickerSubscriptionRef.current?.unsubscribe();
             return;
@@ -343,51 +367,22 @@ export const useOrderBook = (
             bookTickerSubscriptionRef.current?.unsubscribe();
             bookTickerSubscriptionRef.current = null;
         };
-    }, [marketType, resync, resolvedSymbol, loadSnapshot, pushDepthUpdateTimestamp, universe]);
-
-    const mockData = useMemo<OrderBookData | null>(() => {
-        if (universe !== "stock") return null;
-        const mid = getMockStockBasePrice(symbol.replace(/-(C|F)$/i, ""));
-        const bids = Array.from({ length: 16 }, (_, i) => {
-            const price = Number((mid - (i + 1) * 0.05).toFixed(2));
-            const quantity = Number((100 + i * 20).toFixed(2));
-            return { price, quantity, total: 0, depth: 0 };
-        });
-        const asks = Array.from({ length: 16 }, (_, i) => {
-            const price = Number((mid + (i + 1) * 0.05).toFixed(2));
-            const quantity = Number((95 + i * 22).toFixed(2));
-            return { price, quantity, total: 0, depth: 0 };
-        });
-        let bidRunning = 0;
-        let askRunning = 0;
-        for (const bid of bids) {
-            bidRunning += bid.quantity;
-            bid.total = bidRunning;
-        }
-        for (const ask of asks) {
-            askRunning += ask.quantity;
-            ask.total = askRunning;
-        }
-        const maxTotal = Math.max(bidRunning, askRunning);
-        for (const bid of bids) bid.depth = maxTotal > 0 ? bid.total / maxTotal : 0;
-        for (const ask of asks) ask.depth = maxTotal > 0 ? ask.total / maxTotal : 0;
-        return {
-            bids,
-            asks,
-            spread: asks[0].price - bids[0].price,
-            spreadPercent:
-                bids[0].price > 0
-                    ? ((asks[0].price - bids[0].price) / bids[0].price) * 100
-                    : 0,
-            midPrice: (asks[0].price + bids[0].price) / 2,
-        };
-    }, [symbol, universe]);
+    }, [
+        hasValidSymbol,
+        loadSnapshot,
+        marketType,
+        pushDepthUpdateTimestamp,
+        resolvedSymbol,
+        resync,
+        isHydrated,
+        universe,
+    ]);
 
     const liveData = useMemo(
         () => deriveDataFromState(bookRef.current, grouping),
         [bookVersion, grouping],
     );
-    const data = universe === "stock" ? mockData : liveData;
+    const data = liveData;
 
     const metrics = useMemo<OrderBookMetrics | null>(() => {
         if (!data) return null;

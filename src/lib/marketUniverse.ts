@@ -17,12 +17,7 @@ export function normalizeUniverse(value: unknown): AssetUniverse {
     return value === "stock" ? "stock" : "coin";
 }
 
-export function isMockUniverse(universe: AssetUniverse): boolean {
-    return universe === "stock";
-}
-
 export function resolveUniverseSwitchPath(pathname: string): string {
     if (SUPPORTED_UNIVERSE_ROUTES.has(pathname)) return pathname;
     return "/market";
 }
-

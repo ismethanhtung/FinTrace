@@ -34,7 +34,5 @@ async function fetchCoinAssetsByMarketType(marketType: MarketType): Promise<Asse
 
 export const coinMarketAdapter: MarketDataAdapter = {
     universe: "coin",
-    isMock: false,
     listAssets: fetchCoinAssetsByMarketType,
 };
-

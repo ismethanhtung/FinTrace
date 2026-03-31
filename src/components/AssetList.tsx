@@ -95,11 +95,7 @@ const AssetRow = ({
                     {badge}
                 </div>
                 <div className="text-[10px] text-muted">
-                    {asset.isMock
-                        ? "Simulated feed"
-                        : universe === "stock"
-                          ? "VN Stock feed"
-                          : "Binance"}
+                    {universe === "stock" ? "VN Stock feed" : "Binance"}
                 </div>
             </div>
         </div>
@@ -140,7 +136,6 @@ export const WatchlistDropdown = () => {
         assets,
         selectedSymbol,
         setSelectedSymbol,
-        isMockUniverse,
         marketType,
         isLoading,
         isFuturesLoading,
@@ -404,11 +399,6 @@ export const WatchlistDropdown = () => {
                                                 Top Assets
                                             </span>
                                         </div>
-                                        {isMockUniverse && (
-                                            <div className="px-3 py-2 text-[9px] font-bold text-amber-400 uppercase tracking-widest border-t border-main">
-                                                Stock universe data
-                                            </div>
-                                        )}
                                         {assets.map((asset) => (
                                             <AssetRow
                                                 key={asset.id}
@@ -448,7 +438,6 @@ export const QuickSearchDropdown = () => {
         assets,
         selectedSymbol,
         setSelectedSymbol,
-        isMockUniverse,
         marketType,
         isLoading,
         isFuturesLoading,
@@ -713,11 +702,6 @@ export const QuickSearchDropdown = () => {
                                                 Top Assets
                                             </span>
                                         </div>
-                                        {isMockUniverse && (
-                                            <div className="px-3 py-2 text-[9px] font-bold text-amber-400 uppercase tracking-widest border-t border-main">
-                                                Stock universe data
-                                            </div>
-                                        )}
                                         {topAssetsPreview.map((asset) => (
                                             <AssetRow
                                                 key={asset.id}

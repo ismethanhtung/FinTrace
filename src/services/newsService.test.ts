@@ -47,20 +47,20 @@ describe("newsService", () => {
         global.fetch = originalFetch;
     });
 
-    it("falls back to mock data when API fails", async () => {
+    it("throws when API fails", async () => {
         const originalFetch = global.fetch;
         global.fetch = vi.fn(async () => new Response("", { status: 500 })) as typeof global.fetch;
-        const out = await newsService.getNews("ETHUSDT");
-        expect(out.length).toBeGreaterThan(0);
-        expect(out[0].title).toContain("ETH");
+        await expect(newsService.getNews("ETHUSDT")).rejects.toThrow(
+            "News API Error: 500",
+        );
         global.fetch = originalFetch;
     });
 
-    it("returns mock data when API items are empty", async () => {
+    it("returns empty array when API items are empty", async () => {
         const originalFetch = global.fetch;
         global.fetch = vi.fn(async () => new Response(JSON.stringify({ items: [] }), { status: 200 })) as typeof global.fetch;
         const out = await newsService.getNews("SOLUSDT");
-        expect(out.length).toBe(3);
+        expect(out).toEqual([]);
         global.fetch = originalFetch;
     });
 });

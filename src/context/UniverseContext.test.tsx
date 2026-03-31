@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { UniverseProvider, useUniverse } from "./UniverseContext";
 import { UNIVERSE_STORAGE_KEY } from "../lib/marketUniverse";
@@ -46,14 +46,16 @@ describe("UniverseContext", () => {
         cleanup();
     });
 
-    it("loads saved universe from localStorage", () => {
+    it("loads saved universe from localStorage", async () => {
         localStorage.setItem(UNIVERSE_STORAGE_KEY, "stock");
         render(
             <UniverseProvider>
                 <Probe />
             </UniverseProvider>,
         );
-        expect(screen.getByTestId("universe").textContent).toBe("stock");
+        await waitFor(() => {
+            expect(screen.getByTestId("universe").textContent).toBe("stock");
+        });
     });
 
     it("falls back route for unsupported path while switching", () => {

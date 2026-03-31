@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, Radio, Waves } from "lucide-react";
 import { useMarket } from "../context/MarketContext";
-import { useUniverse } from "../context/UniverseContext";
 import { cn } from "../lib/utils";
 
 type WhaleTrade = {
@@ -58,7 +57,6 @@ function qtyFmt(v: number): string {
 
 export function SmartMoneyWhalePanel() {
     const { selectedSymbol, marketType } = useMarket();
-    const { isMockUniverse } = useUniverse();
     const pair = selectedSymbol.toUpperCase();
     const pairLower = selectedSymbol.toLowerCase();
     const [status, setStatus] = useState<StreamStatus>("connecting");
@@ -76,21 +74,6 @@ export function SmartMoneyWhalePanel() {
                 : `wss://stream.binance.com:9443/ws/${pairLower}@aggTrade`,
         [marketType, pairLower],
     );
-
-    if (isMockUniverse) {
-        return (
-            <div className="flex-1 min-h-0 flex items-center justify-center text-center px-6">
-                <div className="space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-400">
-                        Mock stock mode
-                    </p>
-                    <p className="text-[12px] text-muted">
-                        Smart Money stream sẽ dùng nguồn stock thật ở phase tiếp theo.
-                    </p>
-                </div>
-            </div>
-        );
-    }
 
     useEffect(() => {
         if (reconnectRef.current) {

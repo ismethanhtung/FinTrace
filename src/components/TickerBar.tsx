@@ -53,7 +53,6 @@ export const TickerBar = () => {
         futuresStreamStatus,
         lastSpotStreamUpdateAt,
         lastFuturesStreamUpdateAt,
-        isMockUniverse,
     } = useMarket();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [tickerMode, setTickerMode] = useState<TickerMode>("hot");

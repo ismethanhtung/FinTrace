@@ -3,7 +3,7 @@ import { toUnifiedAsset } from "./marketDataAdapter";
 import type { Asset } from "./binanceService";
 
 describe("marketDataAdapter", () => {
-    it("maps to unified asset with universe and mock flags", () => {
+    it("maps to unified asset with universe", () => {
         const input: Asset = {
             id: "AAPL-C",
             symbol: "AAPL",
@@ -20,10 +20,8 @@ describe("marketDataAdapter", () => {
             sparkline: [],
             marketType: "spot",
         };
-        const out = toUnifiedAsset(input, "stock", true);
+        const out = toUnifiedAsset(input, "stock");
         expect(out.universe).toBe("stock");
-        expect(out.isMock).toBe(true);
         expect(out.id).toBe("AAPL-C");
     });
 });
-

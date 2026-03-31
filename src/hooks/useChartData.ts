@@ -14,6 +14,7 @@ import {
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
 import { stockLambdaService } from "../services/stockLambdaService";
+import { resolveUniverseSymbol } from "../lib/universeSymbol";
 
 export type ChartType = "candlestick" | "area";
 export type Indicator = "MA7" | "MA25" | "EMA99";
@@ -140,11 +141,9 @@ export const useChartData = (
     symbol: string,
     marketType: MarketType = "spot",
 ) => {
-    const { universe } = useUniverse();
-    const resolvedSymbol =
-        universe === "coin" && !symbol.toUpperCase().endsWith("USDT")
-            ? "BTCUSDT"
-            : symbol;
+    const { universe, isHydrated = true } = useUniverse();
+    const { normalized: resolvedSymbol, isValid: hasValidSymbol } =
+        resolveUniverseSymbol(symbol, universe);
     const [interval, setInterval] = useState<ChartInterval>(
         universe === "stock" ? "1D" : "1H",
     );
@@ -170,14 +169,24 @@ export const useChartData = (
     }, [universe]);
 
     const fetchInitial = useCallback(
-        async (sym: string, intv: ChartInterval) => {
+        async (sym: string | null, intv: ChartInterval) => {
             const requestSeq = ++initialFetchSeqRef.current;
             try {
                 setIsLoading(true);
                 setError(null);
                 allDataRef.current = [];
                 setAllData([]);
+                if (!isHydrated) {
+                    if (requestSeq !== initialFetchSeqRef.current) return;
+                    setConnectionStatus("connecting");
+                    return;
+                }
                 if (universe === "stock") {
+                    if (!sym) {
+                        if (requestSeq !== initialFetchSeqRef.current) return;
+                        setConnectionStatus("disconnected");
+                        return;
+                    }
                     if (!stockLambdaService.isConfigured()) {
                         if (requestSeq !== initialFetchSeqRef.current) return;
                         allDataRef.current = [];
@@ -221,6 +230,12 @@ export const useChartData = (
                     }
                     return;
                 }
+                if (!sym) {
+                    if (requestSeq !== initialFetchSeqRef.current) return;
+                    setError("Missing or invalid symbol");
+                    setConnectionStatus("disconnected");
+                    return;
+                }
                 const getKlines =
                     marketType === "futures"
                         ? binanceService.getFuturesKlines.bind(binanceService)
@@ -251,16 +266,18 @@ export const useChartData = (
                 setIsLoading(false);
             }
         },
-        [marketType, universe],
+        [isHydrated, marketType, universe],
     );
 
     const fetchHistory = useCallback(async () => {
         if (isFetchingHistory) return;
+        if (!isHydrated) return;
         const oldest = allDataRef.current[0];
         if (!oldest) return;
         try {
             setIsFetchingHistory(true);
             if (universe === "stock") {
+                if (!resolvedSymbol) return;
                 const stockSymbol = resolvedSymbol.replace(/-C|-F/gi, "");
                 const endDate = format(
                     new Date(oldest.timestamp - 24 * 60 * 60 * 1000),
@@ -292,6 +309,7 @@ export const useChartData = (
                 });
                 return;
             }
+            if (!hasValidSymbol || !resolvedSymbol) return;
             const getKlines =
                 marketType === "futures"
                     ? binanceService.getFuturesKlines.bind(binanceService)
@@ -324,11 +342,30 @@ export const useChartData = (
         } finally {
             setIsFetchingHistory(false);
         }
-    }, [resolvedSymbol, interval, isFetchingHistory, marketType, universe]);
+    }, [
+        hasValidSymbol,
+        interval,
+        isFetchingHistory,
+        marketType,
+        resolvedSymbol,
+        isHydrated,
+        universe,
+    ]);
 
     useEffect(() => {
         fetchInitial(resolvedSymbol, interval);
+        if (!isHydrated) {
+            subscriptionRef.current?.unsubscribe();
+            subscriptionRef.current = null;
+            return;
+        }
         if (universe === "stock") {
+            subscriptionRef.current?.unsubscribe();
+            subscriptionRef.current = null;
+            return;
+        }
+        if (!hasValidSymbol || !resolvedSymbol) {
+            setConnectionStatus("disconnected");
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
             return;
@@ -373,7 +410,15 @@ export const useChartData = (
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
         };
-    }, [resolvedSymbol, interval, marketType, fetchInitial, universe]);
+    }, [
+        fetchInitial,
+        hasValidSymbol,
+        interval,
+        marketType,
+        resolvedSymbol,
+        isHydrated,
+        universe,
+    ]);
 
     const toggleIndicator = useCallback((ind: Indicator) => {
         setActiveIndicators((prev) => {
