@@ -532,7 +532,11 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
 
     useEffect(() => {
         if (universe !== "stock") return;
-        setStockVisibleCount((prev) => Math.min(prev, displayAssets.length));
+        setStockVisibleCount((prev) => {
+            if (displayAssets.length <= 0) return 0;
+            if (prev <= 0) return Math.min(STOCK_PAGE_SIZE, displayAssets.length);
+            return Math.min(prev, displayAssets.length);
+        });
     }, [displayAssets.length, universe]);
 
     useEffect(() => {

@@ -2,14 +2,19 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import React, { useMemo, useState } from "react";
+import React, {
+    useMemo,
+    useState,
+    useEffect,
+    useCallback,
+    useRef,
+} from "react";
 import {
     Search,
     Settings,
     LayoutGrid,
     ChevronDown,
     ArrowUp,
-    Pin,
     Sun,
     Moon,
 } from "lucide-react";
@@ -20,16 +25,22 @@ import {
     YAxis,
     CartesianGrid,
     Tooltip,
-    ResponsiveContainer,
 } from "recharts";
 import { AppTopBar } from "../../components/shell/AppTopBar";
 import { TickerBar } from "../../components/TickerBar";
+import { TokenAvatar } from "../../components/TokenAvatar";
 import { cn } from "../../lib/utils";
 import { useUniverse } from "../../context/UniverseContext";
 import { useAppSettings } from "../../context/AppSettingsContext";
+import { useMarket } from "../../context/MarketContext";
 
-type StockData = {
+type BoardStockRow = {
+    id: string;
     ticker: string;
+    name: string;
+    logoUrl?: string;
+    exchange?: string;
+    indexMembership: string[];
     ceiling: number;
     floor: number;
     ref: number;
@@ -40,7 +51,6 @@ type StockData = {
     high: number;
     low: number;
     foreign: { buy: string; sell: string; room: string };
-    isPinned?: boolean;
 };
 
 type IndexData = {
@@ -54,228 +64,27 @@ type IndexData = {
     down: number;
 };
 
-const INDICES: IndexData[] = [
-    {
-        name: "VNINDEX",
-        value: 1706.19,
-        change: 31.7,
-        vol: "824.983",
-        valueT: "25,270.502",
-        up: 195,
-        ref: 61,
-        down: 119,
-    },
-    {
-        name: "VN30",
-        value: 1864.14,
-        change: 34.55,
-        vol: "351.081",
-        valueT: "14,556.365",
-        up: 29,
-        ref: 0,
-        down: 1,
-    },
-    {
-        name: "HNX30",
-        value: 544.86,
-        change: 1.43,
-        vol: "64.722",
-        valueT: "1,503.526",
-        up: 13,
-        ref: 7,
-        down: 10,
-    },
-    {
-        name: "VNXALL",
-        value: 2801.43,
-        change: 41.58,
-        vol: "866.132",
-        valueT: "25,432.520",
-        up: 228,
-        ref: 103,
-        down: 152,
-    },
-    {
-        name: "HNXINDEX",
-        value: 251.82,
-        change: 0.84,
-        vol: "84.413",
-        valueT: "1,712.877",
-        up: 78,
-        ref: 66,
-        down: 78,
-    },
-    {
-        name: "UPCOM",
-        value: 127.42,
-        change: 1,
-        vol: "26.442",
-        valueT: "427.871",
-        up: 122,
-        ref: 93,
-        down: 110,
-    },
+const INDEX_NAMES = ["VNINDEX", "VN30", "HNX30", "VNXALL", "HNXINDEX", "UPCOM"];
+const INITIAL_COL_WIDTHS = [
+    90, 64, 64, 64, 64, 84, 64, 84, 64, 84, 64, 84, 64, 72, 64, 84, 64, 84, 64,
+    84, 112, 64, 64, 110, 110, 130,
 ];
 
-const STOCKS: StockData[] = [
-    {
-        ticker: "ACB",
-        ceiling: 25.15,
-        floor: 21.95,
-        ref: 23.55,
-        buy: [
-            { price: 23.6, vol: "123,600" },
-            { price: 23.65, vol: "172,000" },
-            { price: 23.7, vol: "44,900" },
-        ],
-        match: { price: 23.7, vol: "2,200", change: 0.15, percent: 0.64 },
-        sell: [
-            { price: 23.75, vol: "57,400" },
-            { price: 23.8, vol: "270,300" },
-            { price: 23.85, vol: "271,800" },
-        ],
-        totalVol: "8,422,600",
-        high: 23.9,
-        low: 23.7,
-        foreign: {
-            buy: "1,869,600",
-            sell: "2,330,500",
-            room: "127,794,367",
-        },
-        isPinned: true,
-    },
-    {
-        ticker: "BID",
-        ceiling: 42.15,
-        floor: 36.65,
-        ref: 39.4,
-        buy: [
-            { price: 40.1, vol: "53,900" },
-            { price: 40.15, vol: "44,100" },
-            { price: 40.2, vol: "29,400" },
-        ],
-        match: { price: 40.2, vol: "1,000", change: 0.8, percent: 2.03 },
-        sell: [
-            { price: 40.25, vol: "8,700" },
-            { price: 40.3, vol: "29,100" },
-            { price: 40.35, vol: "18,600" },
-        ],
-        totalVol: "9,588,900",
-        high: 40.6,
-        low: 39.7,
-        foreign: {
-            buy: "268,600",
-            sell: "1,143,404",
-            room: "920,823,439",
-        },
-        isPinned: true,
-    },
-    {
-        ticker: "CTG",
-        ceiling: 37,
-        floor: 32.2,
-        ref: 34.6,
-        buy: [
-            { price: 34.7, vol: "77,700" },
-            { price: 34.75, vol: "105,000" },
-            { price: 34.8, vol: "139,400" },
-        ],
-        match: { price: 34.8, vol: "200", change: 0.2, percent: 0.58 },
-        sell: [
-            { price: 34.85, vol: "80,800" },
-            { price: 34.9, vol: "365,600" },
-            { price: 34.95, vol: "151,600" },
-        ],
-        totalVol: "7,331,300",
-        high: 35.3,
-        low: 34.65,
-        foreign: {
-            buy: "694,600",
-            sell: "1,789,505",
-            room: "360,747,347",
-        },
-        isPinned: true,
-    },
-    {
-        ticker: "FPT",
-        ceiling: 79.9,
-        floor: 69.5,
-        ref: 74.7,
-        buy: [
-            { price: 75, vol: "308,100" },
-            { price: 75.1, vol: "140,600" },
-            { price: 75.2, vol: "75,400" },
-        ],
-        match: { price: 75.3, vol: "300", change: 0.6, percent: 0.8 },
-        sell: [
-            { price: 75.3, vol: "18,000" },
-            { price: 75.4, vol: "103,600" },
-            { price: 75.5, vol: "214,400" },
-        ],
-        totalVol: "6,684,000",
-        high: 76.3,
-        low: 75,
-        foreign: {
-            buy: "1,383,620",
-            sell: "3,169,721",
-            room: "268,754,938",
-        },
-        isPinned: true,
-    },
-    {
-        ticker: "HPG",
-        ceiling: 28.75,
-        floor: 25.05,
-        ref: 26.9,
-        buy: [
-            { price: 27, vol: "668,000" },
-            { price: 27.05, vol: "487,700" },
-            { price: 27.1, vol: "749,400" },
-        ],
-        match: { price: 27.15, vol: "100", change: 0.25, percent: 0.93 },
-        sell: [
-            { price: 27.15, vol: "100" },
-            { price: 27.2, vol: "646,700" },
-            { price: 27.25, vol: "628,100" },
-        ],
-        totalVol: "28,780,200",
-        high: 27.45,
-        low: 27.1,
-        foreign: {
-            buy: "7,456,600",
-            sell: "1,113,331",
-            room: "2,062,334,958",
-        },
-        isPinned: true,
-    },
-    {
-        ticker: "MBB",
-        ceiling: 28.3,
-        floor: 24.6,
-        ref: 26.45,
-        buy: [
-            { price: 26.45, vol: "2,006,200" },
-            { price: 26.5, vol: "1,521,800" },
-            { price: 26.55, vol: "60,200" },
-        ],
-        match: { price: 26.55, vol: "200", change: 0.1, percent: 0.38 },
-        sell: [
-            { price: 26.6, vol: "519,400" },
-            { price: 26.65, vol: "308,600" },
-            { price: 26.7, vol: "456,700" },
-        ],
-        totalVol: "16,575,900",
-        high: 27.1,
-        low: 26.5,
-        foreign: { buy: "1,281,100", sell: "3,927,080", room: "" },
-        isPinned: true,
-    },
-];
+const INDICES: IndexData[] = INDEX_NAMES.map((name) => ({
+    name,
+    value: 0,
+    change: 0,
+    vol: "0",
+    valueT: "0",
+    up: 0,
+    ref: 0,
+    down: 0,
+}));
 
 function generateChartData(points: number, base: number) {
     return Array.from({ length: points }, (_, i) => ({
         time: `${9 + Math.floor(i / 12)}h${String((i % 12) * 5).padStart(2, "0")}`,
-        value: base + Math.sin(i / 6) * 8 + Math.cos(i / 3) * 2,
+        value: base,
     }));
 }
 
@@ -314,6 +123,27 @@ function MiniChart({
     title: string;
     stats: IndexData;
 }) {
+    const chartHostRef = useRef<HTMLDivElement | null>(null);
+    const [chartSize, setChartSize] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+        const host = chartHostRef.current;
+        if (!host) return;
+
+        const updateSize = () => {
+            const rect = host.getBoundingClientRect();
+            setChartSize({
+                width: Math.max(0, Math.floor(rect.width)),
+                height: Math.max(0, Math.floor(rect.height)),
+            });
+        };
+
+        updateSize();
+        const observer = new ResizeObserver(updateSize);
+        observer.observe(host);
+        return () => observer.disconnect();
+    }, []);
+
     const isPositive = stats.change >= 0;
     const percent = (
         (stats.change / (stats.value - stats.change)) *
@@ -321,7 +151,7 @@ function MiniChart({
     ).toFixed(2);
 
     return (
-        <div className="flex-1 min-w-[280px] border border-main bg-secondary rounded-sm p-2">
+        <div className="flex-1 min-w-[280px] min-h-[180px] min-w-0 border border-main bg-secondary rounded-sm p-2">
             <div className="mb-2 flex items-start justify-between gap-2">
                 <div>
                     <div className="flex items-center gap-1 text-[11px] font-semibold text-main">
@@ -352,9 +182,13 @@ function MiniChart({
                     <div className="mt-1 text-right text-muted">Liên tục</div>
                 </div>
             </div>
-            <div className="h-24 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data}>
+            <div ref={chartHostRef} className="h-24 w-full min-w-0">
+                {chartSize.width > 0 && chartSize.height > 0 ? (
+                    <AreaChart
+                        width={chartSize.width}
+                        height={chartSize.height}
+                        data={data}
+                    >
                         <defs>
                             <linearGradient
                                 id={`grad-${title}`}
@@ -400,41 +234,247 @@ function MiniChart({
                             isAnimationActive={false}
                         />
                     </AreaChart>
-                </ResponsiveContainer>
+                ) : null}
             </div>
         </div>
+    );
+}
+
+function BoardRowSkeleton({
+    index,
+    isLight,
+}: {
+    index: number;
+    isLight: boolean;
+}) {
+    const rowClass = cn(
+        "border-b border-main transition-colors",
+        index % 2 === 0
+            ? "bg-main"
+            : isLight
+              ? "bg-black/[0.04]"
+              : "bg-white/[0.035]",
+    );
+    return (
+        <tr className={rowClass}>
+            <td className="border-r border-main p-2">
+                <div className="flex items-center gap-1.5">
+                    <div className="h-[18px] w-[18px] shrink-0 rounded-full bg-muted/20 animate-pulse" />
+                    <div className="h-3 w-10 rounded bg-muted/20 animate-pulse" />
+                </div>
+            </td>
+            {Array.from({ length: 25 }).map((_, i) => (
+                <td key={i} className="border-r border-main p-1 text-right">
+                    <div className="ml-auto h-3 w-10 rounded bg-muted/20 animate-pulse" />
+                </td>
+            ))}
+        </tr>
     );
 }
 
 export default function BoardPage() {
     const { universe } = useUniverse();
     const { toggleTheme, theme } = useAppSettings();
+    const { assets } = useMarket();
     const [activeTab, setActiveTab] = useState("VN30");
+    const [search, setSearch] = useState("");
+    const [isLoading, setIsLoading] = useState(true);
+    const [colWidths, setColWidths] = useState<number[]>(INITIAL_COL_WIDTHS);
+    const resizeStateRef = useRef<{
+        index: number;
+        startX: number;
+        startWidth: number;
+    } | null>(null);
+
+    useEffect(() => {
+        if (assets.length > 0) {
+            setIsLoading(false);
+        }
+        const timer = setTimeout(() => setIsLoading(false), 3000);
+        return () => clearTimeout(timer);
+    }, [assets.length]);
 
     const chartData = useMemo(
         () => ({
-            VNINDEX: generateChartData(50, 1680),
-            VN30: generateChartData(50, 1830),
-            HNX30: generateChartData(50, 540),
-            HNXINDEX: generateChartData(50, 250),
+            VNINDEX: generateChartData(50, 0),
+            VN30: generateChartData(50, 0),
+            HNX30: generateChartData(50, 0),
+            HNXINDEX: generateChartData(50, 0),
         }),
         [],
     );
 
     const isLight = theme === "light";
+    const getRowClassName = useCallback(
+        (index: number) =>
+            cn(
+                "border-b border-main transition-colors hover:!bg-accent/20",
+                index % 2 === 0
+                    ? "bg-main"
+                    : isLight
+                      ? "bg-black/[0.04]"
+                      : "bg-white/[0.035]",
+            ),
+        [isLight],
+    );
+    const handleResizeStart = useCallback(
+        (columnIndex: number, e: React.MouseEvent<HTMLDivElement>) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            resizeStateRef.current = {
+                index: columnIndex,
+                startX: e.clientX,
+                startWidth:
+                    colWidths[columnIndex] ?? INITIAL_COL_WIDTHS[columnIndex],
+            };
+
+            const onMouseMove = (event: MouseEvent) => {
+                const state = resizeStateRef.current;
+                if (!state) return;
+                const deltaX = event.clientX - state.startX;
+                const minWidth = state.index === 0 ? 80 : 56;
+                const nextWidth = Math.max(minWidth, state.startWidth + deltaX);
+                setColWidths((prev) => {
+                    const next = [...prev];
+                    next[state.index] = nextWidth;
+                    return next;
+                });
+            };
+
+            const onMouseUp = () => {
+                resizeStateRef.current = null;
+                window.removeEventListener("mousemove", onMouseMove);
+                window.removeEventListener("mouseup", onMouseUp);
+            };
+
+            window.addEventListener("mousemove", onMouseMove);
+            window.addEventListener("mouseup", onMouseUp);
+        },
+        [colWidths],
+    );
+    const resizeHandleClass =
+        "absolute right-0 top-0 z-20 h-full w-1.5 cursor-col-resize bg-transparent hover:bg-accent/50";
+    const q = search.trim().toLowerCase();
+    const normalizedTab = activeTab.trim().toUpperCase();
+
+    const filteredAssets = useMemo(
+        () =>
+            assets.filter((asset) => {
+                const symbol = asset.symbol.toLowerCase();
+                const name = asset.name.toLowerCase();
+                const id = asset.id.toLowerCase();
+                const searchMatched = q
+                    ? symbol.includes(q) || name.includes(q) || id.includes(q)
+                    : true;
+                if (!searchMatched) return false;
+
+                const exchange = (asset.stockProfile?.exchange ?? "")
+                    .trim()
+                    .toUpperCase();
+                const indexes = (asset.stockProfile?.indexMembership ?? []).map(
+                    (idx) => idx.trim().toUpperCase(),
+                );
+
+                if (normalizedTab === "VN30") return indexes.includes("VN30");
+                if (normalizedTab === "HNX30") return indexes.includes("HNX30");
+                if (normalizedTab === "HOSE")
+                    return (
+                        exchange.includes("HOSE") ||
+                        exchange.includes("HSX") ||
+                        exchange === "VN"
+                    );
+                if (normalizedTab === "HNX") return exchange.includes("HNX");
+                if (normalizedTab === "UPCOM")
+                    return exchange.includes("UPCOM");
+
+                return true;
+            }),
+        [assets, normalizedTab, q],
+    );
+
+    const boardRows = useMemo<BoardStockRow[]>(
+        () =>
+            filteredAssets.map((asset) => {
+                const price = Number.isFinite(asset.price) ? asset.price : 0;
+                const change = Number.isFinite(asset.change) ? asset.change : 0;
+                const ref = Math.max(0, price - change);
+                const mkQty = Number.isFinite(asset.baseVolume)
+                    ? asset.baseVolume
+                    : 0;
+                const levelVol = "0";
+                return {
+                    id: asset.id,
+                    ticker: asset.symbol,
+                    name: asset.name || asset.symbol,
+                    logoUrl: asset.logoUrl,
+                    exchange: asset.stockProfile?.exchange,
+                    indexMembership: asset.stockProfile?.indexMembership ?? [],
+                    ceiling: 0,
+                    floor: 0,
+                    ref,
+                    buy: [
+                        { price: 0, vol: levelVol },
+                        { price: 0, vol: levelVol },
+                        { price: 0, vol: levelVol },
+                    ],
+                    match: {
+                        price,
+                        vol: Math.round(mkQty).toLocaleString("en-US"),
+                        change,
+                        percent: Number.isFinite(asset.changePercent)
+                            ? asset.changePercent
+                            : 0,
+                    },
+                    sell: [
+                        { price: 0, vol: levelVol },
+                        { price: 0, vol: levelVol },
+                        { price: 0, vol: levelVol },
+                    ],
+                    totalVol: Math.round(mkQty).toLocaleString("en-US"),
+                    high: Number.isFinite(asset.high24h) ? asset.high24h : 0,
+                    low: Number.isFinite(asset.low24h) ? asset.low24h : 0,
+                    foreign: { buy: "0", sell: "0", room: "0" },
+                };
+            }),
+        [filteredAssets],
+    );
+    const rowsToRender = boardRows.length
+        ? boardRows
+        : [
+              {
+                  id: "EMPTY",
+                  ticker: "0",
+                  name: "0",
+                  logoUrl: undefined,
+                  exchange: undefined,
+                  indexMembership: [],
+                  ceiling: 0,
+                  floor: 0,
+                  ref: 0,
+                  buy: [
+                      { price: 0, vol: "0" },
+                      { price: 0, vol: "0" },
+                      { price: 0, vol: "0" },
+                  ],
+                  match: { price: 0, vol: "0", change: 0, percent: 0 },
+                  sell: [
+                      { price: 0, vol: "0" },
+                      { price: 0, vol: "0" },
+                      { price: 0, vol: "0" },
+                  ],
+                  totalVol: "0",
+                  high: 0,
+                  low: 0,
+                  foreign: { buy: "0", sell: "0", room: "0" },
+              } satisfies BoardStockRow,
+          ];
 
     return (
         <div className="flex h-screen w-full flex-col overflow-hidden bg-main text-main">
             <AppTopBar
                 refreshTitle="Refresh board"
                 refreshAriaLabel="Refresh board"
-                navItems={[
-                    { href: "/", label: "Chart" },
-                    { href: "/market", label: "Markets" },
-                    { href: "/board", label: "Board" },
-                    { href: "/heatmap", label: "Heatmap" },
-                    { href: "/news", label: "News" },
-                ]}
             />
 
             {universe !== "stock" ? (
@@ -587,6 +627,8 @@ export default function BoardPage() {
                             <input
                                 type="text"
                                 placeholder="Tìm kiếm mã CK"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
                                 className="w-full rounded-md border border-main bg-main px-8 py-1.5 text-xs focus:border-accent focus:outline-none"
                             />
                         </div>
@@ -655,65 +697,64 @@ export default function BoardPage() {
                     </div>
 
                     <div className="flex-1 overflow-auto pb-8 thin-scrollbar">
-                        <table className="w-full min-w-[1500px] table-fixed border-collapse text-[11px]">
+                        <table className="w-full min-w-[1500px] table-fixed border-separate border-spacing-0 text-[11px]">
                             <colgroup>
-                                <col style={{ width: 90 }} />
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 64 }} />
-
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 84 }} />
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 84 }} />
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 84 }} />
-
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 84 }} />
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 72 }} />
-
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 84 }} />
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 84 }} />
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 84 }} />
-
-                                <col style={{ width: 112 }} />
-                                <col style={{ width: 64 }} />
-                                <col style={{ width: 64 }} />
-
-                                <col style={{ width: 110 }} />
-                                <col style={{ width: 110 }} />
-                                <col style={{ width: 130 }} />
+                                {colWidths.map((width, index) => (
+                                    <col
+                                        key={`board-col-${index}`}
+                                        style={{ width }}
+                                    />
+                                ))}
                             </colgroup>
-                            <thead className="sticky top-0 z-10 bg-secondary">
-                                <tr className="border-b border-main text-muted">
+                            <thead className="sticky top-0 z-10 bg-secondary [&_th]:bg-secondary">
+                                <tr className="border-b border-main text-muted leading-none">
                                     <th
                                         rowSpan={2}
-                                        className="min-w-[90px] border-r border-main p-2"
+                                        className="relative min-w-[90px] border-r border-b border-main p-2"
                                     >
                                         CK
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(0, e)
+                                            }
+                                        />
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="border-r border-main p-2 text-fuchsia-500"
+                                        className="relative border-r border-b border-main p-2 text-fuchsia-500"
                                     >
                                         Trần
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(1, e)
+                                            }
+                                        />
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="border-r border-main p-2 text-cyan-500"
+                                        className="relative border-r border-b border-main p-2 text-cyan-500"
                                     >
                                         Sàn
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(2, e)
+                                            }
+                                        />
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="border-r border-main p-2 text-amber-500"
+                                        className="relative border-r border-b border-main p-2 text-amber-500"
                                     >
                                         TC
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(3, e)
+                                            }
+                                        />
                                     </th>
                                     <th
                                         colSpan={6}
@@ -735,21 +776,39 @@ export default function BoardPage() {
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="border-r border-main p-2"
+                                        className="relative border-r border-b border-main p-2"
                                     >
                                         Tổng KL
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(20, e)
+                                            }
+                                        />
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="border-r border-main p-2"
+                                        className="relative border-r border-b border-main p-2"
                                     >
                                         Cao
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(21, e)
+                                            }
+                                        />
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="border-r border-main p-2"
+                                        className="relative border-r border-b border-main p-2"
                                     >
                                         Thấp
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(22, e)
+                                            }
+                                        />
                                     </th>
                                     <th
                                         colSpan={3}
@@ -758,192 +817,338 @@ export default function BoardPage() {
                                         ĐTNN
                                     </th>
                                 </tr>
-                                <tr className="border-b border-main text-[10px] text-muted">
-                                    <th className="border-r border-main p-1">
+                                <tr className="border-b border-main text-[10px] text-muted leading-none">
+                                    <th className="relative border-r border-main p-1">
                                         Giá 3
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(4, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         KL 3
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(5, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         Giá 2
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(6, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         KL 2
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(7, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         Giá 1
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(8, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         KL 1
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(9, e)
+                                            }
+                                        />
                                     </th>
 
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         Giá
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(10, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         KL
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(11, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         +/-
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(12, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         +/- (%)
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(13, e)
+                                            }
+                                        />
                                     </th>
 
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         Giá 1
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(14, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         KL 1
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(15, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         Giá 2
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(16, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         KL 2
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(17, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         Giá 3
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(18, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         KL 3
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(19, e)
+                                            }
+                                        />
                                     </th>
 
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         NN mua
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(23, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="border-r border-main p-1">
+                                    <th className="relative border-r border-main p-1">
                                         NN bán
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(24, e)
+                                            }
+                                        />
                                     </th>
-                                    <th className="p-1">Room</th>
+                                    <th className="relative p-1">
+                                        Room
+                                        <div
+                                            className={resizeHandleClass}
+                                            onMouseDown={(e) =>
+                                                handleResizeStart(25, e)
+                                            }
+                                        />
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="bg-main">
-                                {STOCKS.map((stock) => (
-                                    <tr
-                                        key={stock.ticker}
-                                        className="border-b border-main hover:bg-secondary/50"
-                                    >
-                                        <td className="border-r border-main p-2 font-semibold">
-                                            <span className="inline-flex items-center gap-1">
-                                                <Pin
-                                                    size={10}
-                                                    className={cn(
-                                                        stock.isPinned
-                                                            ? "fill-emerald-500 text-emerald-500"
-                                                            : "text-muted",
-                                                    )}
-                                                />
-                                                {stock.ticker}
-                                            </span>
-                                        </td>
-                                        <td className="border-r border-main p-2 text-right text-fuchsia-500">
-                                            {stock.ceiling.toFixed(2)}
-                                        </td>
-                                        <td className="border-r border-main p-2 text-right text-cyan-500">
-                                            {stock.floor.toFixed(2)}
-                                        </td>
-                                        <td className="border-r border-main p-2 text-right text-amber-500">
-                                            {stock.ref.toFixed(2)}
-                                        </td>
+                                {isLoading
+                                    ? Array.from({ length: 20 }).map((_, i) => (
+                                          <BoardRowSkeleton
+                                              key={i}
+                                              index={i}
+                                              isLight={isLight}
+                                          />
+                                      ))
+                                    : rowsToRender.map((stock, index) => (
+                                          <tr
+                                              key={stock.id}
+                                              className={getRowClassName(index)}
+                                          >
+                                              <td className="border-r border-main p-2 font-semibold">
+                                                  <div className="flex items-center gap-1.5 min-w-0">
+                                                      <TokenAvatar
+                                                          symbol={stock.ticker}
+                                                          logoUrl={
+                                                              stock.logoUrl
+                                                          }
+                                                          size={18}
+                                                      />
+                                                      <div className="min-w-0">
+                                                          <div className="truncate">
+                                                              {stock.ticker}
+                                                          </div>
+                                                      </div>
+                                                  </div>
+                                              </td>
+                                              <td className="border-r border-main p-2 text-right text-fuchsia-500">
+                                                  {stock.ceiling.toFixed(2)}
+                                              </td>
+                                              <td className="border-r border-main p-2 text-right text-cyan-500">
+                                                  {stock.floor.toFixed(2)}
+                                              </td>
+                                              <td className="border-r border-main p-2 text-right text-amber-500">
+                                                  {stock.ref.toFixed(2)}
+                                              </td>
 
-                                        {stock.buy.map((b, i) => (
-                                            <React.Fragment
-                                                key={`${stock.ticker}-buy-${i}`}
-                                            >
-                                                <td className="border-r border-main p-1 text-right">
-                                                    <ColorText
-                                                        value={b.price}
-                                                        refVal={stock.ref}
-                                                        ceiling={stock.ceiling}
-                                                        floor={stock.floor}
-                                                    >
-                                                        {b.price.toFixed(2)}
-                                                    </ColorText>
-                                                </td>
-                                                <td className="border-r border-main p-1 text-right font-semibold text-emerald-500">
-                                                    {b.vol}
-                                                </td>
-                                            </React.Fragment>
-                                        ))}
+                                              {stock.buy.map((b, i) => (
+                                                  <React.Fragment
+                                                      key={`${stock.ticker}-buy-${i}`}
+                                                  >
+                                                      <td className="border-r border-main p-1 text-right">
+                                                          <ColorText
+                                                              value={b.price}
+                                                              refVal={stock.ref}
+                                                              ceiling={
+                                                                  stock.ceiling
+                                                              }
+                                                              floor={
+                                                                  stock.floor
+                                                              }
+                                                          >
+                                                              {b.price.toFixed(
+                                                                  2,
+                                                              )}
+                                                          </ColorText>
+                                                      </td>
+                                                      <td className="border-r border-main p-1 text-right font-semibold text-emerald-500">
+                                                          {b.vol}
+                                                      </td>
+                                                  </React.Fragment>
+                                              ))}
 
-                                        <td className="border-r border-main p-1 text-right">
-                                            <ColorText
-                                                value={stock.match.price}
-                                                refVal={stock.ref}
-                                                ceiling={stock.ceiling}
-                                                floor={stock.floor}
-                                                className="font-semibold"
-                                            >
-                                                {stock.match.price.toFixed(2)}
-                                            </ColorText>
-                                        </td>
-                                        <td className="border-r border-main p-1 text-right font-semibold text-emerald-500">
-                                            {stock.match.vol}
-                                        </td>
-                                        <td
-                                            className={cn(
-                                                "border-r border-main p-1 text-right",
-                                                stock.match.change >= 0
-                                                    ? "text-emerald-500"
-                                                    : "text-rose-500",
-                                            )}
-                                        >
-                                            {stock.match.change.toFixed(2)}
-                                        </td>
-                                        <td
-                                            className={cn(
-                                                "border-r border-main p-1 text-right",
-                                                stock.match.percent >= 0
-                                                    ? "text-emerald-500"
-                                                    : "text-rose-500",
-                                            )}
-                                        >
-                                            {stock.match.percent.toFixed(2)}%
-                                        </td>
+                                              <td className="border-r border-main p-1 text-right">
+                                                  <ColorText
+                                                      value={stock.match.price}
+                                                      refVal={stock.ref}
+                                                      ceiling={stock.ceiling}
+                                                      floor={stock.floor}
+                                                      className="font-semibold"
+                                                  >
+                                                      {stock.match.price.toFixed(
+                                                          2,
+                                                      )}
+                                                  </ColorText>
+                                              </td>
+                                              <td className="border-r border-main p-1 text-right font-semibold text-emerald-500">
+                                                  {stock.match.vol}
+                                              </td>
+                                              <td
+                                                  className={cn(
+                                                      "border-r border-main p-1 text-right",
+                                                      stock.match.change >= 0
+                                                          ? "text-emerald-500"
+                                                          : "text-rose-500",
+                                                  )}
+                                              >
+                                                  {stock.match.change.toFixed(
+                                                      2,
+                                                  )}
+                                              </td>
+                                              <td
+                                                  className={cn(
+                                                      "border-r border-main p-1 text-right",
+                                                      stock.match.percent >= 0
+                                                          ? "text-emerald-500"
+                                                          : "text-rose-500",
+                                                  )}
+                                              >
+                                                  {stock.match.percent.toFixed(
+                                                      2,
+                                                  )}
+                                                  %
+                                              </td>
 
-                                        {stock.sell.map((s, i) => (
-                                            <React.Fragment
-                                                key={`${stock.ticker}-sell-${i}`}
-                                            >
-                                                <td className="border-r border-main p-1 text-right">
-                                                    <ColorText
-                                                        value={s.price}
-                                                        refVal={stock.ref}
-                                                        ceiling={stock.ceiling}
-                                                        floor={stock.floor}
-                                                    >
-                                                        {s.price.toFixed(2)}
-                                                    </ColorText>
-                                                </td>
-                                                <td className="border-r border-main p-1 text-right font-semibold text-rose-500">
-                                                    {s.vol}
-                                                </td>
-                                            </React.Fragment>
-                                        ))}
+                                              {stock.sell.map((s, i) => (
+                                                  <React.Fragment
+                                                      key={`${stock.ticker}-sell-${i}`}
+                                                  >
+                                                      <td className="border-r border-main p-1 text-right">
+                                                          <ColorText
+                                                              value={s.price}
+                                                              refVal={stock.ref}
+                                                              ceiling={
+                                                                  stock.ceiling
+                                                              }
+                                                              floor={
+                                                                  stock.floor
+                                                              }
+                                                          >
+                                                              {s.price.toFixed(
+                                                                  2,
+                                                              )}
+                                                          </ColorText>
+                                                      </td>
+                                                      <td className="border-r border-main p-1 text-right font-semibold text-rose-500">
+                                                          {s.vol}
+                                                      </td>
+                                                  </React.Fragment>
+                                              ))}
 
-                                        <td className="border-r border-main p-2 text-right">
-                                            {stock.totalVol}
-                                        </td>
-                                        <td className="border-r border-main p-2 text-right text-emerald-500">
-                                            {stock.high.toFixed(2)}
-                                        </td>
-                                        <td className="border-r border-main p-2 text-right text-amber-500">
-                                            {stock.low.toFixed(2)}
-                                        </td>
+                                              <td className="border-r border-main p-2 text-right">
+                                                  {stock.totalVol}
+                                              </td>
+                                              <td className="border-r border-main p-2 text-right text-emerald-500">
+                                                  {stock.high.toFixed(2)}
+                                              </td>
+                                              <td className="border-r border-main p-2 text-right text-amber-500">
+                                                  {stock.low.toFixed(2)}
+                                              </td>
 
-                                        <td className="border-r border-main p-1 text-right">
-                                            {stock.foreign.buy}
-                                        </td>
-                                        <td className="border-r border-main p-1 text-right">
-                                            {stock.foreign.sell}
-                                        </td>
-                                        <td className="p-1 text-right">
-                                            {stock.foreign.room || "--"}
-                                        </td>
-                                    </tr>
-                                ))}
+                                              <td className="border-r border-main p-1 text-right">
+                                                  {stock.foreign.buy}
+                                              </td>
+                                              <td className="border-r border-main p-1 text-right">
+                                                  {stock.foreign.sell}
+                                              </td>
+                                              <td className="p-1 text-right">
+                                                  {stock.foreign.room || "--"}
+                                              </td>
+                                          </tr>
+                                      ))}
                             </tbody>
                         </table>
                     </div>

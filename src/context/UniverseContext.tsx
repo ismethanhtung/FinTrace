@@ -15,6 +15,10 @@ import {
     normalizeUniverse,
     resolveUniverseSwitchPath,
 } from "../lib/marketUniverse";
+import {
+    persistClientPreferenceCookie,
+    UNIVERSE_COOKIE_KEY,
+} from "../lib/preferences";
 
 export type UniverseContextValue = {
     universe: AssetUniverse;
@@ -27,10 +31,12 @@ const UniverseContext = createContext<UniverseContextValue | null>(null);
 
 export const UniverseProvider = ({
     children,
+    initialUniverse = "coin",
 }: {
     children: React.ReactNode;
+    initialUniverse?: AssetUniverse;
 }) => {
-    const [universe, setUniverseState] = useState<AssetUniverse>("coin");
+    const [universe, setUniverseState] = useState<AssetUniverse>(initialUniverse);
     const [isHydrated, setIsHydrated] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
@@ -39,14 +45,21 @@ export const UniverseProvider = ({
         try {
             const raw = localStorage.getItem(UNIVERSE_STORAGE_KEY);
             if (raw) {
-                setUniverseState(normalizeUniverse(raw));
+                const normalized = normalizeUniverse(raw);
+                setUniverseState(normalized);
+                persistClientPreferenceCookie(UNIVERSE_COOKIE_KEY, normalized);
+            } else {
+                persistClientPreferenceCookie(
+                    UNIVERSE_COOKIE_KEY,
+                    initialUniverse,
+                );
             }
         } catch {
             // ignore localStorage failures
         } finally {
             setIsHydrated(true);
         }
-    }, []);
+    }, [initialUniverse]);
 
     const setUniverse = useCallback((next: AssetUniverse) => {
         setUniverseState(next);
@@ -55,6 +68,7 @@ export const UniverseProvider = ({
         } catch {
             // ignore localStorage failures
         }
+        persistClientPreferenceCookie(UNIVERSE_COOKIE_KEY, next);
     }, []);
 
     const routeSwitch = useCallback(
@@ -87,6 +101,7 @@ export const UniverseProvider = ({
 
 export function useUniverse(): UniverseContextValue {
     const ctx = useContext(UniverseContext);
-    if (!ctx) throw new Error("useUniverse must be used within a UniverseProvider");
+    if (!ctx)
+        throw new Error("useUniverse must be used within a UniverseProvider");
     return ctx;
 }

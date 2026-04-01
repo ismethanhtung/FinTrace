@@ -8,6 +8,12 @@ import React, {
     useCallback,
 } from "react";
 import { getDefaultModelForProvider } from "../lib/aiModelDefaults";
+import {
+    normalizeTheme,
+    persistClientPreferenceCookie,
+    THEME_COOKIE_KEY,
+    THEME_STORAGE_KEY,
+} from "../lib/preferences";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type AppFont =
@@ -34,7 +40,9 @@ export const BUILT_IN_PROVIDER_IDS: BuiltInProviderId[] = [
     "huggingface",
 ];
 
-export function isBuiltInProviderId(providerId: string): providerId is BuiltInProviderId {
+export function isBuiltInProviderId(
+    providerId: string,
+): providerId is BuiltInProviderId {
     return BUILT_IN_PROVIDER_IDS.includes(providerId as BuiltInProviderId);
 }
 
@@ -53,7 +61,10 @@ export interface AIProviderConfig {
     description: string;
 }
 
-export const BUILT_IN_PROVIDERS: Omit<AIProviderConfig, "apiKey" | "enabled">[] = [
+export const BUILT_IN_PROVIDERS: Omit<
+    AIProviderConfig,
+    "apiKey" | "enabled"
+>[] = [
     {
         id: "openrouter",
         name: "OpenRouter",
@@ -73,7 +84,8 @@ export const BUILT_IN_PROVIDERS: Omit<AIProviderConfig, "apiKey" | "enabled">[] 
         name: "Hugging Face",
         websiteUrl: "https://huggingface.co/settings/tokens",
         placeholder: "hf_...",
-        description: "Hugging Face Inference Providers (OpenAI-compatible router)",
+        description:
+            "Hugging Face Inference Providers (OpenAI-compatible router)",
     },
 ];
 
@@ -127,7 +139,8 @@ function normalizeProvider(rawProvider: unknown): AIProviderConfig | null {
     if (!rawProvider || typeof rawProvider !== "object") return null;
     const rec = rawProvider as Record<string, unknown>;
     if (typeof rec.id !== "string" || rec.id.trim().length === 0) return null;
-    if (typeof rec.name !== "string" || rec.name.trim().length === 0) return null;
+    if (typeof rec.name !== "string" || rec.name.trim().length === 0)
+        return null;
     const id = rec.id.trim().toLowerCase().replace(/\s+/g, "-");
     const isBuiltIn = isBuiltInProviderId(id);
     return {
@@ -137,7 +150,10 @@ function normalizeProvider(rawProvider: unknown): AIProviderConfig | null {
         enabled: typeof rec.enabled === "boolean" ? rec.enabled : true,
         baseUrl: typeof rec.baseUrl === "string" ? rec.baseUrl.trim() : "",
         websiteUrl: typeof rec.websiteUrl === "string" ? rec.websiteUrl : "",
-        placeholder: typeof rec.placeholder === "string" ? rec.placeholder : "your-api-key",
+        placeholder:
+            typeof rec.placeholder === "string"
+                ? rec.placeholder
+                : "your-api-key",
         description: typeof rec.description === "string" ? rec.description : "",
     };
 }
@@ -150,7 +166,9 @@ function loadProviders(): AIProviderConfig[] {
         const parsed = Array.isArray(parsedRaw)
             ? parsedRaw
                   .map(normalizeProvider)
-                  .filter((provider): provider is AIProviderConfig => Boolean(provider))
+                  .filter((provider): provider is AIProviderConfig =>
+                      Boolean(provider),
+                  )
             : [];
         // Merge in any new built-in providers not yet persisted
         const existingIds = new Set(parsed.map((p) => p.id));
@@ -237,43 +255,67 @@ const AppSettingsContext = createContext<AppSettingsValue | null>(null);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export const AppSettingsProvider = ({
     children,
+    initialTheme = "dark1",
 }: {
     children: React.ReactNode;
+    initialTheme?: AppTheme;
 }) => {
     const [font, setFontState] = useState<AppFont>("Inter");
-    const [theme, setThemeState] = useState<AppTheme>("dark1");
-    const [aiProviders, setAiProvidersState] = useState<AIProviderConfig[]>(buildDefaultProviders);
-    const [activeProviderId, setActiveProviderIdState] = useState<AIProviderId>(DEFAULT_PROVIDER);
-    const [serverKeyStatus, setServerKeyStatus] = useState<Record<string, boolean>>({});
-    const [hasLoadedServerKeyStatus, setHasLoadedServerKeyStatus] = useState(false);
+    const [theme, setThemeState] = useState<AppTheme>(initialTheme);
+    const [aiProviders, setAiProvidersState] = useState<AIProviderConfig[]>(
+        buildDefaultProviders,
+    );
+    const [activeProviderId, setActiveProviderIdState] =
+        useState<AIProviderId>(DEFAULT_PROVIDER);
+    const [serverKeyStatus, setServerKeyStatus] = useState<
+        Record<string, boolean>
+    >({});
+    const [hasLoadedServerKeyStatus, setHasLoadedServerKeyStatus] =
+        useState(false);
     const [cryptoPanicApiKey, setCryptoPanicApiKeyState] = useState("");
-    const [providerModels, setProviderModelsState] = useState<Record<string, string>>({
+    const [providerModels, setProviderModelsState] = useState<
+        Record<string, string>
+    >({
         [DEFAULT_PROVIDER]: DEFAULT_MODEL,
     });
-    const [systemPrompt, setSystemPromptState] = useState(DEFAULT_SYSTEM_PROMPT);
+    const [systemPrompt, setSystemPromptState] = useState(
+        DEFAULT_SYSTEM_PROMPT,
+    );
 
     // Rehydrate from localStorage on mount
     useEffect(() => {
         const savedFont = localStorage.getItem("ft-font") as AppFont | null;
-        const savedTheme = localStorage.getItem("ft-theme") as AppTheme | null;
+        const savedThemeRaw = localStorage.getItem(THEME_STORAGE_KEY);
         const savedCPKey = localStorage.getItem("ft-cryptopanic-key");
         const savedModel = localStorage.getItem("ft-model");
         const savedPrompt = localStorage.getItem("ft-system-prompt");
         const savedProviders = loadProviders();
         const savedProviderModels = loadProviderModels();
-        const savedActiveProvider = localStorage.getItem(SELECTED_PROVIDER_KEY) as AIProviderId | null;
+        const savedActiveProvider = localStorage.getItem(
+            SELECTED_PROVIDER_KEY,
+        ) as AIProviderId | null;
 
         // Legacy migration: if old openrouter key exists, seed it into providers
         const legacyORKey = localStorage.getItem("ft-openrouter-key");
         if (legacyORKey) {
-            const orIdx = savedProviders.findIndex((p) => p.id === "openrouter");
+            const orIdx = savedProviders.findIndex(
+                (p) => p.id === "openrouter",
+            );
             if (orIdx !== -1 && !savedProviders[orIdx].apiKey) {
                 savedProviders[orIdx].apiKey = legacyORKey;
             }
         }
 
         if (savedFont && FONT_STACKS[savedFont]) setFontState(savedFont);
-        if (savedTheme && THEME_CYCLE.includes(savedTheme)) setThemeState(savedTheme);
+        if (savedThemeRaw) {
+            const savedTheme = normalizeTheme(savedThemeRaw);
+            if (THEME_CYCLE.includes(savedTheme)) {
+                setThemeState(savedTheme);
+                persistClientPreferenceCookie(THEME_COOKIE_KEY, savedTheme);
+            }
+        } else {
+            persistClientPreferenceCookie(THEME_COOKIE_KEY, initialTheme);
+        }
         if (savedCPKey) setCryptoPanicApiKeyState(savedCPKey);
         if (savedPrompt) setSystemPromptState(savedPrompt);
         setAiProvidersState(savedProviders);
@@ -291,11 +333,14 @@ export const AppSettingsProvider = ({
         }
 
         setProviderModelsState(savedProviderModels);
-    }, []);
+    }, [initialTheme]);
 
     // Apply font
     useEffect(() => {
-        document.documentElement.style.setProperty("--font-sans", FONT_STACKS[font]);
+        document.documentElement.style.setProperty(
+            "--font-sans",
+            FONT_STACKS[font],
+        );
     }, [font]);
 
     // Apply theme
@@ -337,24 +382,34 @@ export const AppSettingsProvider = ({
         localStorage.setItem(PROVIDERS_STORAGE_KEY, JSON.stringify(providers));
     }, []);
 
-    const persistProviderModels = useCallback((models: Record<string, string>) => {
-        localStorage.setItem(PROVIDER_MODELS_STORAGE_KEY, JSON.stringify(models));
-    }, []);
+    const persistProviderModels = useCallback(
+        (models: Record<string, string>) => {
+            localStorage.setItem(
+                PROVIDER_MODELS_STORAGE_KEY,
+                JSON.stringify(models),
+            );
+        },
+        [],
+    );
 
-    const providerHasAvailableKey = useCallback((providerId: AIProviderId) => {
-        const provider = aiProviders.find((item) => item.id === providerId);
-        if (!provider) return false;
-        const hasUserKey = Boolean(provider.apiKey?.trim());
-        if (hasUserKey) {
-            // Custom providers bắt buộc phải có baseUrl để routing đúng proxy server.
-            if (!isBuiltInProviderId(provider.id)) {
-                return Boolean(provider.baseUrl?.trim());
+    const providerHasAvailableKey = useCallback(
+        (providerId: AIProviderId) => {
+            const provider = aiProviders.find((item) => item.id === providerId);
+            if (!provider) return false;
+            const hasUserKey = Boolean(provider.apiKey?.trim());
+            if (hasUserKey) {
+                // Custom providers bắt buộc phải có baseUrl để routing đúng proxy server.
+                if (!isBuiltInProviderId(provider.id)) {
+                    return Boolean(provider.baseUrl?.trim());
+                }
+                return true;
             }
-            return true;
-        }
-        if (isBuiltInProviderId(provider.id)) return Boolean(serverKeyStatus[providerId]);
-        return false;
-    }, [aiProviders, serverKeyStatus]);
+            if (isBuiltInProviderId(provider.id))
+                return Boolean(serverKeyStatus[providerId]);
+            return false;
+        },
+        [aiProviders, serverKeyStatus],
+    );
 
     const setFont = useCallback((f: AppFont) => {
         setFontState(f);
@@ -363,98 +418,140 @@ export const AppSettingsProvider = ({
 
     const setTheme = useCallback((t: AppTheme) => {
         setThemeState(t);
-        localStorage.setItem("ft-theme", t);
+        localStorage.setItem(THEME_STORAGE_KEY, t);
+        persistClientPreferenceCookie(THEME_COOKIE_KEY, t);
     }, []);
 
     const toggleTheme = useCallback(() => {
         setThemeState((prev) => {
             const idx = THEME_CYCLE.indexOf(prev);
             const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
-            localStorage.setItem("ft-theme", next);
+            localStorage.setItem(THEME_STORAGE_KEY, next);
+            persistClientPreferenceCookie(THEME_COOKIE_KEY, next);
             return next;
         });
     }, []);
 
-    const setProviderApiKey = useCallback((providerId: AIProviderId, key: string) => {
-        setAiProvidersState((prev) => {
-            const next = prev.map((p) => p.id === providerId ? { ...p, apiKey: key } : p);
-            persistProviders(next);
-            return next;
-        });
-    }, [persistProviders]);
+    const setProviderApiKey = useCallback(
+        (providerId: AIProviderId, key: string) => {
+            setAiProvidersState((prev) => {
+                const next = prev.map((p) =>
+                    p.id === providerId ? { ...p, apiKey: key } : p,
+                );
+                persistProviders(next);
+                return next;
+            });
+        },
+        [persistProviders],
+    );
 
-    const setProviderEnabled = useCallback((providerId: AIProviderId, enabled: boolean) => {
-        setAiProvidersState((prev) => {
-            const next = prev.map((p) => p.id === providerId ? { ...p, enabled } : p);
-            persistProviders(next);
-            return next;
-        });
-    }, [persistProviders]);
+    const setProviderEnabled = useCallback(
+        (providerId: AIProviderId, enabled: boolean) => {
+            setAiProvidersState((prev) => {
+                const next = prev.map((p) =>
+                    p.id === providerId ? { ...p, enabled } : p,
+                );
+                persistProviders(next);
+                return next;
+            });
+        },
+        [persistProviders],
+    );
 
-    const addCustomProvider = useCallback((provider: Omit<AIProviderConfig, "enabled">) => {
-        setAiProvidersState((prev) => {
-            if (prev.find((p) => p.id === provider.id)) return prev;
-            const next = [...prev, {
-                ...provider,
-                id: provider.id.trim().toLowerCase().replace(/\s+/g, "-"),
-                baseUrl: provider.baseUrl?.trim() ?? "",
-                enabled: true,
-            }];
-            persistProviders(next);
-            return next;
-        });
-    }, [persistProviders]);
+    const addCustomProvider = useCallback(
+        (provider: Omit<AIProviderConfig, "enabled">) => {
+            setAiProvidersState((prev) => {
+                if (prev.find((p) => p.id === provider.id)) return prev;
+                const next = [
+                    ...prev,
+                    {
+                        ...provider,
+                        id: provider.id
+                            .trim()
+                            .toLowerCase()
+                            .replace(/\s+/g, "-"),
+                        baseUrl: provider.baseUrl?.trim() ?? "",
+                        enabled: true,
+                    },
+                ];
+                persistProviders(next);
+                return next;
+            });
+        },
+        [persistProviders],
+    );
 
-    const removeCustomProvider = useCallback((providerId: AIProviderId) => {
-        const isBuiltIn = BUILT_IN_PROVIDERS.some((p) => p.id === providerId);
-        if (isBuiltIn) return;
-        setAiProvidersState((prev) => {
-            const next = prev.filter((p) => p.id !== providerId);
-            persistProviders(next);
-            return next;
-        });
-        setProviderModelsState((prev) => {
-            const { [providerId]: _removed, ...next } = prev;
-            persistProviderModels(next);
-            return next;
-        });
-    }, [persistProviderModels, persistProviders]);
+    const removeCustomProvider = useCallback(
+        (providerId: AIProviderId) => {
+            const isBuiltIn = BUILT_IN_PROVIDERS.some(
+                (p) => p.id === providerId,
+            );
+            if (isBuiltIn) return;
+            setAiProvidersState((prev) => {
+                const next = prev.filter((p) => p.id !== providerId);
+                persistProviders(next);
+                return next;
+            });
+            setProviderModelsState((prev) => {
+                const { [providerId]: _removed, ...next } = prev;
+                persistProviderModels(next);
+                return next;
+            });
+        },
+        [persistProviderModels, persistProviders],
+    );
 
-    const setActiveProviderId = useCallback((id: AIProviderId) => {
-        const provider = aiProviders.find((item) => item.id === id);
-        if (!provider?.enabled) return;
-        if (!providerHasAvailableKey(id)) return;
-        setActiveProviderIdState(id);
-        localStorage.setItem(SELECTED_PROVIDER_KEY, id);
-    }, [aiProviders, providerHasAvailableKey]);
+    const setActiveProviderId = useCallback(
+        (id: AIProviderId) => {
+            const provider = aiProviders.find((item) => item.id === id);
+            if (!provider?.enabled) return;
+            if (!providerHasAvailableKey(id)) return;
+            setActiveProviderIdState(id);
+            localStorage.setItem(SELECTED_PROVIDER_KEY, id);
+        },
+        [aiProviders, providerHasAvailableKey],
+    );
 
     // Legacy shim for openrouterApiKey
-    const openrouterApiKey = aiProviders.find((p) => p.id === "openrouter")?.apiKey ?? "";
-    const setOpenrouterApiKey = useCallback((key: string) => {
-        setProviderApiKey("openrouter", key);
-        localStorage.setItem("ft-openrouter-key", key);
-    }, [setProviderApiKey]);
+    const openrouterApiKey =
+        aiProviders.find((p) => p.id === "openrouter")?.apiKey ?? "";
+    const setOpenrouterApiKey = useCallback(
+        (key: string) => {
+            setProviderApiKey("openrouter", key);
+            localStorage.setItem("ft-openrouter-key", key);
+        },
+        [setProviderApiKey],
+    );
 
     const setCryptoPanicApiKey = useCallback((key: string) => {
         setCryptoPanicApiKeyState(key);
         localStorage.setItem("ft-cryptopanic-key", key);
     }, []);
 
-    const getSelectedModel = useCallback((providerId: AIProviderId) => {
-        return providerModels[providerId] ?? getDefaultModelForProvider(providerId);
-    }, [providerModels]);
+    const getSelectedModel = useCallback(
+        (providerId: AIProviderId) => {
+            return (
+                providerModels[providerId] ??
+                getDefaultModelForProvider(providerId)
+            );
+        },
+        [providerModels],
+    );
 
-    const setSelectedModel = useCallback((model: string, providerId?: AIProviderId) => {
-        const targetProviderId = providerId ?? activeProviderId;
-        setProviderModelsState((prev) => {
-            const next = { ...prev, [targetProviderId]: model };
-            persistProviderModels(next);
-            if (targetProviderId === "openrouter") {
-                localStorage.setItem("ft-model", model);
-            }
-            return next;
-        });
-    }, [activeProviderId, persistProviderModels]);
+    const setSelectedModel = useCallback(
+        (model: string, providerId?: AIProviderId) => {
+            const targetProviderId = providerId ?? activeProviderId;
+            setProviderModelsState((prev) => {
+                const next = { ...prev, [targetProviderId]: model };
+                persistProviderModels(next);
+                if (targetProviderId === "openrouter") {
+                    localStorage.setItem("ft-model", model);
+                }
+                return next;
+            });
+        },
+        [activeProviderId, persistProviderModels],
+    );
 
     const setSystemPrompt = useCallback((prompt: string) => {
         setSystemPromptState(prompt);
@@ -463,13 +560,15 @@ export const AppSettingsProvider = ({
 
     useEffect(() => {
         if (!hasLoadedServerKeyStatus) return;
-        const active = aiProviders.find((provider) => provider.id === activeProviderId);
-        if (active?.enabled && providerHasAvailableKey(activeProviderId)) return;
+        const active = aiProviders.find(
+            (provider) => provider.id === activeProviderId,
+        );
+        if (active?.enabled && providerHasAvailableKey(activeProviderId))
+            return;
 
         const fallbackProvider = aiProviders.find(
             (provider) =>
-                provider.enabled &&
-                providerHasAvailableKey(provider.id),
+                provider.enabled && providerHasAvailableKey(provider.id),
         );
 
         if (!fallbackProvider) {

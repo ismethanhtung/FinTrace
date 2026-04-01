@@ -1,14 +1,34 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { MarketProvider } from "../context/MarketContext";
 import { AppSettingsProvider } from "../context/AppSettingsContext";
 import { UniverseProvider } from "../context/UniverseContext";
+import { normalizeUniverse } from "../lib/marketUniverse";
+import {
+    normalizeTheme,
+    THEME_COOKIE_KEY,
+    UNIVERSE_COOKIE_KEY,
+} from "../lib/preferences";
 
 const jetbrainsMono = JetBrains_Mono({
     subsets: ["latin"],
     variable: "--font-mono",
 });
+
+const THEME_BOOTSTRAP_SCRIPT = `
+(() => {
+  try {
+    const raw = localStorage.getItem("ft-theme");
+    const allowed = new Set(["light","dark1","dark2","dark3","dark4","dark5"]);
+    const next = allowed.has(raw) ? raw : null;
+    if (next) {
+      document.documentElement.setAttribute("data-theme", next);
+    }
+  } catch {}
+})();
+`;
 
 export const metadata: Metadata = {
     title: "FinTrace - Real-time Financial Analysis",
@@ -20,16 +40,29 @@ export const metadata: Metadata = {
     },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const cookieStore = await cookies();
+    const initialTheme = normalizeTheme(
+        cookieStore.get(THEME_COOKIE_KEY)?.value,
+    );
+    const initialUniverse = normalizeUniverse(
+        cookieStore.get(UNIVERSE_COOKIE_KEY)?.value,
+    );
+
     return (
-        <html lang="en" suppressHydrationWarning>
+        <html lang="en" data-theme={initialTheme} suppressHydrationWarning>
+            <head>
+                <script
+                    dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}
+                />
+            </head>
             <body className={`${jetbrainsMono.variable} antialiased`}>
-                <AppSettingsProvider>
-                    <UniverseProvider>
+                <AppSettingsProvider initialTheme={initialTheme}>
+                    <UniverseProvider initialUniverse={initialUniverse}>
                         <MarketProvider>{children}</MarketProvider>
                     </UniverseProvider>
                 </AppSettingsProvider>
