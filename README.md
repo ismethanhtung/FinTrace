@@ -26,6 +26,8 @@ App runs at: **http://localhost:3000**
 | [`.agents/AGENT_RULES.md`](.agents/AGENT_RULES.md) | **Master rules for AI agents** — read before any change |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System architecture, folder structure, data flow |
 | [`docs/API.md`](docs/API.md) | External API documentation (Binance, Gemini) |
+| [`docs/dnse-api.md`](docs/dnse-api.md) | DNSE API reference snapshot (source material) |
+| [`docs/dnse-public-market-rules.md`](docs/dnse-public-market-rules.md) | Security rules for DNSE public market-data-only integration |
 | [`docs/CODING_CONVENTIONS.md`](docs/CODING_CONVENTIONS.md) | Code style guide with examples |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | How to contribute — setup, branching, commits |
 | [`docs/universe-adapter-guide.md`](docs/universe-adapter-guide.md) | Coin/Stock universe switch and adapter extension guide |

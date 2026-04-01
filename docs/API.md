@@ -130,3 +130,16 @@ All environment variables must be documented here and in `.env.example`.
 1. Add it to `.env.example` with a placeholder value and comment
 2. Add it to this table above
 3. Never add secrets with the `NEXT_PUBLIC_` prefix (they are exposed to the browser)
+
+---
+
+## 4. DNSE Integration Policy (Public Data Only)
+
+DNSE may be used only for public market data streams.
+
+- Allowed: realtime market data (trade, quote, OHLC, expected price, security definition)
+- Forbidden: account APIs, portfolio/balance APIs, any order placement flow
+- Forbidden in client: `API Key`, `API Secret`, `Trading Token`
+- Required: keep credentials server-side only (if ever needed for approved read-only integrations)
+
+Detailed rules: [`docs/dnse-public-market-rules.md`](./dnse-public-market-rules.md)

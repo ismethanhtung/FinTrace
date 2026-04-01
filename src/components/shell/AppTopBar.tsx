@@ -21,6 +21,7 @@ const DEFAULT_NAV_ITEMS: NavItem[] = [
     { href: "/market", label: "Markets" },
     { href: "/heatmap", label: "Heatmap" },
     { href: "/data-stream", label: "Data Streams" },
+    { href: "/dnse-realtime", label: "DNSE WS" },
     { href: "/transactions", label: "Transactions" },
     { href: "/news", label: "News" },
 ];
