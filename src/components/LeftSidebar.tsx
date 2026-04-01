@@ -39,6 +39,39 @@ const priceFmt = (v: number) =>
 // ─── Sort state ───────────────────────────────────────────────────────────────
 type SortMode = "volume" | "change_desc" | "change_asc";
 
+function normalizeFilterValue(value: string | undefined): string {
+    return (value ?? "").trim().toUpperCase();
+}
+
+function normalizeFilterList(values: string[] | undefined): string[] {
+    if (!values?.length) return [];
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const value of values) {
+        const normalized = normalizeFilterValue(value);
+        if (!normalized || seen.has(normalized)) continue;
+        seen.add(normalized);
+        out.push(normalized);
+    }
+    return out;
+}
+
+function keepOnlyValidSelections(
+    prev: string[],
+    validOptions: string[],
+): string[] {
+    if (!prev.length) return prev;
+    const validSet = new Set(validOptions.map((option) => option.trim()));
+    const next = prev.filter((item) => validSet.has(item.trim()));
+    if (
+        next.length === prev.length &&
+        next.every((value, index) => value === prev[index])
+    ) {
+        return prev;
+    }
+    return next;
+}
+
 function sortAssets(assets: Asset[], mode: SortMode): Asset[] {
     const copy = [...assets];
     if (mode === "change_desc")
@@ -405,12 +438,17 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     const startWidth = useRef(DEFAULT_WIDTH);
 
     const stockFilterOptions = useMemo(() => {
+        if (universe !== "stock") {
+            return { exchanges: [], indexes: [] };
+        }
         const exchanges = new Set<string>();
         const indexes = new Set<string>();
         for (const asset of assets) {
-            const exchange = asset.stockProfile?.exchange?.trim();
+            const exchange = normalizeFilterValue(asset.stockProfile?.exchange);
             if (exchange) exchanges.add(exchange);
-            for (const indexName of asset.stockProfile?.indexMembership ?? []) {
+            for (const indexName of normalizeFilterList(
+                asset.stockProfile?.indexMembership,
+            )) {
                 const normalized = indexName.trim();
                 if (normalized) indexes.add(normalized);
             }
@@ -420,42 +458,60 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
             exchanges: Array.from(exchanges).sort((a, b) => a.localeCompare(b)),
             indexes: Array.from(indexes).sort((a, b) => a.localeCompare(b)),
         };
-    }, [assets]);
+    }, [assets, universe]);
+
+    const selectedExchangeSet = useMemo(
+        () => new Set(selectedExchanges.map((item) => item.trim())),
+        [selectedExchanges],
+    );
+    const selectedIndexSet = useMemo(
+        () => new Set(selectedIndexes.map((item) => item.trim())),
+        [selectedIndexes],
+    );
 
     const q = search.trim().toLowerCase();
-    const displayAssets = sortAssets(
-        assets.filter((a) => {
-            const symbolMatch = a.symbol.toLowerCase().includes(q);
-            const idMatch = a.id.toLowerCase().includes(q);
-            const exchangeMatch =
-                universe === "stock" &&
-                (a.stockProfile?.exchange ?? "").toLowerCase().includes(q);
-            const indexMatch =
-                universe === "stock" &&
-                (a.stockProfile?.indexMembership ?? []).some((idx) =>
-                    idx.toLowerCase().includes(q),
-                );
-            const searchMatched = q
-                ? symbolMatch || idMatch || exchangeMatch || indexMatch
-                : true;
+    const displayAssets = useMemo(
+        () =>
+            sortAssets(
+                assets.filter((a) => {
+                    const exchangeValue = normalizeFilterValue(
+                        a.stockProfile?.exchange,
+                    );
+                    const membershipValues = normalizeFilterList(
+                        a.stockProfile?.indexMembership,
+                    );
+                    const symbolMatch = a.symbol.toLowerCase().includes(q);
+                    const idMatch = a.id.toLowerCase().includes(q);
+                    const exchangeMatch =
+                        universe === "stock" &&
+                        exchangeValue.toLowerCase().includes(q);
+                    const indexMatch =
+                        universe === "stock" &&
+                        membershipValues.some((idx) =>
+                            idx.toLowerCase().includes(q),
+                        );
+                    const searchMatched = q
+                        ? symbolMatch || idMatch || exchangeMatch || indexMatch
+                        : true;
 
-            if (!searchMatched) return false;
-            if (universe !== "stock") return true;
+                    if (!searchMatched) return false;
+                    if (universe !== "stock") return true;
 
-            const matchExchange =
-                selectedExchanges.length === 0
-                    ? true
-                    : selectedExchanges.includes(
-                          a.stockProfile?.exchange ?? "",
-                      );
-            const membership = a.stockProfile?.indexMembership ?? [];
-            const matchIndex =
-                selectedIndexes.length === 0
-                    ? true
-                    : selectedIndexes.some((idx) => membership.includes(idx));
-            return matchExchange && matchIndex;
-        }),
-        sortMode,
+                    const matchExchange =
+                        selectedExchangeSet.size === 0
+                            ? true
+                            : selectedExchangeSet.has(exchangeValue);
+                    const matchIndex =
+                        selectedIndexSet.size === 0
+                            ? true
+                            : membershipValues.some((idx) =>
+                                  selectedIndexSet.has(idx),
+                              );
+                    return matchExchange && matchIndex;
+                }),
+                sortMode,
+            ),
+        [assets, q, selectedExchangeSet, selectedIndexSet, sortMode, universe],
     );
     const hasActiveStockFilter =
         universe === "stock" &&
@@ -472,22 +528,20 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     useEffect(() => {
         if (universe !== "stock") return;
         setStockVisibleCount(STOCK_PAGE_SIZE);
-    }, [
-        search,
-        sortMode,
-        selectedExchanges,
-        selectedIndexes,
-        universe,
-        assets.length,
-    ]);
+    }, [search, sortMode, selectedExchanges, selectedIndexes, universe]);
+
+    useEffect(() => {
+        if (universe !== "stock") return;
+        setStockVisibleCount((prev) => Math.min(prev, displayAssets.length));
+    }, [displayAssets.length, universe]);
 
     useEffect(() => {
         if (universe !== "stock") return;
         setSelectedExchanges((prev) =>
-            prev.filter((item) => stockFilterOptions.exchanges.includes(item)),
+            keepOnlyValidSelections(prev, stockFilterOptions.exchanges),
         );
         setSelectedIndexes((prev) =>
-            prev.filter((item) => stockFilterOptions.indexes.includes(item)),
+            keepOnlyValidSelections(prev, stockFilterOptions.indexes),
         );
     }, [stockFilterOptions, universe]);
 
@@ -509,13 +563,19 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         return () => document.removeEventListener("mousedown", onMouseDown);
     }, [stockFilterOpen]);
 
+    const firstPageStockSymbols = useMemo(
+        () =>
+            universe === "stock"
+                ? visibleAssets.slice(0, STOCK_PAGE_SIZE).map((asset) => asset.id)
+                : [],
+        [universe, visibleAssets],
+    );
+
     useEffect(() => {
         if (universe !== "stock") return;
-        const symbols = visibleAssets
-            .slice(0, STOCK_PAGE_SIZE)
-            .map((a) => a.id);
-        void hydrateStockSymbols(symbols);
-    }, [universe, visibleAssets, hydrateStockSymbols]);
+        if (!firstPageStockSymbols.length) return;
+        void hydrateStockSymbols(firstPageStockSymbols);
+    }, [firstPageStockSymbols, hydrateStockSymbols, universe]);
 
     const handleListScroll = useCallback(() => {
         if (universe !== "stock") return;
@@ -529,15 +589,19 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         );
     }, [displayAssets.length, universe]);
 
-    useEffect(() => {
-        if (universe !== "stock") return;
+    const currentStockWindowSymbols = useMemo(() => {
+        if (universe !== "stock") return [];
         const start = Math.max(0, stockVisibleCount - STOCK_PAGE_SIZE);
-        const nextSymbols = displayAssets
+        return displayAssets
             .slice(start, stockVisibleCount)
             .map((asset) => asset.id);
-        if (!nextSymbols.length) return;
-        void hydrateStockSymbols(nextSymbols);
-    }, [displayAssets, hydrateStockSymbols, stockVisibleCount, universe]);
+    }, [displayAssets, stockVisibleCount, universe]);
+
+    useEffect(() => {
+        if (universe !== "stock") return;
+        if (!currentStockWindowSymbols.length) return;
+        void hydrateStockSymbols(currentStockWindowSymbols);
+    }, [currentStockWindowSymbols, hydrateStockSymbols, universe]);
 
     // ── Resize drag ──────────────────────────────────────────────────────────────
     const onMouseDown = useCallback(
