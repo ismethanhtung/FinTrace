@@ -5,6 +5,7 @@ export const UNIVERSE_STORAGE_KEY = "ft-asset-universe";
 export const SUPPORTED_UNIVERSE_ROUTES = new Set<string>([
     "/",
     "/market",
+    "/board",
     "/heatmap",
     "/news",
     "/data-stream",

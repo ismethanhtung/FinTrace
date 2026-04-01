@@ -19,9 +19,9 @@ type NavItem = {
 const DEFAULT_NAV_ITEMS: NavItem[] = [
     { href: "/", label: "Chart" },
     { href: "/market", label: "Markets" },
+    { href: "/board", label: "Board" },
     { href: "/heatmap", label: "Heatmap" },
     { href: "/data-stream", label: "Data Streams" },
-    { href: "/dnse-realtime", label: "DNSE WS" },
     { href: "/transactions", label: "Transactions" },
     { href: "/news", label: "News" },
 ];
