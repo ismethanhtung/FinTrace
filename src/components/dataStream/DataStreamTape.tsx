@@ -3,9 +3,9 @@
 import React from "react";
 import { cn } from "../../lib/utils";
 import type { StreamRecord } from "../../lib/dataStream/types";
+import { Loader2 } from "lucide-react";
 
-const GRID =
-    "grid grid-cols-6 gap-x-3 px-3 items-center min-w-0";
+const GRID = "grid grid-cols-6 gap-x-3 px-3 items-center min-w-0";
 
 export function DataStreamTape({ records }: { records: StreamRecord[] }) {
     return (
@@ -36,7 +36,7 @@ export function DataStreamTape({ records }: { records: StreamRecord[] }) {
             <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar">
                 {records.length === 0 ? (
                     <div className="h-full flex items-center justify-center px-3 text-[11px] text-muted text-center">
-                        Chưa có dữ liệu. Đảm bảo WebSocket kết nối thành công.
+                        <Loader2 size={12} className="animate-spin" />
                     </div>
                 ) : (
                     records.map((r) => {
@@ -94,4 +94,3 @@ export function DataStreamTape({ records }: { records: StreamRecord[] }) {
         </div>
     );
 }
-

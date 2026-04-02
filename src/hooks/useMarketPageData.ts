@@ -5,6 +5,7 @@ import { useMarket } from "../context/MarketContext";
 import type { MarketType } from "../services/binanceService";
 import { fetchMarketRowMetrics } from "../api/market/marketPageApi";
 import { useUniverse } from "../context/UniverseContext";
+import { stockLambdaService } from "../services/stockLambdaService";
 
 export type Sentiment = "Positive" | "Negative" | "Neutral";
 export type Trend = "up" | "down" | "flat";
@@ -25,12 +26,22 @@ export type MarketTableRow = {
     trend: Trend;
     sparkline7d: { v: number }[];
     logoUrl?: string;
+    exchange: string;
+    sector: string;
+    high: number;
+    low: number;
+    baseVolume: number;
+    indexMembership: string[];
 };
 
 type MarketStats = {
     marketCap: string;
     volume24h: string;
     btcDominance: string;
+    advancers: number;
+    decliners: number;
+    unchanged: number;
+    averageChange: number;
 };
 
 const METRIC_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -125,12 +136,26 @@ export function useMarketPageData() {
             totalQuoteVol > 0 && btc
                 ? `${((btc.quoteVolumeRaw / totalQuoteVol) * 100).toFixed(2)}%`
                 : "-";
+        const changedAssets = sourceAssets.filter((a) =>
+            Number.isFinite(a.changePercent),
+        );
+        const advancers = changedAssets.filter((a) => a.changePercent > 0).length;
+        const decliners = changedAssets.filter((a) => a.changePercent < 0).length;
+        const unchanged = Math.max(0, changedAssets.length - advancers - decliners);
+        const averageChange = changedAssets.length
+            ? changedAssets.reduce((sum, a) => sum + a.changePercent, 0) /
+              changedAssets.length
+            : 0;
 
         return {
             // Binance public 24h ticker does not include market cap.
             marketCap: "$???",
             volume24h: formatCompactUsd(totalQuoteVol),
             btcDominance,
+            advancers,
+            decliners,
+            unchanged,
+            averageChange,
         };
     }, [sourceAssets]);
 
@@ -163,6 +188,12 @@ export function useMarketPageData() {
                 trend: pickTrend(asset.changePercent),
                 sparkline7d: [],
                 logoUrl: asset.logoUrl,
+                exchange: asset.stockProfile?.exchange || "-",
+                sector: asset.stockProfile?.sector || asset.stockProfile?.icbName || "-",
+                high: asset.high24h || 0,
+                low: asset.low24h || 0,
+                baseVolume: asset.baseVolume || 0,
+                indexMembership: asset.stockProfile?.indexMembership || [],
             }));
 
             // Render ngay dữ liệu lõi (price/24h/volume) để bảng lên cực nhanh.
@@ -176,6 +207,56 @@ export function useMarketPageData() {
             let cursor = 0;
 
             if (universe === "stock") {
+                const symbols = baseRows.map((r) => r.id);
+                const chunkSize = 80;
+                const concurrency = 3;
+                let stockCursor = 0;
+
+                async function stockWorker() {
+                    while (stockCursor < symbols.length && mounted) {
+                        const start = stockCursor;
+                        stockCursor += chunkSize;
+                        const chunk = symbols.slice(start, start + chunkSize);
+                        if (!chunk.length) return;
+
+                        try {
+                            const snapshotMap =
+                                await stockLambdaService.getBulkSnapshots(
+                                    chunk,
+                                    marketType,
+                                );
+                            if (!mounted || snapshotMap.size === 0) continue;
+
+                            setRows((prev) =>
+                                prev.map((row) => {
+                                    const next = snapshotMap.get(row.id);
+                                    if (!next) return row;
+                                    const h24 = next.changePercent;
+                                    return {
+                                        ...row,
+                                        price: next.price,
+                                        h24,
+                                        high: next.high24h || row.high,
+                                        low: next.low24h || row.low,
+                                        volume: formatCompactUsd(
+                                            next.quoteVolumeRaw,
+                                        ),
+                                        volumeRaw: next.quoteVolumeRaw || 0,
+                                        baseVolume: next.baseVolume || 0,
+                                        sentiment: pickSentiment(h24),
+                                        trend: pickTrend(h24),
+                                    };
+                                }),
+                            );
+                        } catch {
+                            // Keep rendering with any successful batches.
+                        }
+                    }
+                }
+
+                await Promise.all(
+                    Array.from({ length: concurrency }, () => stockWorker()),
+                );
                 return;
             }
 

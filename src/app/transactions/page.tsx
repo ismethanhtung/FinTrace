@@ -9,6 +9,7 @@ import {
     ArrowUpRight,
     BarChart3,
     Gauge,
+    Loader2,
     Sigma,
 } from "lucide-react";
 import {
@@ -46,8 +47,9 @@ const TRADES_GRID =
 type FilterKind = "all" | "buy" | "sell";
 
 export default function TransactionsPage() {
-    const { assets, selectedSymbol, setSelectedSymbol, marketType } =
+    const { assets, selectedSymbol, setSelectedSymbol, marketType, universe } =
         useMarket();
+    const isStock = universe === "stock";
     const [filter, setFilter] = useState<FilterKind>("all");
 
     const {
@@ -213,12 +215,13 @@ export default function TransactionsPage() {
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-main">
-                                    Market Trades
+                                    {isStock ? "Matched Trades" : "Market Trades"}
                                 </span>
                                 <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                             </div>
                             <div className="text-[11px] text-muted font-mono">
-                                {selectedSymbol} · {marketType.toUpperCase()} ·{" "}
+                                {selectedSymbol} ·{" "}
+                                {isStock ? "STOCK" : marketType.toUpperCase()} ·{" "}
                                 {filtered.length} rows
                                 {tradeError && txList.length > 0 ? (
                                     <span className="text-amber-500 ml-2">
@@ -255,7 +258,9 @@ export default function TransactionsPage() {
                     >
                         <span className="text-left">Type</span>
                         <span className="text-right">ID</span>
-                        <span className="text-right">Price (USDT)</span>
+                        <span className="text-right">
+                            Price ({isStock ? "VND" : "USDT"})
+                        </span>
                         <span className="text-right">Qty</span>
                         <span className="text-right">Notional</span>
                         <span className="text-right">Time</span>
@@ -273,7 +278,10 @@ export default function TransactionsPage() {
                                 </div>
                             ) : showFullLoading ? (
                                 <div className="h-full flex items-center justify-center text-[11px] text-muted">
-                                    Đang tải trades...
+                                    <Loader2
+                                        size={12}
+                                        className="animate-spin"
+                                    />
                                 </div>
                             ) : filtered.length === 0 ? (
                                 <div className="h-full flex items-center justify-center text-[11px] text-muted">
@@ -318,10 +326,15 @@ export default function TransactionsPage() {
                                             {tradePriceFmt(t.price)}
                                         </span>
                                         <span className="text-right text-[10px] font-mono tabular-nums text-muted">
-                                            {t.qty.toFixed(4)}
+                                            {isStock
+                                                ? t.qty.toLocaleString("en-US", {
+                                                      maximumFractionDigits: 0,
+                                                  })
+                                                : t.qty.toFixed(4)}
                                         </span>
                                         <span className="text-right text-[10px] font-mono font-semibold tabular-nums text-main">
-                                            ${compactUsdFmt.format(t.quoteQty)}
+                                            {isStock ? "" : "$"}
+                                            {compactUsdFmt.format(t.quoteQty)}
                                         </span>
                                         <span className="text-right text-[10px] font-mono tabular-nums text-muted whitespace-nowrap">
                                             {t.timeLabel}
@@ -339,8 +352,7 @@ export default function TransactionsPage() {
                             Tóm tắt tape (All / Buy / Sell)
                         </div>
                         <div className="text-[10px] text-muted mt-1">
-                            Khai thác trực tiếp từ luồng {selectedSymbol}{" "}
-                            realtime
+                            Khai thác trực tiếp từ luồng {selectedSymbol} realtime
                         </div>
                     </div>
 
@@ -348,21 +360,21 @@ export default function TransactionsPage() {
                         <div className="grid grid-cols-2 gap-2">
                             <StatCard
                                 label="Total Notional"
-                                value={`$${compactUsdFmt.format(stats.totalQuote)}`}
+                                value={`${isStock ? "" : "$"}${compactUsdFmt.format(stats.totalQuote)}`}
                                 icon={<Sigma size={12} />}
                             />
                             <StatCard
                                 label="VWAP"
                                 value={
                                     stats.vwap
-                                        ? `$${tradePriceFmt(stats.vwap)}`
+                                        ? `${isStock ? "" : "$"}${tradePriceFmt(stats.vwap)}`
                                         : "--"
                                 }
                                 icon={<BarChart3 size={12} />}
                             />
                             <StatCard
                                 label="Last 60s"
-                                value={`$${compactUsdFmt.format(stats.recentNotional)}`}
+                                value={`${isStock ? "" : "$"}${compactUsdFmt.format(stats.recentNotional)}`}
                                 icon={<Gauge size={12} />}
                             />
                             <StatCard
@@ -398,10 +410,11 @@ export default function TransactionsPage() {
                             </div>
                             <div className="flex items-center justify-between text-[10px] font-mono">
                                 <span className="text-emerald-500">
-                                    Buy ${compactUsdFmt.format(stats.buyQuote)}
+                                    Buy {isStock ? "" : "$"}
+                                    {compactUsdFmt.format(stats.buyQuote)}
                                 </span>
                                 <span className="text-rose-500">
-                                    Sell $
+                                    Sell {isStock ? "" : "$"}
                                     {compactUsdFmt.format(stats.sellQuote)}
                                 </span>
                             </div>
@@ -477,7 +490,7 @@ export default function TransactionsPage() {
                                                 value: number,
                                                 name,
                                             ) => [
-                                                `$${tradePriceFmt(value)}`,
+                                                `${isStock ? "" : "$"}${tradePriceFmt(value)}`,
                                                 name === "v" ? "Price" : "MA20",
                                             ]}
                                             labelFormatter={(label) => {
@@ -516,7 +529,7 @@ export default function TransactionsPage() {
                             <div className="text-[10px] text-muted font-mono">
                                 Range:{" "}
                                 {stats.len
-                                    ? `$${tradePriceFmt(stats.low)} - $${tradePriceFmt(stats.high)}`
+                                    ? `${isStock ? "" : "$"}${tradePriceFmt(stats.low)} - ${isStock ? "" : "$"}${tradePriceFmt(stats.high)}`
                                     : "--"}{" "}
                                 · Points: {stats.chartPoints}
                             </div>
@@ -537,8 +550,8 @@ export default function TransactionsPage() {
                                                 {bucket.label}
                                             </span>
                                             <span className="font-mono">
-                                                {bucket.count} · $
-                                                {compactUsdFmt.format(
+                                                {bucket.count} ·{" "}
+                                                {(isStock ? "" : "$") + compactUsdFmt.format(
                                                     bucket.notional,
                                                 )}
                                             </span>
@@ -581,7 +594,7 @@ export default function TransactionsPage() {
                                                 {t.isBuy ? "BUY" : "SELL"}
                                             </span>
                                             <span className="text-main">
-                                                $
+                                                {isStock ? "" : "$"}
                                                 {compactUsdFmt.format(
                                                     t.quoteQty,
                                                 )}

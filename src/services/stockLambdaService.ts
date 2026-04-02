@@ -120,6 +120,30 @@ type SnapshotRow = {
     changePc?: NumberLike;
 };
 
+export type StockDepthLevel = {
+    price: number;
+    quantity: number;
+};
+
+export type StockDepthSnapshot = {
+    symbol: string;
+    bids: StockDepthLevel[];
+    asks: StockDepthLevel[];
+    matchedPrice: number;
+    matchedVolume: number;
+    totalBidVolume: number;
+    totalAskVolume: number;
+    fetchedAt: number;
+};
+
+export type StockIntradayTrade = {
+    id: number;
+    price: number;
+    qty: number;
+    time: number;
+    isBuy: boolean;
+};
+
 type NumberLike = number | string | null | undefined;
 let listingCache: ListingRow[] | null = null;
 let listingCacheAt = 0;
@@ -166,6 +190,354 @@ function parseNum(v: NumberLike): number {
     const parsed = Number.parseFloat(cleaned);
     return Number.isFinite(parsed) ? parsed : 0;
 }
+
+function normalizeLooseKey(raw: string): string {
+    return raw
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+}
+
+function toLooseRecord(row: Record<string, unknown>): Map<string, unknown> {
+    const out = new Map<string, unknown>();
+    Object.entries(row).forEach(([key, value]) => {
+        out.set(normalizeLooseKey(key), value);
+    });
+    return out;
+}
+
+function pickLooseNumber(
+    loose: Map<string, unknown>,
+    keys: string[],
+): number | null {
+    for (const key of keys) {
+        const value = loose.get(normalizeLooseKey(key));
+        const parsed = parseNum(value as NumberLike);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    return null;
+}
+
+function pickDepthFromArray(value: unknown): StockDepthLevel[] {
+    if (!Array.isArray(value)) return [];
+    return value
+        .map((item) => {
+            if (Array.isArray(item) && item.length >= 2) {
+                const price = parseNum(item[0] as NumberLike);
+                const quantity = parseNum(item[1] as NumberLike);
+                if (price > 0 && quantity > 0) return { price, quantity };
+                return null;
+            }
+            if (!item || typeof item !== "object") return null;
+            const row = item as Record<string, unknown>;
+            const price = parseNum(
+                (row.price ??
+                    row.p ??
+                    row.bidPrice ??
+                    row.offerPrice) as NumberLike,
+            );
+            const quantity = parseNum(
+                (row.quantity ??
+                    row.qty ??
+                    row.qtty ??
+                    row.volume ??
+                    row.bidQty ??
+                    row.offerQty) as NumberLike,
+            );
+            if (price > 0 && quantity > 0) return { price, quantity };
+            return null;
+        })
+        .filter((level): level is StockDepthLevel => Boolean(level));
+}
+
+function levelFromLooseRow(
+    loose: Map<string, unknown>,
+    side: "bid" | "ask",
+    level: number,
+): StockDepthLevel | null {
+    const suffix = String(level);
+    const priceKeys =
+        side === "bid"
+            ? [
+                  `Gia mua ${suffix}`,
+                  `GiaMua${suffix}`,
+                  `Bid${suffix}`,
+                  `BidPrice${suffix}`,
+                  `BuyPrice${suffix}`,
+              ]
+            : [
+                  `Gia ban ${suffix}`,
+                  `GiaBan${suffix}`,
+                  `Offer${suffix}`,
+                  `OfferPrice${suffix}`,
+                  `SellPrice${suffix}`,
+              ];
+    const qtyKeys =
+        side === "bid"
+            ? [
+                  `KL mua ${suffix}`,
+                  `KLMua${suffix}`,
+                  `BidQty${suffix}`,
+                  `BidVolume${suffix}`,
+                  `BuyQty${suffix}`,
+              ]
+            : [
+                  `KL ban ${suffix}`,
+                  `KLBan${suffix}`,
+                  `OfferQty${suffix}`,
+                  `OfferVolume${suffix}`,
+                  `SellQty${suffix}`,
+              ];
+
+    const price = pickLooseNumber(loose, priceKeys);
+    const quantity = pickLooseNumber(loose, qtyKeys);
+    if (!price || !quantity) return null;
+    return { price, quantity };
+}
+
+function sortDepth(
+    levels: StockDepthLevel[],
+    side: "bid" | "ask",
+): StockDepthLevel[] {
+    return levels
+        .filter((level) => level.price > 0 && level.quantity > 0)
+        .sort((a, b) =>
+            side === "bid" ? b.price - a.price : a.price - b.price,
+        );
+}
+
+function parseStockDepthRow(
+    row: Record<string, unknown>,
+    fallbackSymbol: string,
+): StockDepthSnapshot | null {
+    const loose = toLooseRecord(row);
+    const symbolRaw =
+        (row.symbol as string) ||
+        (row.ticker as string) ||
+        (row.ma as string) ||
+        fallbackSymbol;
+    const symbol = normalizeStockTicker(symbolRaw);
+    if (!symbol) return null;
+
+    const bidArrayRaw =
+        row.bid ?? row.bids ?? row.buy ?? row.buyDepth ?? row.depthBuy;
+    const askArrayRaw =
+        row.offer ?? row.asks ?? row.sell ?? row.sellDepth ?? row.depthSell;
+    const bidsFromArray = pickDepthFromArray(bidArrayRaw);
+    const asksFromArray = pickDepthFromArray(askArrayRaw);
+    const bidsFromLevels = [1, 2, 3]
+        .map((level) => levelFromLooseRow(loose, "bid", level))
+        .filter((level): level is StockDepthLevel => Boolean(level));
+    const asksFromLevels = [1, 2, 3]
+        .map((level) => levelFromLooseRow(loose, "ask", level))
+        .filter((level): level is StockDepthLevel => Boolean(level));
+    const bids = sortDepth(
+        bidsFromArray.length ? bidsFromArray : bidsFromLevels,
+        "bid",
+    );
+    const asks = sortDepth(
+        asksFromArray.length ? asksFromArray : asksFromLevels,
+        "ask",
+    );
+    if (!bids.length && !asks.length) return null;
+
+    const matchedPrice =
+        pickLooseNumber(loose, [
+            "Gia khop lenh",
+            "GiaKhopLenh",
+            "MatchedPrice",
+            "MatchPrice",
+            "LastPrice",
+            "Price",
+        ]) ?? 0;
+    const matchedVolume =
+        pickLooseNumber(loose, [
+            "KL Khop lenh",
+            "Khop lenh",
+            "KLGD",
+            "MatchedVolume",
+            "MatchVolume",
+            "Volume",
+            "KL",
+        ]) ?? 0;
+    const totalBidVolume =
+        pickLooseNumber(loose, [
+            "Tong KL mua",
+            "TongKLMua",
+            "TotalBidQtty",
+            "TotalBidVolume",
+        ]) ?? bids.reduce((sum, x) => sum + x.quantity, 0);
+    const totalAskVolume =
+        pickLooseNumber(loose, [
+            "Tong KL ban",
+            "TongKLBan",
+            "TotalOfferQtty",
+            "TotalAskVolume",
+            "TotalOfferVolume",
+        ]) ?? asks.reduce((sum, x) => sum + x.quantity, 0);
+
+    return {
+        symbol,
+        bids,
+        asks,
+        matchedPrice,
+        matchedVolume,
+        totalBidVolume,
+        totalAskVolume,
+        fetchedAt: Date.now(),
+    };
+}
+
+function parseStockDepthPayload(
+    payload: unknown,
+    symbol: string,
+): StockDepthSnapshot | null {
+    const rows = toRecordList(payload);
+    if (!rows.length) return null;
+    const normalizedSymbol = normalizeStockTicker(symbol) || symbol;
+    const preferred = rows.find((row) => {
+        const rowSymbol = normalizeStockTicker(
+            String(row.symbol || row.ticker || row.ma || ""),
+        );
+        return rowSymbol === normalizedSymbol;
+    });
+    return parseStockDepthRow(preferred || rows[0], normalizedSymbol);
+}
+
+function parseIntradayTimeToMs(value: unknown): number {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value < 1_000_000_000_000 ? value * 1000 : value;
+    }
+    if (typeof value !== "string") return Date.now();
+    const trimmed = value.trim();
+    if (!trimmed) return Date.now();
+    if (/^\d+$/.test(trimmed)) {
+        const num = Number.parseInt(trimmed, 10);
+        if (!Number.isFinite(num)) return Date.now();
+        return num < 1_000_000_000_000 ? num * 1000 : num;
+    }
+    if (/^\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+        const now = new Date();
+        const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${trimmed}`;
+        const ts = new Date(date).getTime();
+        return Number.isFinite(ts) ? ts : Date.now();
+    }
+    const parsed = new Date(trimmed).getTime();
+    return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+function parseStockTradeSide(raw: unknown): boolean | null {
+    if (typeof raw === "boolean") return raw;
+    if (typeof raw === "number") return raw >= 0;
+    if (typeof raw !== "string") return null;
+    const side = normalizeLooseKey(raw);
+    if (
+        side === "b" ||
+        side === "buy" ||
+        side === "bid" ||
+        side === "up"
+    ) {
+        return true;
+    }
+    if (
+        side === "s" ||
+        side === "sell" ||
+        side === "ask" ||
+        side === "down"
+    ) {
+        return false;
+    }
+    return null;
+}
+
+function parseStockIntradayTrades(
+    payload: unknown,
+    limit: number,
+): StockIntradayTrade[] {
+    const rows = toRecordList(payload);
+    if (!rows.length) return [];
+
+    const mapped = rows
+        .map((row, idx) => {
+            const price = parseNum(
+                (row.price ??
+                    row.matchPrice ??
+                    row.matchedPrice ??
+                    row.close) as NumberLike,
+            );
+            const qty = parseNum(
+                (row.volume ??
+                    row.matchQtty ??
+                    row.quantity ??
+                    row.qty) as NumberLike,
+            );
+            if (price <= 0 || qty <= 0) return null;
+
+            const id = Number.parseInt(String(row.id ?? row.tradeId ?? idx), 10);
+            const time = parseIntradayTimeToMs(
+                row.time ?? row.timestamp ?? row.matchTime ?? row.tradingTime,
+            );
+            const side =
+                parseStockTradeSide(
+                    row.side ??
+                        row.matchedBy ??
+                        row.matchType ??
+                        row.tradeType ??
+                        row.direction,
+                ) ?? true;
+            return {
+                id: Number.isFinite(id)
+                    ? id
+                    : Number.parseInt(`${time}${idx}`, 10),
+                price,
+                qty,
+                time,
+                isBuy: side,
+            } satisfies StockIntradayTrade;
+        })
+        .filter((trade): trade is StockIntradayTrade => Boolean(trade))
+        .sort((a, b) => b.time - a.time);
+
+    // Many VN intraday feeds quote price in "thousand VND" units (e.g., 27.55).
+    // Normalize to plain VND for consistent display with depth/board price.
+    if (mapped.length) {
+        const maxPrice = mapped.reduce(
+            (max, trade) => Math.max(max, trade.price),
+            0,
+        );
+        if (maxPrice > 0 && maxPrice < 1_000) {
+            mapped.forEach((trade) => {
+                trade.price *= 1_000;
+            });
+        }
+    }
+
+    if (mapped.length <= 1) {
+        return mapped.slice(0, limit);
+    }
+
+    // If side is unavailable, infer from price momentum to keep tape readable.
+    const asc = [...mapped].sort((a, b) => a.time - b.time);
+    for (let i = 1; i < asc.length; i += 1) {
+        const prev = asc[i - 1];
+        const current = asc[i];
+        if (current.price > prev.price) {
+            current.isBuy = true;
+        } else if (current.price < prev.price) {
+            current.isBuy = false;
+        } else {
+            current.isBuy = prev.isBuy;
+        }
+    }
+
+    return asc.sort((a, b) => b.time - a.time).slice(0, limit);
+}
+
+export const __stockLambdaParserForTest = {
+    parseStockDepthPayload,
+    parseStockIntradayTrades,
+};
 
 function normalizeStockTicker(raw: string): string | null {
     const ticker = String(raw || "")
@@ -737,6 +1109,36 @@ export const stockLambdaService = {
         } catch {
             return out;
         }
+    },
+
+    async getStockDepth(symbol: string): Promise<StockDepthSnapshot | null> {
+        const safeTicker = normalizeStockTicker(symbol);
+        if (!safeTicker) {
+            throw new Error(`Invalid stock ticker: ${symbol}`);
+        }
+
+        const payload = await getLambda<Record<string, unknown>[]>({
+            cmd: "price_depth",
+            symbol: safeTicker,
+        });
+        return parseStockDepthPayload(payload.data, safeTicker);
+    },
+
+    async getStockIntradayTrades(
+        symbol: string,
+        limit = 100,
+    ): Promise<StockIntradayTrade[]> {
+        const safeTicker = normalizeStockTicker(symbol);
+        if (!safeTicker) {
+            throw new Error(`Invalid stock ticker: ${symbol}`);
+        }
+        const safeLimit = Math.min(Math.max(Math.floor(limit), 10), 400);
+        const payload = await getLambda<Record<string, unknown>[]>({
+            cmd: "stock_intraday_data",
+            symbol: safeTicker,
+            page_size: String(safeLimit),
+        });
+        return parseStockIntradayTrades(payload.data, safeLimit);
     },
 
     async getStockChart(

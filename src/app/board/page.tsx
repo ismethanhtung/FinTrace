@@ -17,6 +17,9 @@ import {
     ChevronDown,
     ArrowUp,
     ArrowDown,
+    ArrowUpRight,
+    ArrowDownRight,
+    Clock,
     Sun,
     Moon,
 } from "lucide-react";
@@ -37,6 +40,7 @@ import { useAppSettings } from "../../context/AppSettingsContext";
 import { useMarket } from "../../context/MarketContext";
 import { useDnseBoardStream } from "../../hooks/useDnseBoardStream";
 import { useVietcapBoardSnapshot } from "../../hooks/useVietcapBoardSnapshot";
+import { useVietcapMarketIndexes } from "../../hooks/useVietcapMarketIndexes";
 
 type BoardStockRow = {
     id: string;
@@ -179,6 +183,7 @@ type IndexData = {
     change: number;
     vol: string;
     valueT: string;
+    ceiling: number;
     up: number;
     ref: number;
     down: number;
@@ -197,10 +202,10 @@ type CellFlashState = {
     tone: CellFlashTone;
 };
 
-const INDEX_NAMES = ["VNINDEX", "VN30", "HNX30", "VNXALL", "HNXINDEX", "UPCOM"];
+const INDEX_NAMES = ["VNINDEX", "VN30", "HNX30", "HNXINDEX", "UPCOM"];
 const INITIAL_COL_WIDTHS = [
     70, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 64, 60, 60, 60, 60,
-    70, 90, 64, 64, 86, 86, 100,
+    70, 90, 64, 64, 82, 82, 94,
 ];
 
 const EMPTY_BOARD_PLACEHOLDER: BoardStockRow = {
@@ -242,12 +247,16 @@ const EMPTY_INDEX_STATS: IndexData = {
     change: 0,
     vol: "0",
     valueT: "0",
+    ceiling: 0,
     up: 0,
     ref: 0,
     down: 0,
 };
 
 const BOARD_CELL_FLASH_MS = 900;
+const STOCK_LAMBDA_URL = process.env.NEXT_PUBLIC_STOCK_LAMBDA_URL?.trim() || "";
+const BOARD_RECENTS_KEY = "fintrace_board_recent_symbols";
+const BOARD_MAX_RECENTS = 8;
 
 const FLASH_BG_CLASS_BY_TONE: Record<CellFlashTone, string> = {
     emerald: "bg-emerald-500 !text-white",
@@ -268,10 +277,58 @@ function formatBoardPriceDisplay(value: number): string {
     return Number.isFinite(value) ? (value / 1000).toFixed(2) : "";
 }
 
+function resolveBoardStockLogoUrl(symbol: string): string {
+    const ticker = symbol.trim().toUpperCase();
+    const encoded = encodeURIComponent(ticker);
+    if (!STOCK_LAMBDA_URL) {
+        return `/stock/image/${encoded}`;
+    }
+    const normalized = STOCK_LAMBDA_URL.replace(/\/+$/, "");
+    if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+        return `${normalized}/image/${encoded}`;
+    }
+    if (normalized.startsWith("/")) {
+        return `${normalized}/image/${encoded}`;
+    }
+    return `/stock/image/${encoded}`;
+}
+
+function loadBoardRecentSymbols(): string[] {
+    try {
+        const raw = localStorage.getItem(BOARD_RECENTS_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .map((item) =>
+                String(item || "")
+                    .trim()
+                    .toUpperCase(),
+            )
+            .filter((item) => /^[A-Z0-9]{1,12}$/.test(item))
+            .slice(0, BOARD_MAX_RECENTS);
+    } catch {
+        return [];
+    }
+}
+
+function saveBoardRecentSymbols(symbols: string[]) {
+    try {
+        localStorage.setItem(BOARD_RECENTS_KEY, JSON.stringify(symbols));
+    } catch {
+        // localStorage unavailable
+    }
+}
+
 function formatBoardSignedPriceDisplay(value: number): string {
     if (!Number.isFinite(value)) return "";
     const scaled = value / 1000;
     return `${scaled >= 0 ? "+" : ""}${scaled.toFixed(2)}`;
+}
+
+function formatIndexSignedDisplay(value: number): string {
+    if (!Number.isFinite(value)) return "";
+    return `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
 }
 
 function formatBoardPercentDisplay(value: number): string {
@@ -415,11 +472,13 @@ function MiniChart({
                 </div>
                 <div className="text-[10px]">
                     <div className="flex gap-2">
+                        <span className="text-fuchsia-500">
+                            ▲ {stats.ceiling}
+                        </span>
                         <span className="text-emerald-500">▲ {stats.up}</span>
                         <span className="text-amber-500">■ {stats.ref}</span>
                         <span className="text-rose-500">▼ {stats.down}</span>
                     </div>
-                    <div className="mt-1 text-right text-muted">Liên tục</div>
                 </div>
             </div>
             <div ref={chartHostRef} className="h-24 w-full min-w-0">
@@ -519,6 +578,14 @@ export default function BoardPage() {
     const { assets, setSelectedSymbol } = useMarket();
     const [activeTab, setActiveTab] = useState("VN30");
     const [search, setSearch] = useState("");
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [recentSymbols, setRecentSymbols] = useState<string[]>([]);
+    const [highlightedSymbol, setHighlightedSymbol] = useState<string | null>(
+        null,
+    );
+    const [pendingHighlightSymbol, setPendingHighlightSymbol] = useState<
+        string | null
+    >(null);
     const [isLoading, setIsLoading] = useState(true);
     const [colWidths, setColWidths] = useState<number[]>(INITIAL_COL_WIDTHS);
     const [boardSort, setBoardSort] = useState<{
@@ -534,6 +601,9 @@ export default function BoardPage() {
     const [cellFlashes, setCellFlashes] = useState<
         Record<string, CellFlashState>
     >({});
+    const highlightTimeoutRef = useRef<number | null>(null);
+    const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+    const searchContainerRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         if (assets.length > 0) {
@@ -543,6 +613,25 @@ export default function BoardPage() {
         return () => clearTimeout(timer);
     }, [assets.length]);
 
+    useEffect(() => {
+        setRecentSymbols(loadBoardRecentSymbols());
+    }, []);
+
+    useEffect(() => {
+        const onPointerDown = (event: MouseEvent) => {
+            const target = event.target as Node | null;
+            if (
+                searchContainerRef.current &&
+                target &&
+                !searchContainerRef.current.contains(target)
+            ) {
+                setIsSearchOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", onPointerDown);
+        return () => document.removeEventListener("mousedown", onPointerDown);
+    }, []);
+
     const chartData = useMemo(
         () => ({
             VNINDEX: generateChartData(50, 0),
@@ -550,6 +639,7 @@ export default function BoardPage() {
             HNX30: generateChartData(50, 0),
             VNXALL: generateChartData(50, 0),
             HNXINDEX: generateChartData(50, 0),
+            UPCOM: generateChartData(50, 0),
         }),
         [],
     );
@@ -646,76 +736,128 @@ export default function BoardPage() {
         return out;
     }, [assets]);
 
-    const filteredSymbols = useMemo(() => {
-        const symbols = Object.keys(vietcapSnapshotBySymbol).map((s) =>
-            s.trim().toUpperCase(),
-        );
+    const symbols = useMemo(
+        () =>
+            Object.keys(vietcapSnapshotBySymbol).map((s) =>
+                s.trim().toUpperCase(),
+            ),
+        [vietcapSnapshotBySymbol],
+    );
+    const tabFilteredSymbols = useMemo(() => {
         const tabGroups = new Set(["VN30", "HNX30", "HOSE", "HNX", "UPCOM"]);
 
         return symbols.filter((symbol) => {
-            const snapshot = vietcapSnapshotBySymbol[symbol];
-            const asset = assetBySymbol.get(symbol);
-            const name = (
-                snapshot?.companyName ||
-                asset?.name ||
-                symbol
-            ).toLowerCase();
-            const id = (asset?.id || symbol).toLowerCase();
-            const searchMatched = q
-                ? symbol.toLowerCase().includes(q) ||
-                  name.includes(q) ||
-                  id.includes(q)
-                : true;
-            if (!searchMatched) return false;
-
             if (!tabGroups.has(normalizedTab)) return true;
             const groups = (vietcapGroupsBySymbol[symbol] || []).map((g) =>
                 g.trim().toUpperCase(),
             );
             return groups.includes(normalizedTab);
         });
+    }, [normalizedTab, symbols, vietcapGroupsBySymbol]);
+    const searchResults = useMemo(() => {
+        if (!q) return [];
+        return symbols
+            .filter((symbol) => {
+                const snapshot = vietcapSnapshotBySymbol[symbol];
+                const asset = assetBySymbol.get(symbol);
+                const name = (
+                    snapshot?.companyName ||
+                    asset?.name ||
+                    symbol
+                ).toLowerCase();
+                const id = (asset?.id || symbol).toLowerCase();
+                return (
+                    symbol.toLowerCase().includes(q) ||
+                    name.includes(q) ||
+                    id.includes(q)
+                );
+            })
+            .slice(0, 12)
+            .map((symbol) => {
+                const groups = (vietcapGroupsBySymbol[symbol] || []).map((g) =>
+                    g.trim().toUpperCase(),
+                );
+                return {
+                    symbol,
+                    name:
+                        vietcapSnapshotBySymbol[symbol]?.companyName ||
+                        assetBySymbol.get(symbol)?.name ||
+                        symbol,
+                    groups,
+                };
+            });
     }, [
         assetBySymbol,
-        normalizedTab,
         q,
+        symbols,
         vietcapGroupsBySymbol,
         vietcapSnapshotBySymbol,
     ]);
+    const recentSearchResults = useMemo(
+        () =>
+            recentSymbols
+                .map((symbol) => {
+                    const normalized = symbol.trim().toUpperCase();
+                    const groups = (
+                        vietcapGroupsBySymbol[normalized] || []
+                    ).map((g) => g.trim().toUpperCase());
+                    const name =
+                        vietcapSnapshotBySymbol[normalized]?.companyName ||
+                        assetBySymbol.get(normalized)?.name ||
+                        normalized;
+                    if (!normalized) return null;
+                    return { symbol: normalized, name, groups };
+                })
+                .filter(Boolean)
+                .slice(0, BOARD_MAX_RECENTS),
+        [
+            assetBySymbol,
+            recentSymbols,
+            vietcapGroupsBySymbol,
+            vietcapSnapshotBySymbol,
+        ],
+    );
 
     const streamSymbols = useMemo(
-        () => filteredSymbols.filter(Boolean),
-        [filteredSymbols],
+        () => tabFilteredSymbols.filter(Boolean),
+        [tabFilteredSymbols],
     );
 
     const {
         status: streamStatus,
         error: streamError,
         dataBySymbol,
-        dataByMarketIndex,
         isTruncated,
     } = useDnseBoardStream(streamSymbols, {
         board: streamBoards[0] ?? "G1",
         boards: streamBoards,
-        marketIndex: "VNINDEX",
-        marketIndexes: INDEX_NAMES,
         resolution: "1",
+    });
+    const {
+        bySymbol: vietcapMarketIndexBySymbol,
+        count: vietcapMarketIndexCount,
+        isLoading: isVietcapMarketIndexLoading,
+        error: vietcapMarketIndexError,
+    } = useVietcapMarketIndexes({
+        enabled: universe === "stock",
+        refreshIntervalMs: 45_000,
     });
 
     const indexRows = useMemo<IndexData[]>(
         () =>
             INDEX_NAMES.map((name) => {
-                const stream = dataByMarketIndex[name];
-                const value = Number.isFinite(stream?.value)
-                    ? stream!.value!
+                const market = vietcapMarketIndexBySymbol[name];
+                const value = Number.isFinite(market?.value)
+                    ? market!.value
                     : 0;
-                const change = Number.isFinite(stream?.changedValue)
-                    ? stream!.changedValue!
+                const change = Number.isFinite(market?.change)
+                    ? market!.change
                     : 0;
-                const volRaw = Number.isFinite(stream?.totalVolumeTraded)
-                    ? stream!.totalVolumeTraded!
+                const volRaw = Number.isFinite(market?.totalShares)
+                    ? market!.totalShares
                     : 0;
-                const valueTRaw = Number.isFinite(stream?.grossTradeAmount)
-                    ? stream!.grossTradeAmount!
+                const valueTRaw = Number.isFinite(market?.totalValue)
+                    ? market!.totalValue
                     : 0;
                 return {
                     name,
@@ -726,18 +868,21 @@ export default function BoardPage() {
                         minimumFractionDigits: 0,
                         maximumFractionDigits: 2,
                     }),
-                    up: Number.isFinite(stream?.upCount)
-                        ? Math.round(stream!.upCount!)
+                    ceiling: Number.isFinite(market?.totalStockCeiling)
+                        ? Math.round(market!.totalStockCeiling)
                         : 0,
-                    ref: Number.isFinite(stream?.refCount)
-                        ? Math.round(stream!.refCount!)
+                    up: Number.isFinite(market?.totalStockIncrease)
+                        ? Math.round(market!.totalStockIncrease)
                         : 0,
-                    down: Number.isFinite(stream?.downCount)
-                        ? Math.round(stream!.downCount!)
+                    ref: Number.isFinite(market?.totalStockNoChange)
+                        ? Math.round(market!.totalStockNoChange)
+                        : 0,
+                    down: Number.isFinite(market?.totalStockDecline)
+                        ? Math.round(market!.totalStockDecline)
                         : 0,
                 };
             }),
-        [dataByMarketIndex],
+        [vietcapMarketIndexBySymbol],
     );
     const indexByName = useMemo(
         () => Object.fromEntries(indexRows.map((row) => [row.name, row])),
@@ -746,7 +891,7 @@ export default function BoardPage() {
 
     const boardRows = useMemo<BoardStockRow[]>(
         () =>
-            filteredSymbols.map((symbol) => {
+            tabFilteredSymbols.map((symbol) => {
                 const asset = assetBySymbol.get(symbol);
                 const stream = dataBySymbol[symbol];
                 const snapshot = vietcapSnapshotBySymbol[symbol];
@@ -798,9 +943,7 @@ export default function BoardPage() {
                     id: asset?.id || symbol,
                     ticker: symbol,
                     name: snapshot?.companyName || asset?.name || symbol,
-                    logoUrl:
-                        asset?.logoUrl ||
-                        `/stock/image/${encodeURIComponent(symbol)}`,
+                    logoUrl: asset?.logoUrl || resolveBoardStockLogoUrl(symbol),
                     exchange:
                         snapshot?.exchange ?? asset?.stockProfile?.exchange,
                     indexMembership:
@@ -852,7 +995,7 @@ export default function BoardPage() {
         [
             assetBySymbol,
             dataBySymbol,
-            filteredSymbols,
+            tabFilteredSymbols,
             vietcapGroupsBySymbol,
             vietcapSnapshotBySymbol,
         ],
@@ -1079,6 +1222,82 @@ export default function BoardPage() {
     const sortableHeaderClass =
         "cursor-pointer select-none hover:bg-accent/25 transition-colors";
 
+    const triggerHighlight = useCallback((symbol: string) => {
+        setHighlightedSymbol(symbol);
+        const row = rowRefs.current[symbol];
+        row?.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (highlightTimeoutRef.current !== null) {
+            window.clearTimeout(highlightTimeoutRef.current);
+        }
+        highlightTimeoutRef.current = window.setTimeout(() => {
+            setHighlightedSymbol((prev) => (prev === symbol ? null : prev));
+            highlightTimeoutRef.current = null;
+        }, 2000);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (highlightTimeoutRef.current !== null) {
+                window.clearTimeout(highlightTimeoutRef.current);
+                highlightTimeoutRef.current = null;
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!pendingHighlightSymbol) return;
+        const exists = rowsForTable.some(
+            (row) => row.ticker === pendingHighlightSymbol,
+        );
+        if (!exists) return;
+        triggerHighlight(pendingHighlightSymbol);
+        setPendingHighlightSymbol(null);
+    }, [pendingHighlightSymbol, rowsForTable, triggerHighlight]);
+
+    const resolveTabForSymbol = useCallback(
+        (symbol: string): string => {
+            const normalized = symbol.trim().toUpperCase();
+            const groups = (vietcapGroupsBySymbol[normalized] || []).map((g) =>
+                g.trim().toUpperCase(),
+            );
+            const preferredTabs = ["VN30", "HNX30", "HOSE", "HNX", "UPCOM"];
+            const exact = preferredTabs.find((tab) => groups.includes(tab));
+            if (exact) return exact;
+            const exchange = (
+                vietcapSnapshotBySymbol[normalized]?.exchange ||
+                assetBySymbol.get(normalized)?.stockProfile?.exchange ||
+                ""
+            )
+                .trim()
+                .toUpperCase();
+            if (exchange === "HNX") return "HNX";
+            if (exchange === "UPCOM") return "UPCOM";
+            return "HOSE";
+        },
+        [assetBySymbol, vietcapGroupsBySymbol, vietcapSnapshotBySymbol],
+    );
+
+    const handleSearchPick = useCallback(
+        (symbol: string) => {
+            const normalized = symbol.trim().toUpperCase();
+            const targetTab = resolveTabForSymbol(normalized);
+            if (targetTab !== activeTab) {
+                setActiveTab(targetTab);
+            }
+            setSearch("");
+            setRecentSymbols((prev) => {
+                const next = [
+                    normalized,
+                    ...prev.filter((item) => item !== normalized),
+                ].slice(0, BOARD_MAX_RECENTS);
+                saveBoardRecentSymbols(next);
+                return next;
+            });
+            setPendingHighlightSymbol(normalized);
+        },
+        [activeTab, resolveTabForSymbol],
+    );
+
     const goToHomeWithStock = useCallback(
         (assetId: string) => {
             if (assetId === "EMPTY") return;
@@ -1106,12 +1325,6 @@ export default function BoardPage() {
             : vietcapSnapshotError
               ? "border-rose-500/30 bg-rose-500/10 text-rose-500"
               : "border-sky-500/30 bg-sky-500/10 text-sky-500";
-    const snapshotStatusLabel =
-        isVietcapSnapshotLoading && vietcapSnapshotCount === 0
-            ? "Vietcap snapshot: loading"
-            : vietcapSnapshotError
-              ? "Vietcap snapshot: error"
-              : `Vietcap snapshot: ${vietcapSnapshotCount} mã`;
 
     return (
         <div className="flex h-screen w-full flex-col overflow-hidden bg-main text-main">
@@ -1176,10 +1389,16 @@ export default function BoardPage() {
                             stats={indexByName.HNX30 ?? EMPTY_INDEX_STATS}
                         />
                         <MiniChart
-                            data={chartData.VNXALL}
+                            data={chartData.HNXINDEX}
                             color="#10b981"
-                            title="VNXALL"
-                            stats={indexByName.VNXALL ?? EMPTY_INDEX_STATS}
+                            title="HNXINDEX"
+                            stats={indexByName.HNXINDEX ?? EMPTY_INDEX_STATS}
+                        />
+                        <MiniChart
+                            data={chartData.UPCOM}
+                            color="#10b981"
+                            title="UPCOM"
+                            stats={indexByName.UPCOM ?? EMPTY_INDEX_STATS}
                         />
 
                         <div className="w-[360px] shrink-0 rounded-sm border border-main bg-secondary p-2">
@@ -1200,9 +1419,6 @@ export default function BoardPage() {
                                         </th>
                                         <th className="p-1 text-right font-medium">
                                             GTGD
-                                        </th>
-                                        <th className="p-1 text-right font-medium">
-                                            T/G
                                         </th>
                                     </tr>
                                 </thead>
@@ -1233,7 +1449,7 @@ export default function BoardPage() {
                                                         : "text-rose-500",
                                                 )}
                                             >
-                                                {formatBoardSignedPriceDisplay(
+                                                {formatIndexSignedDisplay(
                                                     idx.change,
                                                 )}
                                             </td>
@@ -1243,17 +1459,6 @@ export default function BoardPage() {
                                             <td className="p-1 text-right">
                                                 {idx.valueT}
                                             </td>
-                                            <td className="p-1 text-right">
-                                                <span className="text-emerald-500">
-                                                    {idx.up}
-                                                </span>
-                                                <span className="px-1 text-amber-500">
-                                                    {idx.ref}
-                                                </span>
-                                                <span className="text-rose-500">
-                                                    {idx.down}
-                                                </span>
-                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1262,7 +1467,10 @@ export default function BoardPage() {
                     </div>
 
                     <div className="sticky top-0 z-20 flex h-11 items-center gap-3 border-b border-main bg-secondary px-2">
-                        <div className="relative w-full max-w-xs">
+                        <div
+                            ref={searchContainerRef}
+                            className="relative w-full max-w-xs"
+                        >
                             <Search
                                 className="absolute left-2 top-1/2 -translate-y-1/2 text-muted"
                                 size={14}
@@ -1271,21 +1479,298 @@ export default function BoardPage() {
                                 type="text"
                                 placeholder="Tìm kiếm mã CK"
                                 value={search}
-                                onChange={(e) => setSearch(e.target.value)}
+                                onChange={(e) => {
+                                    setSearch(e.target.value);
+                                    setIsSearchOpen(true);
+                                }}
+                                onFocus={() => setIsSearchOpen(true)}
+                                onClick={() => setIsSearchOpen(true)}
+                                onKeyDown={(e) => {
+                                    const hasQuery = search.trim().length > 0;
+                                    const firstCandidate = hasQuery
+                                        ? searchResults[0]?.symbol
+                                        : recentSearchResults[0]?.symbol;
+                                    if (
+                                        e.key === "Enter" &&
+                                        Boolean(firstCandidate)
+                                    ) {
+                                        e.preventDefault();
+                                        handleSearchPick(firstCandidate!);
+                                        setIsSearchOpen(false);
+                                    }
+                                }}
                                 className="w-full rounded-md border border-main bg-main px-8 py-1.5 text-xs focus:border-accent focus:outline-none"
                             />
+                            {isSearchOpen && (
+                                <div className="absolute left-0 mt-2 w-80 max-w-[90vw] overflow-hidden rounded-lg border border-main bg-main shadow-2xl z-50">
+                                    <div className="max-h-[380px] overflow-y-auto thin-scrollbar">
+                                        {search.trim().length > 0 ? (
+                                            <>
+                                                <div className="px-3 py-2 text-[9px] font-bold text-muted uppercase tracking-widest bg-secondary/20">
+                                                    Results (
+                                                    {searchResults.length})
+                                                </div>
+                                                {searchResults.length === 0 ? (
+                                                    <div className="p-6 text-center text-muted text-[12px]">
+                                                        No stocks found
+                                                    </div>
+                                                ) : (
+                                                    searchResults.map(
+                                                        (result) => {
+                                                            const asset =
+                                                                assetBySymbol.get(
+                                                                    result.symbol,
+                                                                );
+                                                            const changePercent =
+                                                                asset?.changePercent ??
+                                                                0;
+                                                            return (
+                                                                <button
+                                                                    key={
+                                                                        result.symbol
+                                                                    }
+                                                                    type="button"
+                                                                    onMouseDown={(
+                                                                        e,
+                                                                    ) => {
+                                                                        e.preventDefault();
+                                                                        handleSearchPick(
+                                                                            result.symbol,
+                                                                        );
+                                                                        setIsSearchOpen(
+                                                                            false,
+                                                                        );
+                                                                    }}
+                                                                    className="px-4 py-2.5 flex w-full items-center justify-between hover:bg-secondary transition-colors border-b border-main last:border-0"
+                                                                >
+                                                                    <div className="flex items-center space-x-3 min-w-0">
+                                                                        <TokenAvatar
+                                                                            symbol={
+                                                                                result.symbol
+                                                                            }
+                                                                            logoUrl={
+                                                                                asset?.logoUrl ||
+                                                                                resolveBoardStockLogoUrl(
+                                                                                    result.symbol,
+                                                                                )
+                                                                            }
+                                                                            size={
+                                                                                28
+                                                                            }
+                                                                        />
+                                                                        <div className="min-w-0 text-left">
+                                                                            <div className="flex items-center space-x-1.5">
+                                                                                <span className="text-[12px] font-semibold">
+                                                                                    {
+                                                                                        result.symbol
+                                                                                    }
+                                                                                </span>
+                                                                                <span className="rounded border border-main px-1 py-0 text-[8px] uppercase tracking-wide text-muted">
+                                                                                    {result
+                                                                                        .groups[0] ||
+                                                                                        "HOSE"}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="truncate text-[10px] text-muted max-w-[160px]">
+                                                                                {
+                                                                                    result.name
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right shrink-0">
+                                                                        <div className="text-[12px] font-mono font-medium">
+                                                                            {Number.isFinite(
+                                                                                asset?.price,
+                                                                            )
+                                                                                ? asset!.price.toLocaleString(
+                                                                                      "en-US",
+                                                                                      {
+                                                                                          maximumFractionDigits: 2,
+                                                                                      },
+                                                                                  )
+                                                                                : "--"}
+                                                                        </div>
+                                                                        <div
+                                                                            className={cn(
+                                                                                "text-[9px] mt-0.5 flex items-center justify-end font-semibold",
+                                                                                changePercent >=
+                                                                                    0
+                                                                                    ? "text-emerald-500"
+                                                                                    : "text-rose-500",
+                                                                            )}
+                                                                        >
+                                                                            {changePercent >=
+                                                                            0 ? (
+                                                                                <ArrowUpRight
+                                                                                    size={
+                                                                                        10
+                                                                                    }
+                                                                                    className="mr-0.5"
+                                                                                />
+                                                                            ) : (
+                                                                                <ArrowDownRight
+                                                                                    size={
+                                                                                        10
+                                                                                    }
+                                                                                    className="mr-0.5"
+                                                                                />
+                                                                            )}
+                                                                            {Math.abs(
+                                                                                changePercent,
+                                                                            ).toFixed(
+                                                                                2,
+                                                                            )}
+                                                                            %
+                                                                        </div>
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        },
+                                                    )
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="px-3 py-2 text-[9px] font-bold text-muted uppercase tracking-widest bg-secondary/20 flex items-center gap-1.5">
+                                                    Recently Viewed
+                                                </div>
+                                                {recentSearchResults.length ===
+                                                0 ? (
+                                                    <div className="p-6 text-center text-muted text-[12px]">
+                                                        Chưa có mã gần đây
+                                                    </div>
+                                                ) : (
+                                                    recentSearchResults.map(
+                                                        (result) => {
+                                                            const asset =
+                                                                assetBySymbol.get(
+                                                                    result.symbol,
+                                                                );
+                                                            const changePercent =
+                                                                asset?.changePercent ??
+                                                                0;
+                                                            return (
+                                                                <button
+                                                                    key={
+                                                                        result.symbol
+                                                                    }
+                                                                    type="button"
+                                                                    onMouseDown={(
+                                                                        e,
+                                                                    ) => {
+                                                                        e.preventDefault();
+                                                                        handleSearchPick(
+                                                                            result.symbol,
+                                                                        );
+                                                                        setIsSearchOpen(
+                                                                            false,
+                                                                        );
+                                                                    }}
+                                                                    className="px-4 py-2.5 flex w-full items-center justify-between hover:bg-secondary transition-colors border-b border-main last:border-0"
+                                                                >
+                                                                    <div className="flex items-center space-x-3 min-w-0">
+                                                                        <TokenAvatar
+                                                                            symbol={
+                                                                                result.symbol
+                                                                            }
+                                                                            logoUrl={
+                                                                                asset?.logoUrl ||
+                                                                                resolveBoardStockLogoUrl(
+                                                                                    result.symbol,
+                                                                                )
+                                                                            }
+                                                                            size={
+                                                                                28
+                                                                            }
+                                                                        />
+                                                                        <div className="min-w-0 text-left">
+                                                                            <div className="flex items-center space-x-1.5">
+                                                                                <span className="text-[12px] font-semibold">
+                                                                                    {
+                                                                                        result.symbol
+                                                                                    }
+                                                                                </span>
+                                                                                <span className="rounded border border-main px-1 py-0 text-[8px] uppercase tracking-wide text-muted">
+                                                                                    {result
+                                                                                        .groups[0] ||
+                                                                                        "HOSE"}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="truncate text-[10px] text-muted max-w-[160px]">
+                                                                                {
+                                                                                    result.name
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right shrink-0">
+                                                                        <div className="text-[12px] font-mono font-medium">
+                                                                            {Number.isFinite(
+                                                                                asset?.price,
+                                                                            )
+                                                                                ? asset!.price.toLocaleString(
+                                                                                      "en-US",
+                                                                                      {
+                                                                                          maximumFractionDigits: 2,
+                                                                                      },
+                                                                                  )
+                                                                                : "--"}
+                                                                        </div>
+                                                                        <div
+                                                                            className={cn(
+                                                                                "text-[9px] mt-0.5 flex items-center justify-end font-semibold",
+                                                                                changePercent >=
+                                                                                    0
+                                                                                    ? "text-emerald-500"
+                                                                                    : "text-rose-500",
+                                                                            )}
+                                                                        >
+                                                                            {changePercent >=
+                                                                            0 ? (
+                                                                                <ArrowUpRight
+                                                                                    size={
+                                                                                        10
+                                                                                    }
+                                                                                    className="mr-0.5"
+                                                                                />
+                                                                            ) : (
+                                                                                <ArrowDownRight
+                                                                                    size={
+                                                                                        10
+                                                                                    }
+                                                                                    className="mr-0.5"
+                                                                                />
+                                                                            )}
+                                                                            {Math.abs(
+                                                                                changePercent,
+                                                                            ).toFixed(
+                                                                                2,
+                                                                            )}
+                                                                            %
+                                                                        </div>
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        },
+                                                    )
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex h-full items-center gap-1 overflow-x-auto thin-scrollbar">
                             {[
-                                "Danh mục của tôi",
+                                "Danh mục của tôi (Soon)",
                                 "VN30",
                                 "HNX30",
                                 "HOSE",
                                 "HNX",
                                 "UPCOM",
                                 "CP Ngành",
-                                "ETF",
                             ].map((tab) => (
                                 <button
                                     key={tab}
@@ -1871,8 +2356,16 @@ export default function BoardPage() {
                                           return (
                                               <tr
                                                   key={stock.id}
-                                                  className={getRowClassName(
-                                                      index,
+                                                  ref={(el) => {
+                                                      rowRefs.current[
+                                                          stock.ticker
+                                                      ] = el;
+                                                  }}
+                                                  className={cn(
+                                                      getRowClassName(index),
+                                                      highlightedSymbol ===
+                                                          stock.ticker &&
+                                                          "!bg-amber-500/25 ring-1 ring-inset ring-amber-400/80",
                                                   )}
                                               >
                                                   <td

@@ -11,14 +11,7 @@ import {
     suggestGrouping,
 } from "../hooks/useOrderBook";
 import { useRecentTrades } from "../hooks/useRecentTrades";
-import {
-    Download,
-    Share2,
-    MoreHorizontal,
-    Activity,
-    Clock,
-    Wifi,
-} from "lucide-react";
+import { Download, Share2, MoreHorizontal, Loader2 } from "lucide-react";
 
 const tradePriceFmt = (v: number) =>
     v < 0.001
@@ -28,14 +21,30 @@ const tradePriceFmt = (v: number) =>
           : v < 100
             ? v.toFixed(3)
             : v.toLocaleString("en-US", { minimumFractionDigits: 2 });
+const stockPriceFmt = (v: number) =>
+    v >= 1_000
+        ? v.toLocaleString("en-US", { maximumFractionDigits: 0 })
+        : v.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+          });
+
+const stockQtyFmt = (v: number): string => {
+    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)}B`;
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+    return v.toFixed(0);
+};
 
 // ─── Recent Trades Panel ──────────────────────────────────────────────────────
 const RecentTrades = ({
     symbol,
     marketType,
+    isStock,
 }: {
     symbol: string;
     marketType: "spot" | "futures";
+    isStock: boolean;
 }) => {
     const { trades, isLoading, error, connectionStatus } = useRecentTrades(
         symbol,
@@ -48,7 +57,7 @@ const RecentTrades = ({
             {/* Header */}
             <div className="px-3 py-1.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-main">
-                    Market Trades
+                    {isStock ? "Matched Trades" : "Market Trades"}
                 </span>
                 <div className="flex items-center gap-2 shrink-0">
                     <span
@@ -61,7 +70,7 @@ const RecentTrades = ({
                                   : "bg-rose-500",
                         )}
                     />
-                
+
                     <Link
                         href="/transactions"
                         className="px-2 py-1 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-semibold"
@@ -72,15 +81,17 @@ const RecentTrades = ({
             </div>
             {/* Column headers */}
             <div className="grid grid-cols-3 px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-muted border-b border-main bg-secondary/10 shrink-0">
-                <span>Price (USDT)</span>
-                <span className="text-center">Qty</span>
+                <span>{isStock ? "Price (VND)" : "Price (USDT)"}</span>
+                <span className="text-center">
+                    {isStock ? "Volume" : "Qty"}
+                </span>
                 <span className="text-right">Time</span>
             </div>
             {/* Rows */}
             <div className="flex-1 overflow-y-auto thin-scrollbar">
                 {isLoading ? (
-                    <div className="h-full flex items-center justify-center text-[11px] text-muted">
-                        Đang tải trades...
+                    <div className="h-full flex items-center justify-center text-muted">
+                        <Loader2 size={12} className="animate-spin" />
                     </div>
                 ) : error ? (
                     <div className="h-full flex items-center justify-center text-[11px] text-rose-500 px-3 text-center">
@@ -104,10 +115,14 @@ const RecentTrades = ({
                                         : "text-rose-500",
                                 )}
                             >
-                                {tradePriceFmt(t.price)}
+                                {isStock
+                                    ? stockPriceFmt(t.price)
+                                    : tradePriceFmt(t.price)}
                             </span>
                             <span className="text-center text-[10px] font-mono tabular-nums text-muted">
-                                {t.qty.toFixed(4)}
+                                {isStock
+                                    ? stockQtyFmt(t.qty)
+                                    : t.qty.toFixed(4)}
                             </span>
                             <span className="text-right  text-[10px] font-mono tabular-nums text-muted">
                                 {new Date(t.time).toLocaleTimeString("en", {
@@ -233,9 +248,13 @@ const ColHeader = ({ baseSymbol }: { baseSymbol: string }) => (
 
 // ─── OrderBook Component ──────────────────────────────────────────────────────
 export const OrderBook = () => {
-    const { selectedSymbol, assets, marketType } = useMarket();
+    const { selectedSymbol, assets, marketType, universe } = useMarket();
+    const isStock = universe === "stock";
     const currentAsset = assets.find((a) => a.id === selectedSymbol);
-    const baseSymbol = (currentAsset?.symbol ?? selectedSymbol).replace(/USDT|-C|-F/gi, "");
+    const baseSymbol = (currentAsset?.symbol ?? selectedSymbol).replace(
+        /USDT|-C|-F/gi,
+        "",
+    );
 
     // Smart default grouping based on price
     const [grouping, setGrouping] = useState<Grouping>(1);
@@ -253,12 +272,15 @@ export const OrderBook = () => {
         setIsUserGrouping(false);
     }, [selectedSymbol]);
 
-    const { data, metrics, isLoading, connectionStatus, lastUpdatedAt } =
-        useOrderBook(
-        selectedSymbol,
-        grouping,
-        marketType,
-    );
+    const {
+        data,
+        metrics,
+        isLoading,
+        error,
+        connectionStatus,
+        lastUpdatedAt,
+        refetch,
+    } = useOrderBook(selectedSymbol, grouping, marketType);
 
     const asksReversed = data ? [...data.asks].reverse() : [];
 
@@ -270,6 +292,7 @@ export const OrderBook = () => {
                     <RecentTrades
                         symbol={selectedSymbol}
                         marketType={marketType}
+                        isStock={isStock}
                     />
                 </div>
 
@@ -278,9 +301,8 @@ export const OrderBook = () => {
                     <div className="px-3 py-1.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-bold uppercase tracking-widest text-main">
-                                Order Book
+                                {isStock ? "Stock Order Book" : "Order Book"}
                             </span>
-
                         </div>
                         <div className="flex items-center space-x-2">
                             <div className="flex items-center space-x-0.5 bg-secondary border border-main rounded-md p-0.5">
@@ -319,14 +341,32 @@ export const OrderBook = () => {
                             </button>
                         </div>
                     </div>
-                    <ColHeader baseSymbol={baseSymbol} />
+                    <ColHeader baseSymbol={isStock ? "CP" : baseSymbol} />
 
-                    {isLoading && !data ? (
+                    {isStock ? (
+                        <div className="flex-1 flex items-center justify-center p-4">
+                            <div className="text-[10px] uppercase tracking-widest font-bold text-amber-400">
+                                Soon
+                            </div>
+                        </div>
+                    ) : isLoading && !data ? (
                         <div className="flex-1 flex items-center justify-center">
-                            <Activity
-                                size={16}
-                                className="text-accent animate-pulse"
+                            <Loader2
+                                size={12}
+                                className="text-muted animate-spin"
                             />
+                        </div>
+                    ) : !data && error ? (
+                        <div className="flex-1 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                            <div className="text-[11px] text-rose-500">
+                                {error}
+                            </div>
+                            <button
+                                onClick={() => void refetch()}
+                                className="px-2 py-1 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-semibold"
+                            >
+                                Retry
+                            </button>
                         </div>
                     ) : (
                         <div className="flex-1 overflow-y-auto thin-scrollbar flex flex-col">
@@ -368,27 +408,26 @@ export const OrderBook = () => {
                                             ↓
                                         </span>
                                     )}
-                            </div>
-                            {data && (
-                                <span className="text-[9px] text-muted font-mono">
-                                    Spread:{" "}
-                                    {priceFmt(data.spread, grouping)} (
-                                    {data.spreadPercent.toFixed(3)}%)
-                                </span>
-                            )}
-                            {lastUpdatedAt && (
-                                <span className="text-[9px] text-muted font-mono">
-                                    {new Date(lastUpdatedAt).toLocaleTimeString(
-                                        "en-US",
-                                        {
+                                </div>
+                                {data && (
+                                    <span className="text-[9px] text-muted font-mono">
+                                        Spread:{" "}
+                                        {priceFmt(data.spread, grouping)} (
+                                        {data.spreadPercent.toFixed(3)}%)
+                                    </span>
+                                )}
+                                {lastUpdatedAt && (
+                                    <span className="text-[9px] text-muted font-mono">
+                                        {new Date(
+                                            lastUpdatedAt,
+                                        ).toLocaleTimeString("en-US", {
                                             hour: "2-digit",
                                             minute: "2-digit",
                                             second: "2-digit",
-                                        },
-                                    )}
-                                </span>
-                            )}
-                        </div>
+                                        })}
+                                    </span>
+                                )}
+                            </div>
 
                             <div className="flex flex-col">
                                 {(data?.bids ?? []).map((bid) => (
@@ -408,12 +447,19 @@ export const OrderBook = () => {
                     {/* Header */}
                     <div className="px-3 py-2.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-center">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-main">
-                            {baseSymbol} Depth
+                            {isStock
+                                ? `${baseSymbol} VN Depth`
+                                : `${baseSymbol} Depth`}
                         </span>
-                      
                     </div>
                     <div className="flex-1 min-h-0 p-3 overflow-y-auto thin-scrollbar">
-                        {data && metrics ? (
+                        {isStock ? (
+                            <div className="h-full flex items-center justify-center">
+                                <div className="text-[10px] uppercase tracking-widest font-bold text-amber-400">
+                                    Soon
+                                </div>
+                            </div>
+                        ) : data && metrics ? (
                             <div className="space-y-3">
                                 <div className="rounded-lg border border-main bg-main/40 p-3">
                                     <div className="flex items-center justify-between min-w-0">
@@ -469,8 +515,6 @@ export const OrderBook = () => {
                                     </div>
                                 </div>
 
-                                
-
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="rounded-md border border-main bg-main/20 px-2 py-1.5 text-left">
                                         <div className="text-[9px] text-muted">
@@ -504,7 +548,9 @@ export const OrderBook = () => {
                                             Depth tick/s
                                         </div>
                                         <div className="text-[11px] font-mono text-main">
-                                            {metrics.updatesPerSec10s.toFixed(1)}
+                                            {metrics.updatesPerSec10s.toFixed(
+                                                1,
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -515,9 +561,7 @@ export const OrderBook = () => {
                                             Best Bid
                                         </div>
                                         <div className="text-[12px] font-mono font-semibold text-emerald-500">
-                                            {topOfBookPriceFmt(
-                                                metrics.bestBid,
-                                            )}
+                                            {topOfBookPriceFmt(metrics.bestBid)}
                                         </div>
                                     </div>
                                     <div className="rounded-md border border-main bg-main/30 px-2 py-1.5 text-left">
@@ -525,9 +569,7 @@ export const OrderBook = () => {
                                             Best Ask
                                         </div>
                                         <div className="text-[12px] font-mono font-semibold text-rose-500">
-                                            {topOfBookPriceFmt(
-                                                metrics.bestAsk,
-                                            )}
+                                            {topOfBookPriceFmt(metrics.bestAsk)}
                                         </div>
                                     </div>
                                 </div>
@@ -567,7 +609,7 @@ export const OrderBook = () => {
                             </div>
                         ) : (
                             <div className="h-full flex items-center justify-center text-[11px] text-muted">
-                                Chưa có dữ liệu.
+                                <Loader2 size={12} className="animate-spin" />
                             </div>
                         )}
                     </div>

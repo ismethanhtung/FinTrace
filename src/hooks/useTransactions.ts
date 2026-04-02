@@ -11,6 +11,7 @@ import {
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
 import { resolveUniverseSymbol } from "../lib/universeSymbol";
+import { stockLambdaService } from "../services/stockLambdaService";
 
 export type Transaction = {
     id: number;
@@ -52,6 +53,36 @@ function mapTrade(t: BinanceRecentTrade, pair: string): Transaction {
     };
 }
 
+function mapStockTrade(
+    trade: {
+        id: number;
+        price: number;
+        qty: number;
+        time: number;
+        isBuy: boolean;
+    },
+    symbol: string,
+): Transaction {
+    const quoteQty = trade.price * trade.qty;
+    const timeLabel = new Date(trade.time).toLocaleTimeString("en", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
+    return {
+        id: trade.id,
+        symbol,
+        pair: symbol,
+        price: trade.price,
+        qty: trade.qty,
+        quoteQty,
+        timeMs: trade.time,
+        timeLabel,
+        isBuy: trade.isBuy,
+        type: trade.isBuy ? "buy" : "sell",
+    };
+}
+
 export type UseTransactionsOptions = {
     symbol: string; // pair id, e.g. BTCUSDT
     marketType: MarketType;
@@ -59,7 +90,7 @@ export type UseTransactionsOptions = {
     pollingMs?: number | null; // kept for API compatibility; websocket-first ignores polling
 };
 
-type FetchMode = "initial" | "manual";
+type FetchMode = "initial" | "manual" | "silent";
 
 /**
  * Fetch recent trades from Binance spot/futures using a websocket stream.
@@ -68,6 +99,7 @@ export const useTransactions = ({
     symbol,
     marketType,
     limit = 500,
+    pollingMs = 2000,
 }: UseTransactionsOptions) => {
     const { universe, isHydrated = true } = useUniverse();
     const { normalized: resolvedSymbol, isValid: hasValidSymbol } =
@@ -98,11 +130,24 @@ export const useTransactions = ({
                 }
 
                 if (universe === "stock") {
+                    if (!hasValidSymbol || !resolvedSymbol) {
+                        if (mountedRef.current) {
+                            setTransactions([]);
+                            setError("Invalid stock symbol for transactions");
+                        }
+                        return;
+                    }
+                    const safeLimit = Math.min(Math.max(limit, 20), 240);
+                    const trades = await stockLambdaService.getStockIntradayTrades(
+                        resolvedSymbol,
+                        safeLimit,
+                    );
+                    const next = trades
+                        .map((t) => mapStockTrade(t, resolvedSymbol))
+                        .sort((a, b) => b.timeMs - a.timeMs);
                     if (mountedRef.current) {
-                        setTransactions([]);
-                        setError(
-                            "Transactions for stock universe are not implemented yet",
-                        );
+                        setTransactions(next);
+                        setError(null);
                     }
                     return;
                 }
@@ -148,7 +193,15 @@ export const useTransactions = ({
                 }
             }
         },
-        [hasValidSymbol, isHydrated, limit, marketType, resolvedSymbol, symbol, universe],
+        [
+            hasValidSymbol,
+            isHydrated,
+            limit,
+            marketType,
+            resolvedSymbol,
+            symbol,
+            universe,
+        ],
     );
 
     useEffect(() => {
@@ -168,8 +221,17 @@ export const useTransactions = ({
         if (universe === "stock") {
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
+            const intervalMs =
+                pollingMs && Number.isFinite(pollingMs)
+                    ? Math.max(1_500, Math.floor(pollingMs))
+                    : 2_000;
+            const timer = setInterval(() => {
+                if (!mountedRef.current) return;
+                void fetchTrades("silent");
+            }, intervalMs);
             return () => {
                 mountedRef.current = false;
+                clearInterval(timer);
                 subscriptionRef.current?.unsubscribe();
                 subscriptionRef.current = null;
             };
@@ -225,6 +287,7 @@ export const useTransactions = ({
         marketType,
         resolvedSymbol,
         symbol,
+        pollingMs,
         isHydrated,
         universe,
     ]);

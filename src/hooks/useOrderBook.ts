@@ -13,6 +13,7 @@ import {
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
 import { resolveUniverseSymbol } from "../lib/universeSymbol";
+import { stockLambdaService } from "../services/stockLambdaService";
 
 export type OrderBookEntry = {
     price: number;
@@ -34,6 +35,8 @@ export type OrderBookMetrics = {
     bestBidQty: number;
     bestAskQty: number;
 };
+const SNAPSHOT_TIMEOUT_MS = 8_000;
+const STOCK_DEPTH_POLL_MS = 2_000;
 
 /**
  * Suggest the best default grouping for a given price.
@@ -184,6 +187,7 @@ export const useOrderBook = (
     const depthUpdateTsRef = useRef<number[]>([]);
     const loadingSnapshotRef = useRef(false);
     const pendingResyncRef = useRef(false);
+    const snapshotRequestSeqRef = useRef(0);
     const mountedRef = useRef(true);
     const subscriptionRef = useRef<ReturnType<typeof subscribeSharedStream> | null>(
         null,
@@ -191,6 +195,18 @@ export const useOrderBook = (
     const bookTickerSubscriptionRef = useRef<
         ReturnType<typeof subscribeSharedStream> | null
     >(null);
+
+    const resetBookState = useCallback(() => {
+        bookRef.current = null;
+        pendingDiffsRef.current = [];
+        depthUpdateTsRef.current = [];
+        loadingSnapshotRef.current = false;
+        pendingResyncRef.current = false;
+        setBookTicker(null);
+        setUpdatesPerSec10s(0);
+        setLastUpdatedAt(null);
+        setBookVersion((v) => v + 1);
+    }, []);
 
     const pushDepthUpdateTimestamp = useCallback(() => {
         const now = Date.now();
@@ -224,9 +240,71 @@ export const useOrderBook = (
 
     const loadSnapshot = useCallback(async () => {
         if (universe === "stock") {
-            setIsLoading(false);
-            setError("Order book for stock universe is not implemented yet");
-            setConnectionStatus("disconnected");
+            if (!isHydrated) {
+                setIsLoading(true);
+                return;
+            }
+            if (!hasValidSymbol || !resolvedSymbol) {
+                setError("Invalid stock symbol for order book");
+                setConnectionStatus("disconnected");
+                setIsLoading(false);
+                return;
+            }
+            if (loadingSnapshotRef.current) return;
+            loadingSnapshotRef.current = true;
+            const requestSeq = ++snapshotRequestSeqRef.current;
+            if (!bookRef.current) setIsLoading(true);
+            try {
+                const snapshot = await stockLambdaService.getStockDepth(
+                    resolvedSymbol,
+                );
+                if (requestSeq !== snapshotRequestSeqRef.current) {
+                    return;
+                }
+                if (!snapshot) {
+                    if (!bookRef.current) {
+                        setError("Stock depth temporarily unavailable");
+                        setConnectionStatus("disconnected");
+                    }
+                    return;
+                }
+
+                const bids = new Map<string, number>();
+                const asks = new Map<string, number>();
+                snapshot.bids.forEach((level) => {
+                    bids.set(String(level.price), level.quantity);
+                });
+                snapshot.asks.forEach((level) => {
+                    asks.set(String(level.price), level.quantity);
+                });
+
+                bookRef.current = {
+                    lastUpdateId: Date.now(),
+                    bids,
+                    asks,
+                };
+                pendingDiffsRef.current = [];
+                pushDepthUpdateTimestamp();
+                setLastUpdatedAt(snapshot.fetchedAt || Date.now());
+                setError(null);
+                setConnectionStatus("connected");
+                setBookVersion((v) => v + 1);
+            } catch (err) {
+                if (!bookRef.current) {
+                    setError(
+                        err instanceof Error
+                            ? err.message
+                            : "Failed to load stock order book",
+                    );
+                }
+                setConnectionStatus("error");
+            } finally {
+                loadingSnapshotRef.current = false;
+                if (requestSeq !== snapshotRequestSeqRef.current) {
+                    return;
+                }
+                if (mountedRef.current) setIsLoading(false);
+            }
             return;
         }
         if (!isHydrated) {
@@ -241,13 +319,25 @@ export const useOrderBook = (
         }
         if (loadingSnapshotRef.current) return;
         loadingSnapshotRef.current = true;
+        const requestSeq = ++snapshotRequestSeqRef.current;
         setIsLoading(true);
         try {
             const getDepth =
                 marketType === "futures"
                     ? binanceService.getFuturesDepth.bind(binanceService)
                     : binanceService.getDepth.bind(binanceService);
-            const raw = (await getDepth(resolvedSymbol, 1000)) as OrderBookSnapshot;
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error("Order book snapshot timeout"));
+                }, SNAPSHOT_TIMEOUT_MS);
+            });
+            const raw = (await Promise.race([
+                getDepth(resolvedSymbol, 1000),
+                timeoutPromise,
+            ])) as OrderBookSnapshot;
+            if (requestSeq !== snapshotRequestSeqRef.current) {
+                return;
+            }
             const next = createOrderBookState(raw);
             bookRef.current = next;
             pendingDiffsRef.current = [];
@@ -264,6 +354,9 @@ export const useOrderBook = (
             );
         } finally {
             loadingSnapshotRef.current = false;
+            if (requestSeq !== snapshotRequestSeqRef.current) {
+                return;
+            }
             if (pendingResyncRef.current) {
                 pendingResyncRef.current = false;
                 setTimeout(() => {
@@ -275,7 +368,10 @@ export const useOrderBook = (
     }, [
         applyBufferedDiffs,
         hasValidSymbol,
+        isHydrated,
         marketType,
+        pushDepthUpdateTimestamp,
+        resetBookState,
         resolvedSymbol,
         universe,
     ]);
@@ -293,13 +389,39 @@ export const useOrderBook = (
     }, [loadSnapshot]);
 
     useEffect(() => {
+        snapshotRequestSeqRef.current += 1;
+        resetBookState();
+
         if (universe === "stock") {
-            setIsLoading(false);
-            setError("Order book for stock universe is not implemented yet");
-            setConnectionStatus("disconnected");
+            if (!isHydrated) {
+                setIsLoading(true);
+                setConnectionStatus("connecting");
+                subscriptionRef.current?.unsubscribe();
+                subscriptionRef.current = null;
+                bookTickerSubscriptionRef.current?.unsubscribe();
+                bookTickerSubscriptionRef.current = null;
+                return;
+            }
+            mountedRef.current = true;
+            setError(null);
+            setConnectionStatus("connecting");
             subscriptionRef.current?.unsubscribe();
+            subscriptionRef.current = null;
             bookTickerSubscriptionRef.current?.unsubscribe();
-            return;
+            bookTickerSubscriptionRef.current = null;
+            void loadSnapshot();
+            const timer = setInterval(() => {
+                if (!mountedRef.current) return;
+                void loadSnapshot();
+            }, STOCK_DEPTH_POLL_MS);
+            return () => {
+                mountedRef.current = false;
+                clearInterval(timer);
+                subscriptionRef.current?.unsubscribe();
+                subscriptionRef.current = null;
+                bookTickerSubscriptionRef.current?.unsubscribe();
+                bookTickerSubscriptionRef.current = null;
+            };
         }
         if (!isHydrated) {
             setIsLoading(true);
@@ -316,9 +438,6 @@ export const useOrderBook = (
         mountedRef.current = true;
         setIsLoading(true);
         setError(null);
-        bookRef.current = null;
-        pendingDiffsRef.current = [];
-        setBookVersion((v) => v + 1);
         void loadSnapshot();
 
         subscriptionRef.current?.unsubscribe();
@@ -372,6 +491,7 @@ export const useOrderBook = (
         loadSnapshot,
         marketType,
         pushDepthUpdateTimestamp,
+        resetBookState,
         resolvedSymbol,
         resync,
         isHydrated,

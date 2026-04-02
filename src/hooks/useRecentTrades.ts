@@ -12,6 +12,7 @@ import {
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
 import { resolveUniverseSymbol } from "../lib/universeSymbol";
+import { stockLambdaService } from "../services/stockLambdaService";
 
 export type RecentTradeItem = {
     id: number;
@@ -47,6 +48,8 @@ function tradeUrl(symbol: string, marketType: MarketType) {
 /**
  * Fetch real recent trades from Binance with websocket updates.
  */
+const STOCK_TRADES_POLL_MS = 2_000;
+
 export const useRecentTrades = (
     symbol: string,
     marketType: MarketType,
@@ -70,10 +73,29 @@ export const useRecentTrades = (
         try {
             if (!isHydrated) return;
             if (universe === "stock") {
+                if (!hasValidSymbol || !resolvedSymbol) {
+                    if (!mountedRef.current) return;
+                    setTrades([]);
+                    setError("Invalid stock symbol for recent trades");
+                    setConnectionStatus("disconnected");
+                    return;
+                }
+                const next = await stockLambdaService.getStockIntradayTrades(
+                    resolvedSymbol,
+                    Math.min(Math.max(limit, 20), 240),
+                );
                 if (!mountedRef.current) return;
-                setTrades([]);
-                setError("Recent trades for stock universe are not implemented yet");
-                setConnectionStatus("disconnected");
+                setTrades(
+                    next.map((item) => ({
+                        id: item.id,
+                        price: item.price,
+                        qty: item.qty,
+                        time: item.time,
+                        isBuy: item.isBuy,
+                    })),
+                );
+                setError(null);
+                setConnectionStatus("connected");
                 return;
             }
             if (!hasValidSymbol || !resolvedSymbol) {
@@ -101,7 +123,7 @@ export const useRecentTrades = (
         } finally {
             if (mountedRef.current) setIsLoading(false);
         }
-    }, [hasValidSymbol, isHydrated, limit, marketType, resolvedSymbol, symbol, universe]);
+    }, [hasValidSymbol, isHydrated, limit, marketType, resolvedSymbol, universe]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -120,8 +142,13 @@ export const useRecentTrades = (
         if (universe === "stock") {
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
+            const timer = setInterval(() => {
+                if (!mountedRef.current) return;
+                void fetchSnapshot();
+            }, STOCK_TRADES_POLL_MS);
             return () => {
                 mountedRef.current = false;
+                clearInterval(timer);
             };
         }
         if (!hasValidSymbol || !resolvedSymbol) {

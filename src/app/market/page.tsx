@@ -476,8 +476,10 @@ function CoinAvatar({ symbol, logoUrl }: { symbol: string; logoUrl?: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function MarketPage() {
     const router = useRouter();
-    const { marketType, setMarketType, setSelectedSymbol } = useMarket();
+    const { universe, marketType, setMarketType, setSelectedSymbol } =
+        useMarket();
     const { rows, stats, isLoading, refetch } = useMarketPageData();
+    const isStock = universe === "stock";
 
     const handleRowClick = (symbol: string) => {
         setSelectedSymbol(symbol);
@@ -486,7 +488,9 @@ export default function MarketPage() {
     const [activeSubTab, setActiveSubTab] = useState<MarketSubTabKey>("Top");
     const [moreSort, setMoreSort] = useState<MoreSortKey>("Highest Volume");
     const [showMoreMenu, setShowMoreMenu] = useState(false);
-    const [activeFilter, setActiveFilter] = useState("All Network");
+    const [activeFilter, setActiveFilter] = useState(
+        isStock ? "All Exchange" : "All Network",
+    );
     const [activeMarket, setActiveMarket] = useState(
         marketType === "futures" ? "Futures" : "Spot",
     );
@@ -508,6 +512,11 @@ export default function MarketPage() {
     }, [search, activeMarket, activeFilter, activeSubTab, moreSort]);
 
     useEffect(() => {
+        setActiveFilter(isStock ? "All Exchange" : "All Network");
+    }, [isStock]);
+
+    useEffect(() => {
+        if (isStock) return;
         let alive = true;
         async function loadNetworkMap() {
             try {
@@ -524,50 +533,94 @@ export default function MarketPage() {
         return () => {
             alive = false;
         };
-    }, []);
+    }, [isStock]);
 
     const filteredData = useMemo(() => {
         const q = search.toLowerCase().trim();
         return rows.filter((c) => {
-            if (
+            if (isStock) {
+                if (activeFilter === "All Exchange") {
+                    // Keep all.
+                } else if (activeFilter === "VN30") {
+                    if (!c.indexMembership.includes("VN30")) return false;
+                } else if (activeFilter === "Financials") {
+                    if (!/tài chính|financial/i.test(c.sector)) return false;
+                } else if (activeFilter === "Real Estate") {
+                    if (!/bất động sản|real estate/i.test(c.sector))
+                        return false;
+                } else if (c.exchange.toUpperCase() !== activeFilter) {
+                    return false;
+                }
+            } else if (
                 !shouldKeepByNetwork(
                     activeFilter,
                     c.symbol,
                     networkMap.bySymbol,
                     networkMap.bySymbolPrimary,
                 )
-            )
+            ) {
                 return false;
+            }
             if (!q) return true;
             return (
                 c.name.toLowerCase().includes(q) ||
-                c.symbol.toLowerCase().includes(q)
+                c.symbol.toLowerCase().includes(q) ||
+                c.sector.toLowerCase().includes(q)
             );
         });
-    }, [search, rows, activeFilter, networkMap.bySymbol]);
+    }, [
+        search,
+        rows,
+        activeFilter,
+        isStock,
+        networkMap.bySymbol,
+        networkMap.bySymbolPrimary,
+    ]);
 
     const statCards = useMemo(
-        () => [
-            {
-                title: "Market Cap",
-                value: stats.marketCap,
-                change: "+???%",
-                positive: true,
-            },
-            {
-                title: "24h Volume",
-                value: stats.volume24h,
-                change: "+0.00%",
-                positive: true,
-            },
-            {
-                title: "BTC Dominance",
-                value: stats.btcDominance,
-                change: "0.00%",
-                positive: true,
-            },
-        ],
-        [stats],
+        () =>
+            isStock
+                ? [
+                      {
+                          title: "Market Cap",
+                          value: stats.marketCap,
+                          change: "+???%",
+                          positive: true,
+                      },
+                      {
+                          title: "24h Volume",
+                          value: stats.volume24h,
+                          change: "+0.00%",
+                          positive: true,
+                      },
+                      {
+                          title: "BTC Dominance",
+                          value: stats.btcDominance,
+                          change: "0.00%",
+                          positive: true,
+                      },
+                  ]
+                : [
+                      {
+                          title: "Market Cap",
+                          value: stats.marketCap,
+                          change: "+???%",
+                          positive: true,
+                      },
+                      {
+                          title: "24h Volume",
+                          value: stats.volume24h,
+                          change: "+0.00%",
+                          positive: true,
+                      },
+                      {
+                          title: "BTC Dominance",
+                          value: stats.btcDominance,
+                          change: "0.00%",
+                          positive: true,
+                      },
+                  ],
+        [isStock, stats],
     );
 
     const sortedData = useMemo(
@@ -609,7 +662,11 @@ export default function MarketPage() {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             type="text"
-                            placeholder="Search assets..."
+                            placeholder={
+                                isStock
+                                    ? "Search stocks..."
+                                    : "Search assets..."
+                            }
                             className="bg-secondary border border-transparent hover:border-main rounded-md py-1.5 pl-8 pr-3 text-[12px] w-48 focus:w-64 focus:outline-none focus:ring-1 focus:ring-accent/30 transition-all"
                         />
                     </div>
@@ -681,6 +738,7 @@ export default function MarketPage() {
                             sparkData={statCardSparks[i] ?? statCardSparks[0]}
                         />
                     ))}
+
                     <FearGreedCard />
                     <AltcoinSeasonCard />
                     <AvgRsiCard />
@@ -689,7 +747,18 @@ export default function MarketPage() {
                 {/* ── Network Filter row ───────────────────────────────────── */}
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                        {FILTER_CHIPS.map((chip) => (
+                        {(isStock
+                            ? [
+                                  "All Exchange",
+                                  "HOSE",
+                                  "HNX",
+                                  "UPCOM",
+                                  "VN30",
+                                  "Financials",
+                                  "Real Estate",
+                              ]
+                            : FILTER_CHIPS
+                        ).map((chip) => (
                             <button
                                 key={chip}
                                 onClick={() => setActiveFilter(chip)}
@@ -751,27 +820,52 @@ export default function MarketPage() {
                                     <th className="px-5 py-3.5 font-semibold text-right">
                                         Price
                                     </th>
-                                    <th className="px-5 py-3.5 font-semibold text-right">
-                                        1h %
-                                    </th>
-                                    <th className="px-5 py-3.5 font-semibold text-right">
-                                        24h %
-                                    </th>
-                                    <th className="px-5 py-3.5 font-semibold text-right">
-                                        7d %
-                                    </th>
-                                    <th className="px-5 py-3.5 font-semibold text-right">
-                                        Market Cap
-                                    </th>
-                                    <th className="px-5 py-3.5 font-semibold text-right">
-                                        24h Volume
-                                    </th>
-                                    <th className="px-5 py-3.5 font-semibold text-center">
-                                        Sentiment
-                                    </th>
-                                    <th className="px-5 py-3.5 font-semibold text-center">
-                                        Last 7 Days
-                                    </th>
+                                    {isStock ? (
+                                        <>
+                                            <th className="px-5 py-3.5 font-semibold text-right">
+                                                Day %
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-right">
+                                                Day Range
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-right">
+                                                Volume
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-right">
+                                                Turnover
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-center">
+                                                Exchange
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-center">
+                                                Sector
+                                            </th>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <th className="px-5 py-3.5 font-semibold text-right">
+                                                1h %
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-right">
+                                                24h %
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-right">
+                                                7d %
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-right">
+                                                Market Cap
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-right">
+                                                24h Volume
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-center">
+                                                Sentiment
+                                            </th>
+                                            <th className="px-5 py-3.5 font-semibold text-center">
+                                                Last 7 Days
+                                            </th>
+                                        </>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-main">
@@ -837,46 +931,89 @@ export default function MarketPage() {
                                                         ${priceFmt(coin.price)}
                                                     </td>
 
-                                                    {/* % columns */}
-                                                    <PctCell v={coin.h1} />
-                                                    <PctCell v={coin.h24} />
-                                                    <PctCell v={coin.d7} />
-
-                                                    {/* Market Cap */}
-                                                    <td className="px-5 py-4 text-right text-[13px] text-muted">
-                                                        {coin.marketCap}
-                                                    </td>
-
-                                                    {/* Volume */}
-                                                    <td className="px-5 py-4 text-right text-[13px] text-muted">
-                                                        {coin.volume}
-                                                    </td>
-
-                                                    {/* Sentiment */}
-                                                    <td className="px-5 py-4 text-center">
-                                                        <SentimentBadge
-                                                            v={coin.sentiment}
-                                                        />
-                                                    </td>
-
-                                                    {/* 7-day sparkline */}
-                                                    <td className="px-5 py-4">
-                                                        <div className="flex justify-center">
-                                                            <MiniSparkline
-                                                                data={sparkData}
-                                                                positive={
-                                                                    sparkPositive
-                                                                }
+                                                    {isStock ? (
+                                                        <>
+                                                            <PctCell
+                                                                v={coin.h24}
                                                             />
-                                                        </div>
-                                                    </td>
+                                                            <td className="px-5 py-4 text-right text-[12px] text-muted font-mono">
+                                                                {coin.low > 0
+                                                                    ? `${priceFmt(coin.low)} - ${priceFmt(coin.high)}`
+                                                                    : "--"}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-right text-[13px] text-muted">
+                                                                {coin.baseVolume.toLocaleString(
+                                                                    "en-US",
+                                                                )}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-right text-[13px] text-muted">
+                                                                {coin.volume}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-center text-[12px] text-muted">
+                                                                {coin.exchange}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-center text-[12px] text-muted max-w-[180px]">
+                                                                <span className="line-clamp-1">
+                                                                    {
+                                                                        coin.sector
+                                                                    }
+                                                                </span>
+                                                            </td>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            {/* % columns */}
+                                                            <PctCell
+                                                                v={coin.h1}
+                                                            />
+                                                            <PctCell
+                                                                v={coin.h24}
+                                                            />
+                                                            <PctCell
+                                                                v={coin.d7}
+                                                            />
+
+                                                            {/* Market Cap */}
+                                                            <td className="px-5 py-4 text-right text-[13px] text-muted">
+                                                                {coin.marketCap}
+                                                            </td>
+
+                                                            {/* Volume */}
+                                                            <td className="px-5 py-4 text-right text-[13px] text-muted">
+                                                                {coin.volume}
+                                                            </td>
+
+                                                            {/* Sentiment */}
+                                                            <td className="px-5 py-4 text-center">
+                                                                <SentimentBadge
+                                                                    v={
+                                                                        coin.sentiment
+                                                                    }
+                                                                />
+                                                            </td>
+
+                                                            {/* 7-day sparkline */}
+                                                            <td className="px-5 py-4">
+                                                                <div className="flex justify-center">
+                                                                    <MiniSparkline
+                                                                        data={
+                                                                            sparkData
+                                                                        }
+                                                                        positive={
+                                                                            sparkPositive
+                                                                        }
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                        </>
+                                                    )}
                                                 </tr>
                                             );
                                         })}
                                         {pagedData.length === 0 && (
                                             <tr>
                                                 <td
-                                                    colSpan={10}
+                                                    colSpan={isStock ? 9 : 10}
                                                     className="px-5 py-8 text-center text-[12px] text-muted"
                                                 >
                                                     No data

@@ -6,6 +6,7 @@ import { useMarket } from "../context/MarketContext";
 import { TokenAvatar } from "./TokenAvatar";
 import { Check, Settings2, Wifi } from "lucide-react";
 import type { Asset } from "../services/binanceService";
+import { usePathname, useRouter } from "next/navigation";
 
 type TickerMode = "hot" | "gainers" | "favorites";
 
@@ -45,6 +46,8 @@ const modeMeta: Record<
 };
 
 export const TickerBar = () => {
+    const router = useRouter();
+    const pathname = usePathname();
     const {
         assets,
         setSelectedSymbol,
@@ -258,6 +261,12 @@ export const TickerBar = () => {
             : streamStatus === "connecting" || streamStatus === "connected"
               ? "text-amber-400"
               : "text-rose-500";
+    const handleSelect = (id: string) => {
+        setSelectedSymbol(id);
+        if (pathname !== "/") {
+            router.push("/");
+        }
+    };
 
     return (
         <div className="relative h-8 border-t border-main bg-secondary/40 flex items-center shrink-0">
@@ -398,7 +407,7 @@ export const TickerBar = () => {
                         {items.map((asset, i) => (
                             <button
                                 key={`${asset.id}-${i}`}
-                                onClick={() => setSelectedSymbol(asset.id)}
+                                onClick={() => handleSelect(asset.id)}
                                 className="flex items-center space-x-1 px-2.5 h-8 hover:bg-secondary/80 transition-colors border-r border-main last:border-r-0 shrink-0 w-[210px]"
                             >
                                 <TokenAvatar

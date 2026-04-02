@@ -69,59 +69,59 @@ const AssetRow = ({
     const { universe } = useUniverse();
     return (
         <div
-        onClick={onClick}
-        className={cn(
-            "px-4 py-2.5 flex items-center justify-between hover:bg-secondary transition-colors cursor-pointer group border-b border-main last:border-0",
-            isSelected && "bg-accent/5",
-        )}
-    >
-        <div className="flex items-center space-x-3">
-            <TokenAvatar
-                symbol={asset.symbol}
-                logoUrl={asset.logoUrl}
-                size={28}
-                selected={isSelected}
-            />
-            <div>
-                <div className="flex items-center space-x-1.5">
-                    <span
-                        className={cn(
-                            "text-[12px] font-semibold",
-                            isSelected && "text-accent",
-                        )}
-                    >
-                        {asset.symbol}
-                    </span>
-                    {badge}
+            onClick={onClick}
+            className={cn(
+                "px-4 py-2.5 flex items-center justify-between hover:bg-secondary transition-colors cursor-pointer group border-b border-main last:border-0",
+                isSelected && "bg-accent/5",
+            )}
+        >
+            <div className="flex items-center space-x-3">
+                <TokenAvatar
+                    symbol={asset.symbol}
+                    logoUrl={asset.logoUrl}
+                    size={28}
+                    selected={isSelected}
+                />
+                <div>
+                    <div className="flex items-center space-x-1.5">
+                        <span
+                            className={cn(
+                                "text-[12px] font-semibold",
+                                isSelected && "text-accent",
+                            )}
+                        >
+                            {asset.symbol}
+                        </span>
+                        {badge}
+                    </div>
+                    <div className="text-[10px] text-muted">
+                        {universe === "stock" ? "VN Stock feed" : "Binance"}
+                    </div>
                 </div>
-                <div className="text-[10px] text-muted">
-                    {universe === "stock" ? "VN Stock feed" : "Binance"}
+            </div>
+            <div className="text-right">
+                <div className="text-[12px] font-mono font-medium">
+                    {universe === "stock"
+                        ? priceFmt(asset.price)
+                        : `$${priceFmt(asset.price)}`}
+                </div>
+                <div
+                    className={cn(
+                        "text-[9px] mt-0.5 flex items-center justify-end font-semibold",
+                        asset.changePercent >= 0
+                            ? "text-emerald-500"
+                            : "text-rose-500",
+                    )}
+                >
+                    {asset.changePercent >= 0 ? (
+                        <ArrowUpRight size={10} className="mr-0.5" />
+                    ) : (
+                        <ArrowDownRight size={10} className="mr-0.5" />
+                    )}
+                    {Math.abs(asset.changePercent).toFixed(2)}%
                 </div>
             </div>
         </div>
-        <div className="text-right">
-            <div className="text-[12px] font-mono font-medium">
-                {universe === "stock"
-                    ? priceFmt(asset.price)
-                    : `$${priceFmt(asset.price)}`}
-            </div>
-            <div
-                className={cn(
-                    "text-[9px] mt-0.5 flex items-center justify-end font-semibold",
-                    asset.changePercent >= 0
-                        ? "text-emerald-500"
-                        : "text-rose-500",
-                )}
-            >
-                {asset.changePercent >= 0 ? (
-                    <ArrowUpRight size={10} className="mr-0.5" />
-                ) : (
-                    <ArrowDownRight size={10} className="mr-0.5" />
-                )}
-                {Math.abs(asset.changePercent).toFixed(2)}%
-            </div>
-        </div>
-    </div>
     );
 };
 
@@ -140,7 +140,8 @@ export const WatchlistDropdown = () => {
         isLoading,
         isFuturesLoading,
     } = useMarket();
-    const assetsLoading = marketType === "futures" ? isFuturesLoading : isLoading;
+    const assetsLoading =
+        marketType === "futures" ? isFuturesLoading : isLoading;
 
     // Load recents from localStorage on mount
     useEffect(() => {
@@ -319,10 +320,6 @@ export const WatchlistDropdown = () => {
                                         {recentAssets.length > 0 && (
                                             <>
                                                 <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20">
-                                                    <Clock
-                                                        size={10}
-                                                        className="text-muted"
-                                                    />
                                                     <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
                                                         Recently Viewed
                                                     </span>
@@ -352,10 +349,6 @@ export const WatchlistDropdown = () => {
 
                                         {/* Trending (top movers) */}
                                         <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20 border-t border-main">
-                                            <Flame
-                                                size={10}
-                                                className="text-orange-400"
-                                            />
                                             <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
                                                 Top Movers
                                             </span>
@@ -442,7 +435,8 @@ export const QuickSearchDropdown = () => {
         isLoading,
         isFuturesLoading,
     } = useMarket();
-    const assetsLoading = marketType === "futures" ? isFuturesLoading : isLoading;
+    const assetsLoading =
+        marketType === "futures" ? isFuturesLoading : isLoading;
 
     const MAX_QUICK_RESULTS = 20;
     const MAX_TOP_ASSETS_PREVIEW = 30;
@@ -455,7 +449,9 @@ export const QuickSearchDropdown = () => {
     const trending = useMemo(() => {
         // Top movers: chọn theo % thay đổi tuyệt đối
         return [...assets]
-            .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))
+            .sort(
+                (a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent),
+            )
             .slice(0, 5);
     }, [assets]);
 
@@ -592,7 +588,8 @@ export const QuickSearchDropdown = () => {
                                 {hasQuery ? (
                                     <>
                                         <div className="px-3 py-2 text-[9px] font-bold text-muted uppercase tracking-widest bg-secondary/20">
-                                            Results ({shownFilteredAssets.length})
+                                            Results (
+                                            {shownFilteredAssets.length})
                                         </div>
                                         {shownFilteredAssets.length === 0 ? (
                                             <div className="p-8 text-center text-muted text-[12px]">
@@ -629,10 +626,6 @@ export const QuickSearchDropdown = () => {
                                         {recentAssets.length > 0 && (
                                             <>
                                                 <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20">
-                                                    <Clock
-                                                        size={10}
-                                                        className="text-muted"
-                                                    />
                                                     <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
                                                         Recently Viewed
                                                     </span>
@@ -646,12 +639,9 @@ export const QuickSearchDropdown = () => {
                                                             asset.id
                                                         }
                                                         onClick={() =>
-                                                            handleSelect(asset.id)
-                                                        }
-                                                        badge={
-                                                            <span className="text-[8px] text-muted bg-secondary px-1 py-0.5 rounded">
-                                                                recent
-                                                            </span>
+                                                            handleSelect(
+                                                                asset.id,
+                                                            )
                                                         }
                                                     />
                                                 ))}
@@ -659,10 +649,6 @@ export const QuickSearchDropdown = () => {
                                         )}
 
                                         <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20 border-t border-main">
-                                            <Flame
-                                                size={10}
-                                                className="text-orange-400"
-                                            />
                                             <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
                                                 Top Movers
                                             </span>
@@ -676,23 +662,6 @@ export const QuickSearchDropdown = () => {
                                                 }
                                                 onClick={() =>
                                                     handleSelect(asset.id)
-                                                }
-                                                badge={
-                                                    <span
-                                                        className={cn(
-                                                            "text-[8px] font-bold px-1 py-0.5 rounded",
-                                                            asset.changePercent >=
-                                                                0
-                                                                ? "text-emerald-500 bg-emerald-500/10"
-                                                                : "text-rose-500 bg-rose-500/10",
-                                                        )}
-                                                    >
-                                                        {asset.changePercent >= 0
-                                                            ? "+"
-                                                            : ""}
-                                                        {asset.changePercent.toFixed(1)}
-                                                        %
-                                                    </span>
                                                 }
                                             />
                                         ))}

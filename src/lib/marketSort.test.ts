@@ -25,6 +25,12 @@ function row(
         sentiment: "Neutral",
         trend: "flat",
         sparkline7d: [],
+        exchange: "-",
+        sector: "-",
+        high: 0,
+        low: 0,
+        baseVolume: 0,
+        indexMembership: [],
     };
 }
 
