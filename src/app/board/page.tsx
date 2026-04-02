@@ -36,6 +36,7 @@ import { useUniverse } from "../../context/UniverseContext";
 import { useAppSettings } from "../../context/AppSettingsContext";
 import { useMarket } from "../../context/MarketContext";
 import { useDnseBoardStream } from "../../hooks/useDnseBoardStream";
+import { useVietcapBoardSnapshot } from "../../hooks/useVietcapBoardSnapshot";
 
 type BoardStockRow = {
     id: string;
@@ -46,6 +47,7 @@ type BoardStockRow = {
     indexMembership: string[];
     ceiling: number;
     floor: number;
+    tc: number;
     ref: number;
     buy: { price: number; vol: string }[];
     match: { price: number; vol: string; change: number; percent: number };
@@ -197,8 +199,8 @@ type CellFlashState = {
 
 const INDEX_NAMES = ["VNINDEX", "VN30", "HNX30", "VNXALL", "HNXINDEX", "UPCOM"];
 const INITIAL_COL_WIDTHS = [
-    90, 64, 64, 64, 64, 84, 64, 84, 64, 84, 64, 84, 64, 72, 64, 84, 64, 84, 64,
-    84, 112, 64, 64, 110, 110, 130,
+    70, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 64, 60, 60, 60, 60,
+    70, 90, 64, 64, 86, 86, 100,
 ];
 
 const EMPTY_BOARD_PLACEHOLDER: BoardStockRow = {
@@ -208,28 +210,34 @@ const EMPTY_BOARD_PLACEHOLDER: BoardStockRow = {
     logoUrl: undefined,
     exchange: undefined,
     indexMembership: [],
-    ceiling: 0,
-    floor: 0,
-    ref: 0,
+    ceiling: Number.NaN,
+    floor: Number.NaN,
+    tc: Number.NaN,
+    ref: Number.NaN,
     buy: [
-        { price: 0, vol: "0" },
-        { price: 0, vol: "0" },
-        { price: 0, vol: "0" },
+        { price: Number.NaN, vol: "" },
+        { price: Number.NaN, vol: "" },
+        { price: Number.NaN, vol: "" },
     ],
-    match: { price: 0, vol: "0", change: 0, percent: 0 },
+    match: {
+        price: Number.NaN,
+        vol: "",
+        change: Number.NaN,
+        percent: Number.NaN,
+    },
     sell: [
-        { price: 0, vol: "0" },
-        { price: 0, vol: "0" },
-        { price: 0, vol: "0" },
+        { price: Number.NaN, vol: "" },
+        { price: Number.NaN, vol: "" },
+        { price: Number.NaN, vol: "" },
     ],
-    totalVol: "0",
-    high: 0,
-    low: 0,
-    foreign: { buy: "0", sell: "0", room: "0" },
+    totalVol: "",
+    high: Number.NaN,
+    low: Number.NaN,
+    foreign: { buy: "", sell: "", room: "" },
 };
 
-const INDICES: IndexData[] = INDEX_NAMES.map((name) => ({
-    name,
+const EMPTY_INDEX_STATS: IndexData = {
+    name: "",
     value: 0,
     change: 0,
     vol: "0",
@@ -237,7 +245,7 @@ const INDICES: IndexData[] = INDEX_NAMES.map((name) => ({
     up: 0,
     ref: 0,
     down: 0,
-}));
+};
 
 const BOARD_CELL_FLASH_MS = 900;
 
@@ -251,8 +259,27 @@ const FLASH_BG_CLASS_BY_TONE: Record<CellFlashTone, string> = {
 };
 
 function formatBoardVolume(value: number | undefined): string {
-    const safe = Number.isFinite(value) ? Math.max(0, value ?? 0) : 0;
+    if (!Number.isFinite(value)) return "";
+    const safe = Math.max(0, value ?? 0);
     return Math.round(safe).toLocaleString("en-US");
+}
+
+function formatBoardPriceDisplay(value: number): string {
+    return Number.isFinite(value) ? (value / 1000).toFixed(2) : "";
+}
+
+function formatBoardSignedPriceDisplay(value: number): string {
+    if (!Number.isFinite(value)) return "";
+    const scaled = value / 1000;
+    return `${scaled >= 0 ? "+" : ""}${scaled.toFixed(2)}`;
+}
+
+function formatBoardPercentDisplay(value: number): string {
+    return Number.isFinite(value) ? `${value.toFixed(2)}%` : "";
+}
+
+function formatBoardStringDisplay(value: string): string {
+    return value;
 }
 
 function getPriceTone(
@@ -293,14 +320,14 @@ function ColorText({
     const tone = getPriceTone(value, refVal, ceiling, floor);
     const color =
         tone === "fuchsia"
-            ? "text-fuchsia-500"
+            ? "text-[#c05af2]"
             : tone === "cyan"
               ? "text-cyan-500"
               : tone === "emerald"
-                ? "text-emerald-500"
+                ? "text-[#32d74b]"
                 : tone === "rose"
-                  ? "text-rose-500"
-                  : "text-amber-500";
+                  ? "text-[#ff2727]"
+                  : "text-[#ffbe0c]";
 
     return <span className={cn(color, className)}>{children}</span>;
 }
@@ -338,13 +365,15 @@ function MiniChart({
     }, []);
 
     const isPositive = stats.change >= 0;
-    const percent = (
-        (stats.change / (stats.value - stats.change)) *
-        100
-    ).toFixed(2);
+    const changeText = `${isPositive ? "+" : ""}${stats.change.toFixed(2)}`;
+    const rawPercent =
+        stats.value - stats.change !== 0
+            ? (stats.change / (stats.value - stats.change)) * 100
+            : 0;
+    const percentText = `${rawPercent >= 0 ? "+" : ""}${rawPercent.toFixed(2)}%`;
 
     return (
-        <div className="flex-1 min-w-[280px] min-h-[180px] min-w-0 border border-main bg-secondary rounded-sm p-2">
+        <div className="flex-1 min-w-[240px] min-h-[160px] min-w-0 border border-main bg-secondary rounded-sm p-2">
             <div className="mb-2 flex items-start justify-between gap-2">
                 <div>
                     <div className="flex items-center gap-1 text-[11px] font-semibold text-main">
@@ -357,9 +386,27 @@ function MiniChart({
                             isPositive ? "text-emerald-500" : "text-rose-500",
                         )}
                     >
-                        {stats.value.toLocaleString()} (
-                        {isPositive ? `+${stats.change}` : stats.change}{" "}
-                        {percent}%)
+                        {stats.value.toLocaleString()}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-[11px] font-semibold">
+                        <span
+                            className={cn(
+                                isPositive
+                                    ? "text-emerald-500"
+                                    : "text-rose-500",
+                            )}
+                        >
+                            {changeText}
+                        </span>
+                        <span
+                            className={cn(
+                                rawPercent >= 0
+                                    ? "text-emerald-500"
+                                    : "text-rose-500",
+                            )}
+                        >
+                            {percentText}
+                        </span>
                     </div>
                     <div className="text-[10px] text-muted">
                         {stats.vol} CP <span className="mx-1">|</span>{" "}
@@ -501,6 +548,7 @@ export default function BoardPage() {
             VNINDEX: generateChartData(50, 0),
             VN30: generateChartData(50, 0),
             HNX30: generateChartData(50, 0),
+            VNXALL: generateChartData(50, 0),
             HNXINDEX: generateChartData(50, 0),
         }),
         [],
@@ -510,7 +558,7 @@ export default function BoardPage() {
     const getRowClassName = useCallback(
         (index: number) =>
             cn(
-                "border-b border-main transition-colors hover:!bg-accent/20",
+                "border-b border-main transition-colors hover:!bg-accent/15",
                 index % 2 === 0
                     ? "bg-main"
                     : isLight
@@ -560,41 +608,6 @@ export default function BoardPage() {
     const q = search.trim().toLowerCase();
     const normalizedTab = activeTab.trim().toUpperCase();
 
-    const filteredAssets = useMemo(
-        () =>
-            assets.filter((asset) => {
-                const symbol = asset.symbol.toLowerCase();
-                const name = asset.name.toLowerCase();
-                const id = asset.id.toLowerCase();
-                const searchMatched = q
-                    ? symbol.includes(q) || name.includes(q) || id.includes(q)
-                    : true;
-                if (!searchMatched) return false;
-
-                const exchange = (asset.stockProfile?.exchange ?? "")
-                    .trim()
-                    .toUpperCase();
-                const indexes = (asset.stockProfile?.indexMembership ?? []).map(
-                    (idx) => idx.trim().toUpperCase(),
-                );
-
-                if (normalizedTab === "VN30") return indexes.includes("VN30");
-                if (normalizedTab === "HNX30") return indexes.includes("HNX30");
-                if (normalizedTab === "HOSE")
-                    return (
-                        exchange.includes("HOSE") ||
-                        exchange.includes("HSX") ||
-                        exchange === "VN"
-                    );
-                if (normalizedTab === "HNX") return exchange.includes("HNX");
-                if (normalizedTab === "UPCOM")
-                    return exchange.includes("UPCOM");
-
-                return true;
-            }),
-        [assets, normalizedTab, q],
-    );
-
     const streamBoards = useMemo(() => {
         if (normalizedTab === "HNX" || normalizedTab === "HNX30") {
             return ["G2"];
@@ -607,87 +620,242 @@ export default function BoardPage() {
         }
         return ["G1", "G2", "G3"];
     }, [normalizedTab]);
+    const vietcapSnapshotGroups = useMemo(
+        () => ["VN30", "HNX30", "HOSE", "HNX", "UPCOM"],
+        [],
+    );
+
+    const {
+        snapshotBySymbol: vietcapSnapshotBySymbol,
+        groupsBySymbol: vietcapGroupsBySymbol,
+        count: vietcapSnapshotCount,
+        isLoading: isVietcapSnapshotLoading,
+        error: vietcapSnapshotError,
+    } = useVietcapBoardSnapshot({
+        enabled: universe === "stock",
+        groups: vietcapSnapshotGroups,
+        refreshIntervalMs: 45_000,
+    });
+
+    const assetBySymbol = useMemo(() => {
+        const out = new Map<string, (typeof assets)[number]>();
+        assets.forEach((asset) => {
+            const symbol = asset.symbol.trim().toUpperCase();
+            if (symbol) out.set(symbol, asset);
+        });
+        return out;
+    }, [assets]);
+
+    const filteredSymbols = useMemo(() => {
+        const symbols = Object.keys(vietcapSnapshotBySymbol).map((s) =>
+            s.trim().toUpperCase(),
+        );
+        const tabGroups = new Set(["VN30", "HNX30", "HOSE", "HNX", "UPCOM"]);
+
+        return symbols.filter((symbol) => {
+            const snapshot = vietcapSnapshotBySymbol[symbol];
+            const asset = assetBySymbol.get(symbol);
+            const name = (
+                snapshot?.companyName ||
+                asset?.name ||
+                symbol
+            ).toLowerCase();
+            const id = (asset?.id || symbol).toLowerCase();
+            const searchMatched = q
+                ? symbol.toLowerCase().includes(q) ||
+                  name.includes(q) ||
+                  id.includes(q)
+                : true;
+            if (!searchMatched) return false;
+
+            if (!tabGroups.has(normalizedTab)) return true;
+            const groups = (vietcapGroupsBySymbol[symbol] || []).map((g) =>
+                g.trim().toUpperCase(),
+            );
+            return groups.includes(normalizedTab);
+        });
+    }, [
+        assetBySymbol,
+        normalizedTab,
+        q,
+        vietcapGroupsBySymbol,
+        vietcapSnapshotBySymbol,
+    ]);
 
     const streamSymbols = useMemo(
-        () =>
-            filteredAssets
-                .map((asset) => asset.symbol.trim().toUpperCase())
-                .filter(Boolean),
-        [filteredAssets],
+        () => filteredSymbols.filter(Boolean),
+        [filteredSymbols],
     );
 
     const {
         status: streamStatus,
         error: streamError,
         dataBySymbol,
+        dataByMarketIndex,
         isTruncated,
     } = useDnseBoardStream(streamSymbols, {
         board: streamBoards[0] ?? "G1",
         boards: streamBoards,
         marketIndex: "VNINDEX",
+        marketIndexes: INDEX_NAMES,
         resolution: "1",
     });
 
+    const indexRows = useMemo<IndexData[]>(
+        () =>
+            INDEX_NAMES.map((name) => {
+                const stream = dataByMarketIndex[name];
+                const value = Number.isFinite(stream?.value)
+                    ? stream!.value!
+                    : 0;
+                const change = Number.isFinite(stream?.changedValue)
+                    ? stream!.changedValue!
+                    : 0;
+                const volRaw = Number.isFinite(stream?.totalVolumeTraded)
+                    ? stream!.totalVolumeTraded!
+                    : 0;
+                const valueTRaw = Number.isFinite(stream?.grossTradeAmount)
+                    ? stream!.grossTradeAmount!
+                    : 0;
+                return {
+                    name,
+                    value,
+                    change,
+                    vol: Math.round(volRaw).toLocaleString("en-US"),
+                    valueT: valueTRaw.toLocaleString("en-US", {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2,
+                    }),
+                    up: Number.isFinite(stream?.upCount)
+                        ? Math.round(stream!.upCount!)
+                        : 0,
+                    ref: Number.isFinite(stream?.refCount)
+                        ? Math.round(stream!.refCount!)
+                        : 0,
+                    down: Number.isFinite(stream?.downCount)
+                        ? Math.round(stream!.downCount!)
+                        : 0,
+                };
+            }),
+        [dataByMarketIndex],
+    );
+    const indexByName = useMemo(
+        () => Object.fromEntries(indexRows.map((row) => [row.name, row])),
+        [indexRows],
+    );
+
     const boardRows = useMemo<BoardStockRow[]>(
         () =>
-            filteredAssets.map((asset) => {
-                const symbol = asset.symbol.trim().toUpperCase();
+            filteredSymbols.map((symbol) => {
+                const asset = assetBySymbol.get(symbol);
                 const stream = dataBySymbol[symbol];
-                const price = Number.isFinite(asset.price) ? asset.price : 0;
-                const change = Number.isFinite(asset.change) ? asset.change : 0;
-                const ref = stream?.ref ?? Math.max(0, price - change);
-                const mkQty = Number.isFinite(asset.baseVolume)
-                    ? asset.baseVolume
-                    : 0;
-                const matchPrice = stream?.price ?? price;
-                const matchChange = ref > 0 ? matchPrice - ref : 0;
-                const matchPercent = ref > 0 ? (matchChange / ref) * 100 : 0;
+                const snapshot = vietcapSnapshotBySymbol[symbol];
+                const price = Number.isFinite(asset?.price)
+                    ? asset!.price
+                    : Number.NaN;
+                const change = Number.isFinite(asset?.change)
+                    ? asset!.change
+                    : Number.NaN;
+                const ref =
+                    stream?.ref ??
+                    snapshot?.ref ??
+                    (Number.isFinite(price) && Number.isFinite(change)
+                        ? Math.max(0, price - change)
+                        : Number.NaN);
+                const tc = ref;
+                const mkQty = Number.isFinite(asset?.baseVolume)
+                    ? asset!.baseVolume
+                    : undefined;
+                const matchPrice = stream?.price ?? snapshot?.price ?? price;
+                const matchChange =
+                    Number.isFinite(ref) && Number.isFinite(matchPrice)
+                        ? matchPrice - ref
+                        : Number.NaN;
+                const matchPercent =
+                    Number.isFinite(ref) &&
+                    ref > 0 &&
+                    Number.isFinite(matchChange)
+                        ? (matchChange / ref) * 100
+                        : Number.NaN;
 
                 const buy = Array.from({ length: 3 }, (_, idx) => {
-                    const level = stream?.bid?.[2 - idx];
+                    const level =
+                        stream?.bid?.[2 - idx] ?? snapshot?.bid?.[2 - idx];
                     return {
-                        price: level?.price ?? 0,
+                        price: level?.price ?? Number.NaN,
                         vol: formatBoardVolume(level?.quantity),
                     };
                 });
                 const sell = Array.from({ length: 3 }, (_, idx) => {
-                    const level = stream?.offer?.[idx];
+                    const level =
+                        stream?.offer?.[idx] ?? snapshot?.offer?.[idx];
                     return {
-                        price: level?.price ?? 0,
+                        price: level?.price ?? Number.NaN,
                         vol: formatBoardVolume(level?.quantity),
                     };
                 });
                 return {
-                    id: asset.id,
-                    ticker: asset.symbol,
-                    name: asset.name || asset.symbol,
-                    logoUrl: asset.logoUrl,
-                    exchange: asset.stockProfile?.exchange,
-                    indexMembership: asset.stockProfile?.indexMembership ?? [],
-                    ceiling: stream?.ceiling ?? 0,
-                    floor: stream?.floor ?? 0,
+                    id: asset?.id || symbol,
+                    ticker: symbol,
+                    name: snapshot?.companyName || asset?.name || symbol,
+                    logoUrl:
+                        asset?.logoUrl ||
+                        `/stock/image/${encodeURIComponent(symbol)}`,
+                    exchange:
+                        snapshot?.exchange ?? asset?.stockProfile?.exchange,
+                    indexMembership:
+                        vietcapGroupsBySymbol[symbol] ||
+                        asset?.stockProfile?.indexMembership ||
+                        [],
+                    ceiling: stream?.ceiling ?? snapshot?.ceiling ?? Number.NaN,
+                    floor: stream?.floor ?? snapshot?.floor ?? Number.NaN,
+                    tc,
                     ref,
                     buy,
                     match: {
                         price: matchPrice,
-                        vol: formatBoardVolume(stream?.quantity ?? mkQty),
-                        change: Number.isFinite(matchChange) ? matchChange : 0,
+                        vol: formatBoardVolume(
+                            stream?.quantity ?? snapshot?.quantity ?? mkQty,
+                        ),
+                        change: Number.isFinite(matchChange)
+                            ? matchChange
+                            : Number.NaN,
                         percent: Number.isFinite(matchPercent)
                             ? matchPercent
-                            : 0,
+                            : Number.NaN,
                     },
                     sell,
-                    totalVol: formatBoardVolume(stream?.totalVolumeTraded ?? mkQty),
+                    totalVol: formatBoardVolume(
+                        stream?.totalVolumeTraded ??
+                            snapshot?.totalVolumeTraded ??
+                            mkQty,
+                    ),
                     high:
                         stream?.highestPrice ??
-                        (Number.isFinite(asset.high24h) ? asset.high24h : 0),
+                        snapshot?.highestPrice ??
+                        (Number.isFinite(asset?.high24h)
+                            ? asset!.high24h
+                            : Number.NaN),
                     low:
                         stream?.lowestPrice ??
-                        (Number.isFinite(asset.low24h) ? asset.low24h : 0),
-                    foreign: { buy: "0", sell: "0", room: "0" },
+                        snapshot?.lowestPrice ??
+                        (Number.isFinite(asset?.low24h)
+                            ? asset!.low24h
+                            : Number.NaN),
+                    foreign: {
+                        buy: formatBoardVolume(snapshot?.foreignBuy),
+                        sell: formatBoardVolume(snapshot?.foreignSell),
+                        room: formatBoardVolume(snapshot?.foreignRoom),
+                    },
                 };
             }),
-        [dataBySymbol, filteredAssets],
+        [
+            assetBySymbol,
+            dataBySymbol,
+            filteredSymbols,
+            vietcapGroupsBySymbol,
+            vietcapSnapshotBySymbol,
+        ],
     );
 
     const rowsForTable = useMemo(() => {
@@ -722,7 +890,7 @@ export default function BoardPage() {
                     value: row.floor,
                     tone: "cyan",
                 },
-                { key: `${row.id}:ref`, value: row.ref, tone: "amber" },
+                { key: `${row.id}:ref`, value: row.tc, tone: "amber" },
                 {
                     key: `${row.id}:matchPrice`,
                     value: row.match.price,
@@ -736,7 +904,12 @@ export default function BoardPage() {
                 {
                     key: `${row.id}:matchVol`,
                     value: row.match.vol,
-                    tone: "emerald",
+                    tone: getPriceTone(
+                        row.match.price,
+                        row.ref,
+                        row.ceiling,
+                        row.floor,
+                    ),
                 },
                 {
                     key: `${row.id}:matchChange`,
@@ -777,7 +950,12 @@ export default function BoardPage() {
                     {
                         key: `${row.id}:buy${i}Vol`,
                         value: buy?.vol ?? "0",
-                        tone: "emerald",
+                        tone: getPriceTone(
+                            buy?.price ?? 0,
+                            row.ref,
+                            row.ceiling,
+                            row.floor,
+                        ),
                     },
                     {
                         key: `${row.id}:sell${i}Price`,
@@ -792,7 +970,12 @@ export default function BoardPage() {
                     {
                         key: `${row.id}:sell${i}Vol`,
                         value: sell?.vol ?? "0",
-                        tone: "rose",
+                        tone: getPriceTone(
+                            sell?.price ?? 0,
+                            row.ref,
+                            row.ceiling,
+                            row.floor,
+                        ),
                     },
                 );
             }
@@ -809,7 +992,7 @@ export default function BoardPage() {
         for (const cell of rowCellSnapshots) {
             const prevValue = prev[cell.key];
             nextValues[cell.key] = cell.value;
-            if (prevValue !== undefined && prevValue !== cell.value) {
+            if (prevValue !== undefined && !Object.is(prevValue, cell.value)) {
                 updates[cell.key] = {
                     until: now + BOARD_CELL_FLASH_MS,
                     tone: cell.tone,
@@ -913,10 +1096,22 @@ export default function BoardPage() {
               : "border-amber-500/30 bg-amber-500/10 text-amber-500";
     const streamStatusLabel =
         streamStatus === "connected"
-            ? "DNSE: connected"
+            ? "Socket: connected"
             : streamStatus === "error"
-              ? "DNSE: error"
-              : "DNSE: connecting";
+              ? "Socket: error"
+              : "Socket: connecting";
+    const snapshotStatusClass =
+        isVietcapSnapshotLoading && vietcapSnapshotCount === 0
+            ? "border-amber-500/30 bg-amber-500/10 text-amber-500"
+            : vietcapSnapshotError
+              ? "border-rose-500/30 bg-rose-500/10 text-rose-500"
+              : "border-sky-500/30 bg-sky-500/10 text-sky-500";
+    const snapshotStatusLabel =
+        isVietcapSnapshotLoading && vietcapSnapshotCount === 0
+            ? "Vietcap snapshot: loading"
+            : vietcapSnapshotError
+              ? "Vietcap snapshot: error"
+              : `Vietcap snapshot: ${vietcapSnapshotCount} mã`;
 
     return (
         <div className="flex h-screen w-full flex-col overflow-hidden bg-main text-main">
@@ -966,25 +1161,25 @@ export default function BoardPage() {
                             data={chartData.VNINDEX}
                             color="#10b981"
                             title="VNINDEX"
-                            stats={INDICES[0]}
+                            stats={indexByName.VNINDEX ?? EMPTY_INDEX_STATS}
                         />
                         <MiniChart
                             data={chartData.VN30}
                             color="#10b981"
                             title="VN30"
-                            stats={INDICES[1]}
+                            stats={indexByName.VN30 ?? EMPTY_INDEX_STATS}
                         />
                         <MiniChart
                             data={chartData.HNX30}
                             color="#10b981"
                             title="HNX30"
-                            stats={INDICES[2]}
+                            stats={indexByName.HNX30 ?? EMPTY_INDEX_STATS}
                         />
                         <MiniChart
-                            data={chartData.HNXINDEX}
+                            data={chartData.VNXALL}
                             color="#10b981"
-                            title="HNXINDEX"
-                            stats={INDICES[4]}
+                            title="VNXALL"
+                            stats={indexByName.VNXALL ?? EMPTY_INDEX_STATS}
                         />
 
                         <div className="w-[360px] shrink-0 rounded-sm border border-main bg-secondary p-2">
@@ -1012,7 +1207,7 @@ export default function BoardPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {INDICES.map((idx) => (
+                                    {indexRows.map((idx) => (
                                         <tr
                                             key={idx.name}
                                             className="border-b border-main hover:bg-main/20"
@@ -1038,9 +1233,9 @@ export default function BoardPage() {
                                                         : "text-rose-500",
                                                 )}
                                             >
-                                                {idx.change >= 0
-                                                    ? `+${idx.change}`
-                                                    : idx.change}
+                                                {formatBoardSignedPriceDisplay(
+                                                    idx.change,
+                                                )}
                                             </td>
                                             <td className="p-1 text-right">
                                                 {idx.vol}
@@ -1130,16 +1325,6 @@ export default function BoardPage() {
                                 >
                                     {streamStatusLabel}
                                 </span>
-                                {isTruncated ? (
-                                    <span className="rounded-sm border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-500">
-                                        Limit stream 300 mã
-                                    </span>
-                                ) : null}
-                                {streamError ? (
-                                    <span className="max-w-[220px] truncate rounded-sm border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-500">
-                                        {streamError}
-                                    </span>
-                                ) : null}
                             </div>
                             <button
                                 onClick={toggleTheme}
@@ -1198,7 +1383,7 @@ export default function BoardPage() {
                                     <th
                                         rowSpan={2}
                                         className={cn(
-                                            "relative border-r border-b border-main p-2 text-fuchsia-500",
+                                            "relative border-r border-b border-main p-2",
                                             sortableHeaderClass,
                                         )}
                                         onClick={headerSortClick("ceiling")}
@@ -1217,7 +1402,7 @@ export default function BoardPage() {
                                     <th
                                         rowSpan={2}
                                         className={cn(
-                                            "relative border-r border-b border-main p-2 text-cyan-500",
+                                            "relative border-r border-b border-main p-2",
                                             sortableHeaderClass,
                                         )}
                                         onClick={headerSortClick("floor")}
@@ -1236,7 +1421,7 @@ export default function BoardPage() {
                                     <th
                                         rowSpan={2}
                                         className={cn(
-                                            "relative border-r border-b border-main p-2 text-amber-500",
+                                            "relative border-r border-b border-main p-2",
                                             sortableHeaderClass,
                                         )}
                                         onClick={headerSortClick("ref")}
@@ -1693,7 +1878,8 @@ export default function BoardPage() {
                                                   <td
                                                       className={cn(
                                                           "border-r border-main p-2 font-semibold",
-                                                          stock.id !== "EMPTY" &&
+                                                          stock.id !==
+                                                              "EMPTY" &&
                                                               "cursor-pointer hover:bg-accent/15",
                                                       )}
                                                       onClick={() =>
@@ -1726,33 +1912,39 @@ export default function BoardPage() {
                                                   </td>
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-2 text-right text-fuchsia-500",
+                                                          "border-r border-main p-2 text-right text-fuchsia-500 bg-slate-500/10",
                                                           flashClass(
                                                               `${rowKey}:ceiling`,
                                                           ),
                                                       )}
                                                   >
-                                                      {stock.ceiling.toFixed(2)}
+                                                      {formatBoardPriceDisplay(
+                                                          stock.ceiling,
+                                                      )}
                                                   </td>
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-2 text-right text-cyan-500",
+                                                          "border-r border-main p-2 text-right text-cyan-500 bg-slate-500/10",
                                                           flashClass(
                                                               `${rowKey}:floor`,
                                                           ),
                                                       )}
                                                   >
-                                                      {stock.floor.toFixed(2)}
+                                                      {formatBoardPriceDisplay(
+                                                          stock.floor,
+                                                      )}
                                                   </td>
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-2 text-right text-amber-500",
+                                                          "border-r border-main p-2 text-right text-amber-500 bg-slate-500/10",
                                                           flashClass(
                                                               `${rowKey}:ref`,
                                                           ),
                                                       )}
                                                   >
-                                                      {stock.ref.toFixed(2)}
+                                                      {formatBoardPriceDisplay(
+                                                          stock.tc,
+                                                      )}
                                                   </td>
 
                                                   {stock.buy.map((b, i) => {
@@ -1791,20 +1983,44 @@ export default function BoardPage() {
                                                                               : undefined
                                                                       }
                                                                   >
-                                                                      {b.price.toFixed(
-                                                                          2,
+                                                                      {formatBoardPriceDisplay(
+                                                                          b.price,
                                                                       )}
                                                                   </ColorText>
                                                               </td>
                                                               <td
                                                                   className={cn(
-                                                                      "border-r border-main p-1 text-right font-semibold text-emerald-500",
+                                                                      "border-r border-main p-1 text-right",
                                                                       flashClass(
                                                                           volKey,
                                                                       ),
                                                                   )}
                                                               >
-                                                                  {b.vol}
+                                                                  <ColorText
+                                                                      value={
+                                                                          b.price
+                                                                      }
+                                                                      refVal={
+                                                                          stock.ref
+                                                                      }
+                                                                      ceiling={
+                                                                          stock.ceiling
+                                                                      }
+                                                                      floor={
+                                                                          stock.floor
+                                                                      }
+                                                                      className={cn(
+                                                                          "font-semibold",
+                                                                          isFlashing(
+                                                                              volKey,
+                                                                          ) &&
+                                                                              "!text-white",
+                                                                      )}
+                                                                  >
+                                                                      {formatBoardStringDisplay(
+                                                                          b.vol,
+                                                                      )}
+                                                                  </ColorText>
                                                               </td>
                                                           </React.Fragment>
                                                       );
@@ -1812,7 +2028,7 @@ export default function BoardPage() {
 
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-1 text-right",
+                                                          "border-r border-main p-1 text-right bg-slate-500/10",
                                                           flashClass(
                                                               `${rowKey}:matchPrice`,
                                                           ),
@@ -1823,61 +2039,96 @@ export default function BoardPage() {
                                                               stock.match.price
                                                           }
                                                           refVal={stock.ref}
-                                                          ceiling={stock.ceiling}
+                                                          ceiling={
+                                                              stock.ceiling
+                                                          }
                                                           floor={stock.floor}
                                                           className={cn(
                                                               "font-semibold",
                                                               isFlashing(
                                                                   `${rowKey}:matchPrice`,
-                                                              ) && "!text-white",
+                                                              ) &&
+                                                                  "!text-white",
                                                           )}
                                                       >
-                                                          {stock.match.price.toFixed(
-                                                              2,
+                                                          {formatBoardPriceDisplay(
+                                                              stock.match.price,
                                                           )}
                                                       </ColorText>
                                                   </td>
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-1 text-right font-semibold text-emerald-500",
+                                                          "border-r border-main p-1 text-right bg-slate-500/10",
                                                           flashClass(
                                                               `${rowKey}:matchVol`,
                                                           ),
                                                       )}
                                                   >
-                                                      {stock.match.vol}
+                                                      <ColorText
+                                                          value={
+                                                              stock.match.price
+                                                          }
+                                                          refVal={stock.ref}
+                                                          ceiling={
+                                                              stock.ceiling
+                                                          }
+                                                          floor={stock.floor}
+                                                          className={cn(
+                                                              "font-semibold",
+                                                              isFlashing(
+                                                                  `${rowKey}:matchVol`,
+                                                              ) &&
+                                                                  "!text-white",
+                                                          )}
+                                                      >
+                                                          {formatBoardStringDisplay(
+                                                              stock.match.vol,
+                                                          )}
+                                                      </ColorText>
                                                   </td>
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-1 text-right",
-                                                          stock.match.change >= 0
-                                                              ? "text-emerald-500"
-                                                              : "text-rose-500",
+                                                          "border-r border-main p-1 text-right bg-slate-500/10",
+                                                          !Number.isFinite(
+                                                              stock.match
+                                                                  .change,
+                                                          )
+                                                              ? "text-muted"
+                                                              : stock.match
+                                                                      .change >=
+                                                                  0
+                                                                ? "text-emerald-500"
+                                                                : "text-rose-500",
                                                           flashClass(
                                                               `${rowKey}:matchChange`,
                                                           ),
                                                       )}
                                                   >
-                                                      {stock.match.change.toFixed(
-                                                          2,
+                                                      {formatBoardPriceDisplay(
+                                                          stock.match.change,
                                                       )}
                                                   </td>
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-1 text-right",
-                                                          stock.match.percent >=
-                                                              0
-                                                              ? "text-emerald-500"
-                                                              : "text-rose-500",
+                                                          "border-r border-main p-1 text-right bg-slate-500/10",
+                                                          !Number.isFinite(
+                                                              stock.match
+                                                                  .percent,
+                                                          )
+                                                              ? "text-muted"
+                                                              : stock.match
+                                                                      .percent >=
+                                                                  0
+                                                                ? "text-emerald-500"
+                                                                : "text-rose-500",
                                                           flashClass(
                                                               `${rowKey}:matchPercent`,
                                                           ),
                                                       )}
                                                   >
-                                                      {stock.match.percent.toFixed(
-                                                          2,
+                                                      {formatBoardPercentDisplay(
+                                                          stock.match.percent,
                                                       )}
-                                                      %
                                                   </td>
 
                                                   {stock.sell.map((s, i) => {
@@ -1916,20 +2167,44 @@ export default function BoardPage() {
                                                                               : undefined
                                                                       }
                                                                   >
-                                                                      {s.price.toFixed(
-                                                                          2,
+                                                                      {formatBoardPriceDisplay(
+                                                                          s.price,
                                                                       )}
                                                                   </ColorText>
                                                               </td>
                                                               <td
                                                                   className={cn(
-                                                                      "border-r border-main p-1 text-right font-semibold text-rose-500",
+                                                                      "border-r border-main p-1 text-right",
                                                                       flashClass(
                                                                           volKey,
                                                                       ),
                                                                   )}
                                                               >
-                                                                  {s.vol}
+                                                                  <ColorText
+                                                                      value={
+                                                                          s.price
+                                                                      }
+                                                                      refVal={
+                                                                          stock.ref
+                                                                      }
+                                                                      ceiling={
+                                                                          stock.ceiling
+                                                                      }
+                                                                      floor={
+                                                                          stock.floor
+                                                                      }
+                                                                      className={cn(
+                                                                          "font-semibold",
+                                                                          isFlashing(
+                                                                              volKey,
+                                                                          ) &&
+                                                                              "!text-white",
+                                                                      )}
+                                                                  >
+                                                                      {formatBoardStringDisplay(
+                                                                          s.vol,
+                                                                      )}
+                                                                  </ColorText>
                                                               </td>
                                                           </React.Fragment>
                                                       );
@@ -1937,50 +2212,67 @@ export default function BoardPage() {
 
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-2 text-right",
+                                                          "border-r border-main p-2 text-right bg-slate-500/10",
                                                           flashClass(
                                                               `${rowKey}:totalVol`,
                                                           ),
                                                       )}
                                                   >
-                                                      {stock.totalVol}
+                                                      {formatBoardStringDisplay(
+                                                          stock.totalVol,
+                                                      )}
                                                   </td>
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-2 text-right text-emerald-500",
+                                                          "border-r border-main p-2 text-right text-emerald-500 bg-slate-500/10",
                                                           flashClass(
                                                               `${rowKey}:high`,
                                                           ),
                                                       )}
                                                   >
-                                                      {stock.high.toFixed(2)}
+                                                      {formatBoardPriceDisplay(
+                                                          stock.high,
+                                                      )}
                                                   </td>
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-2 text-right text-amber-500",
+                                                          "border-r border-main p-2 text-right text-amber-500 bg-slate-500/10",
                                                           flashClass(
                                                               `${rowKey}:low`,
                                                           ),
                                                       )}
                                                   >
-                                                      {stock.low.toFixed(2)}
+                                                      {formatBoardPriceDisplay(
+                                                          stock.low,
+                                                      )}
                                                   </td>
 
                                                   <td className="border-r border-main p-1 text-right">
-                                                      {stock.foreign.buy}
+                                                      {formatBoardStringDisplay(
+                                                          stock.foreign.buy,
+                                                      )}
                                                   </td>
                                                   <td className="border-r border-main p-1 text-right">
-                                                      {stock.foreign.sell}
+                                                      {formatBoardStringDisplay(
+                                                          stock.foreign.sell,
+                                                      )}
                                                   </td>
                                                   <td className="p-1 text-right">
-                                                      {stock.foreign.room ||
-                                                          "--"}
+                                                      {formatBoardStringDisplay(
+                                                          stock.foreign.room,
+                                                      ) || "--"}
                                                   </td>
                                               </tr>
                                           );
                                       })}
                             </tbody>
                         </table>
+                        <div className="border-b border-main bg-main/70 px-2 py-1 text-center">
+                            <p className="text-[10px] text-muted">
+                                Thank you DNSE Socket + Vietcap Snapshot - Cơ
+                                sở: Giá: x1,000 - Khối lượng: x1
+                            </p>
+                        </div>
                     </div>
 
                     <TickerBar />

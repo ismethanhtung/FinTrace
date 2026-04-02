@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { useAppSettings } from "../context/AppSettingsContext";
+import { AppTheme, useAppSettings } from "../context/AppSettingsContext";
 import { useUniverse } from "../context/UniverseContext";
+import type { AssetUniverse } from "../lib/marketUniverse";
 
 export function MarketHeatmap({ className }: { className?: string }) {
     const { theme } = useAppSettings();
@@ -22,12 +23,25 @@ export function MarketHeatmap({ className }: { className?: string }) {
     );
 }
 
-function HeatmapInner({ universe, theme, className }: any) {
+type TradingViewTheme = "light" | "dark";
+
+interface HeatmapInnerProps {
+    universe: AssetUniverse;
+    theme: AppTheme;
+    className?: string;
+}
+
+function toTradingViewTheme(theme: AppTheme): TradingViewTheme {
+    return theme === "light" ? "light" : "dark";
+}
+
+function HeatmapInner({ universe, theme, className }: HeatmapInnerProps) {
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (!containerRef.current) return;
 
+        const widgetTheme = toTradingViewTheme(theme);
         const isStock = universe === "stock";
         const scriptSrc = isStock
             ? "https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js"
@@ -42,7 +56,7 @@ function HeatmapInner({ universe, theme, className }: any) {
                   blockColor: "change",
                   locale: "vi_VN",
                   symbolUrl: "",
-                  colorTheme: theme,
+                  colorTheme: widgetTheme,
                   hasTopBar: true,
                   isDataSetEnabled: true,
                   isZoomEnabled: true,
@@ -56,7 +70,7 @@ function HeatmapInner({ universe, theme, className }: any) {
                   blockColor: "change",
                   locale: "en",
                   symbolUrl: "",
-                  colorTheme: theme,
+                  colorTheme: widgetTheme,
                   hasTopBar: true,
                   isDataSetEnabled: false,
                   isZoomEnabled: true,

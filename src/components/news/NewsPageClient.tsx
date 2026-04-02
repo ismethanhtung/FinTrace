@@ -109,6 +109,9 @@ const fallbackCryptoPrices = [
     },
 ];
 
+const LEFT_SKELETON_COUNT = 4;
+const CENTER_GRID_SKELETON_COUNT = 4;
+const RIGHT_SKELETON_COUNT = 5;
 
 export const NewsPageClient = () => {
     const router = useRouter();
@@ -173,10 +176,12 @@ export const NewsPageClient = () => {
     const rightArticles = currentArticles.slice(11, 18); // 7 articles
 
     const handlePrevious = () => {
+        if (totalPages === 0) return;
         setCurrentPage((prev) => Math.max(0, prev - 1));
     };
 
     const handleNext = () => {
+        if (totalPages === 0) return;
         setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1));
     };
 
@@ -270,6 +275,7 @@ export const NewsPageClient = () => {
         month: "long",
         day: "numeric",
     });
+    const isInitialNewsLoading = isLoadingNews && articles.length === 0;
 
     return (
         <div
@@ -497,43 +503,73 @@ export const NewsPageClient = () => {
 
                             {/* Left column articles */}
                             <div className="space-y-8">
-                                {leftArticles.map((article, idx) => (
-                                    <article key={article.id} className="group cursor-pointer hover:opacity-80 transition-opacity">
-                                        <div className="flex items-center justify-between gap-2 mb-2">
-                                            <div className="flex items-center gap-2 flex-wrap min-w-0">
-                                            <span className={`${idx === 0 ? "bg-black text-white" : "border border-black"} px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest`}>
-                                                {idx === 0 ? "Analysis" : "Breaking"}
-                                            </span>
-                                            <span className="text-[9px] news-font-mono text-gray-500">
-                                                {article.relativeTime}
-                                            </span>
-                                            </div>
-                                            <NewsPageAiSummaryTooltip article={article} />
-                                        </div>
-                                        <a
-                                            href={article.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block"
-                                            aria-label={article.title}
-                                        >
-                                            <h3 className="news-font-display font-bold text-lg leading-tight mb-2 group-hover:underline">
-                                                {article.title}
-                                            </h3>
-                                        </a>
-                                        {article.description && (
-                                            <p className="text-xs leading-snug opacity-70">
-                                                {article.description.substring(0, 100)}...
-                                            </p>
-                                        )}
-                                        <div className="flex items-center justify-between text-[9px] news-font-mono uppercase border-t border-black/10 pt-2 mt-2">
-                                            <span className="font-bold">
-                                                {article.source}
-                                            </span>
-                                            <ArrowRight size={10} />
-                                        </div>
-                                    </article>
-                                ))}
+                                {isInitialNewsLoading
+                                    ? Array.from({
+                                          length: LEFT_SKELETON_COUNT,
+                                      }).map((_, idx) => (
+                                          <article
+                                              key={`left-skeleton-${idx}`}
+                                              className="space-y-3 animate-pulse"
+                                          >
+                                              <div className="h-4 w-2/3 bg-black/10" />
+                                              <div className="space-y-2">
+                                                  <div className="h-4 w-full bg-black/15" />
+                                                  <div className="h-4 w-5/6 bg-black/10" />
+                                                  <div className="h-4 w-4/6 bg-black/10" />
+                                              </div>
+                                              <div className="h-3 w-1/3 bg-black/10" />
+                                          </article>
+                                      ))
+                                    : leftArticles.map((article, idx) => (
+                                          <article
+                                              key={article.id}
+                                              className="group cursor-pointer hover:opacity-80 transition-opacity"
+                                          >
+                                              <div className="flex items-center justify-between gap-2 mb-2">
+                                                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                                      <span
+                                                          className={`${idx === 0 ? "bg-black text-white" : "border border-black"} px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest`}
+                                                      >
+                                                          {idx === 0
+                                                              ? "Analysis"
+                                                              : "Breaking"}
+                                                      </span>
+                                                      <span className="text-[9px] news-font-mono text-gray-500">
+                                                          {article.relativeTime}
+                                                      </span>
+                                                  </div>
+                                                  <NewsPageAiSummaryTooltip
+                                                      article={article}
+                                                  />
+                                              </div>
+                                              <a
+                                                  href={article.url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="block"
+                                                  aria-label={article.title}
+                                              >
+                                                  <h3 className="news-font-display font-bold text-lg leading-tight mb-2 group-hover:underline">
+                                                      {article.title}
+                                                  </h3>
+                                              </a>
+                                              {article.description && (
+                                                  <p className="text-xs leading-snug opacity-70">
+                                                      {article.description.substring(
+                                                          0,
+                                                          100,
+                                                      )}
+                                                      ...
+                                                  </p>
+                                              )}
+                                              <div className="flex items-center justify-between text-[9px] news-font-mono uppercase border-t border-black/10 pt-2 mt-2">
+                                                  <span className="font-bold">
+                                                      {article.source}
+                                                  </span>
+                                                  <ArrowRight size={10} />
+                                              </div>
+                                          </article>
+                                      ))}
                             </div>
 
                             <div className="bg-black text-white p-6 text-center mt-4">
@@ -560,142 +596,188 @@ export const NewsPageClient = () => {
                         </aside>
 
                         <section className="lg:col-span-6 order-1 lg:order-2 border-x-0 lg:border-x border-black lg:px-8">
-                            {/* Main featured article (first center article or a featured article) */}
-                            {centerArticles.length > 0 && (
-                                <article className="group mb-8 pb-8 border-b border-black">
-                                    <a
-                                        href={centerArticles[0].url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="block"
-                                        aria-label={centerArticles[0].title}
-                                    >
-                                        <div className="aspect-video overflow-hidden mb-6 grayscale contrast-110 border border-black relative bg-black/5">
-                                            <img
-                                                src={`https://picsum.photos/seed/${centerArticles[0].id}/800/450`}
-                                                alt={centerArticles[0].title}
-                                                className="w-full h-full object-cover"
-                                                referrerPolicy="no-referrer"
-                                            />
-                                            <div className="absolute top-4 left-4 bg-black text-white px-2 py-1 text-[9px] uppercase tracking-widest font-bold">
-                                                Must Read
+                            {isInitialNewsLoading ? (
+                                <>
+                                    <article className="mb-8 pb-8 border-b border-black animate-pulse">
+                                        <div className="aspect-video mb-6 border border-black bg-black/10" />
+                                        <div className="space-y-3 mb-6">
+                                            <div className="h-7 w-full bg-black/15" />
+                                            <div className="h-7 w-5/6 bg-black/10" />
+                                        </div>
+                                        <div className="flex items-center gap-4 mb-4 pb-4 border-b border-black/10">
+                                            <div className="w-12 h-12 rounded-full border border-black bg-black/10" />
+                                            <div className="space-y-2 flex-1">
+                                                <div className="h-3 w-28 bg-black/10" />
+                                                <div className="h-3 w-20 bg-black/10" />
                                             </div>
+                                            <div className="h-8 w-20 bg-black/10" />
                                         </div>
-                                    </a>
+                                        <div className="space-y-2">
+                                            <div className="h-4 w-full bg-black/10" />
+                                            <div className="h-4 w-4/5 bg-black/10" />
+                                        </div>
+                                    </article>
 
-                                    <a
-                                        href={centerArticles[0].url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="block"
-                                        aria-label={centerArticles[0].title}
-                                    >
-                                        <h2 className="news-font-display font-black text-3xl md:text-4xl lg:text-5xl leading-[0.9] mb-6 tracking-tight group-hover:underline">
-                                            {centerArticles[0].title}
-                                        </h2>
-                                    </a>
-
-                                    <div className="flex items-center gap-4 mb-4 pb-4 border-b border-black/10">
-                                        <div className="w-12 h-12 rounded-full grayscale border border-black overflow-hidden bg-black/5">
-                                            <img
-                                                src={`https://picsum.photos/seed/author-${centerArticles[0].id}/100/100`}
-                                                alt="Author"
-                                                referrerPolicy="no-referrer"
-                                            />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-bold uppercase tracking-tighter">
-                                                {centerArticles[0].source}
-                                            </p>
-                                            <p className="text-[10px] news-font-mono text-gray-500">
-                                                {centerArticles[0].relativeTime ||
-                                                    formatTimeAgo(
-                                                        centerArticles[0].publishedAt,
-                                                    )}
-                                            </p>
-                                        </div>
-                                        <div className="ml-auto flex gap-2 items-center">
-                                            <NewsPageAiSummaryTooltip
-                                                article={centerArticles[0]}
-                                                buttonClassName="p-2 rounded-full border-black/20"
-                                            />
+                                    <div className="news-newspaper-divider-thick my-8" />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-black">
+                                        {Array.from({
+                                            length: CENTER_GRID_SKELETON_COUNT,
+                                        }).map((_, idx) => (
+                                            <article
+                                                key={`center-skeleton-${idx}`}
+                                                className="space-y-3 animate-pulse"
+                                            >
+                                                <div className="h-5 w-11/12 bg-black/15" />
+                                                <div className="h-5 w-3/4 bg-black/10" />
+                                                <div className="space-y-2">
+                                                    <div className="h-3 w-full bg-black/10" />
+                                                    <div className="h-3 w-5/6 bg-black/10" />
+                                                </div>
+                                                <div className="h-3 w-2/3 bg-black/10" />
+                                            </article>
+                                        ))}
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Main featured article (first center article or a featured article) */}
+                                    {centerArticles.length > 0 && (
+                                        <article className="group mb-8 pb-8 border-b border-black">
                                             <a
                                                 href={centerArticles[0].url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="p-2 border border-black/20 rounded-full hover:bg-black hover:text-white transition-colors"
-                                            >
-                                                <Share2 size={14} />
-                                            </a>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3 text-base leading-relaxed">
-                                        {centerArticles[0].description && (
-                                            <p>{centerArticles[0].description}</p>
-                                        )}
-                                        <p className="text-[13px]">
-                                            <a
-                                                href={centerArticles[0].url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-blue-600 hover:underline"
-                                            >
-                                                Read full article →
-                                            </a>
-                                        </p>
-                                    </div>
-                                </article>
-                            )}
-
-                            {/* Remaining center articles in grid */}
-                            {centerArticles.length > 1 && (
-                                <div className="news-newspaper-divider-thick my-8" />
-                            )}
-
-                            {centerArticles.length > 1 && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-black">
-                                    {centerArticles.slice(1).map((article) => (
-                                        <article key={article.id} className="group cursor-pointer">
-                                            <a
-                                                href={article.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="block"
-                                                aria-label={article.title}
+                                                aria-label={centerArticles[0].title}
                                             >
-                                                <h4 className="news-font-display font-bold text-lg mb-2 group-hover:underline italic">
-                                                    {article.title}
-                                                </h4>
+                                                <div className="aspect-video overflow-hidden mb-6 grayscale contrast-110 border border-black relative bg-black/5">
+                                                    <img
+                                                        src={`https://picsum.photos/seed/${centerArticles[0].id}/800/450`}
+                                                        alt={centerArticles[0].title}
+                                                        className="w-full h-full object-cover"
+                                                        referrerPolicy="no-referrer"
+                                                    />
+                                                    <div className="absolute top-4 left-4 bg-black text-white px-2 py-1 text-[9px] uppercase tracking-widest font-bold">
+                                                        Must Read
+                                                    </div>
+                                                </div>
                                             </a>
-                                            {article.description && (
-                                                <p className="text-xs leading-relaxed opacity-80">
-                                                    {article.description.substring(0, 120)}...
+
+                                            <a
+                                                href={centerArticles[0].url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="block"
+                                                aria-label={centerArticles[0].title}
+                                            >
+                                                <h2 className="news-font-display font-black text-3xl md:text-4xl lg:text-5xl leading-[0.9] mb-6 tracking-tight group-hover:underline">
+                                                    {centerArticles[0].title}
+                                                </h2>
+                                            </a>
+
+                                            <div className="flex items-center gap-4 mb-4 pb-4 border-b border-black/10">
+                                                <div className="w-12 h-12 rounded-full grayscale border border-black overflow-hidden bg-black/5">
+                                                    <img
+                                                        src={`https://picsum.photos/seed/author-${centerArticles[0].id}/100/100`}
+                                                        alt="Author"
+                                                        referrerPolicy="no-referrer"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold uppercase tracking-tighter">
+                                                        {centerArticles[0].source}
+                                                    </p>
+                                                    <p className="text-[10px] news-font-mono text-gray-500">
+                                                        {centerArticles[0].relativeTime ||
+                                                            formatTimeAgo(
+                                                                centerArticles[0].publishedAt,
+                                                            )}
+                                                    </p>
+                                                </div>
+                                                <div className="ml-auto flex gap-2 items-center">
+                                                    <NewsPageAiSummaryTooltip
+                                                        article={centerArticles[0]}
+                                                        buttonClassName="p-2 rounded-full border-black/20"
+                                                    />
+                                                    <a
+                                                        href={centerArticles[0].url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="p-2 border border-black/20 rounded-full hover:bg-black hover:text-white transition-colors"
+                                                    >
+                                                        <Share2 size={14} />
+                                                    </a>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3 text-base leading-relaxed">
+                                                {centerArticles[0].description && (
+                                                    <p>{centerArticles[0].description}</p>
+                                                )}
+                                                <p className="text-[13px]">
+                                                    <a
+                                                        href={centerArticles[0].url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-600 hover:underline"
+                                                    >
+                                                        Read full article →
+                                                    </a>
                                                 </p>
-                                            )}
-                                            <div className="mt-3 flex items-center justify-between gap-2 text-[9px] news-font-mono uppercase text-gray-500">
-                                                <span className="min-w-0">
-                                                    {article.source} •{" "}
-                                                    {article.relativeTime ||
-                                                        formatTimeAgo(
-                                                            article.publishedAt,
-                                                        )}
-                                                </span>
-                                                <span className="flex items-center gap-2 shrink-0">
-                                                    <NewsPageAiSummaryTooltip article={article} />
+                                            </div>
+                                        </article>
+                                    )}
+
+                                    {/* Remaining center articles in grid */}
+                                    {centerArticles.length > 1 && (
+                                        <div className="news-newspaper-divider-thick my-8" />
+                                    )}
+
+                                    {centerArticles.length > 1 && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-black">
+                                            {centerArticles.slice(1).map((article) => (
+                                                <article key={article.id} className="group cursor-pointer">
                                                     <a
                                                         href={article.url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="hover:text-black"
+                                                        className="block"
+                                                        aria-label={article.title}
                                                     >
-                                                        Read →
+                                                        <h4 className="news-font-display font-bold text-lg mb-2 group-hover:underline italic">
+                                                            {article.title}
+                                                        </h4>
                                                     </a>
-                                                </span>
-                                            </div>
-                                        </article>
-                                    ))}
-                                </div>
+                                                    {article.description && (
+                                                        <p className="text-xs leading-relaxed opacity-80">
+                                                            {article.description.substring(0, 120)}...
+                                                        </p>
+                                                    )}
+                                                    <div className="mt-3 flex items-center justify-between gap-2 text-[9px] news-font-mono uppercase text-gray-500">
+                                                        <span className="min-w-0">
+                                                            {article.source} •{" "}
+                                                            {article.relativeTime ||
+                                                                formatTimeAgo(
+                                                                    article.publishedAt,
+                                                                )}
+                                                        </span>
+                                                        <span className="flex items-center gap-2 shrink-0">
+                                                            <NewsPageAiSummaryTooltip article={article} />
+                                                            <a
+                                                                href={article.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="hover:text-black"
+                                                            >
+                                                                Read →
+                                                            </a>
+                                                        </span>
+                                                    </div>
+                                                </article>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
                             )}
 
                             {/* Pagination section */}
@@ -703,9 +785,9 @@ export const NewsPageClient = () => {
                                 <button
                                     type="button"
                                     onClick={handlePrevious}
-                                    disabled={currentPage === 0}
+                                    disabled={isInitialNewsLoading || currentPage === 0}
                                     className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${
-                                        currentPage === 0
+                                        isInitialNewsLoading || currentPage === 0
                                             ? "opacity-50 cursor-not-allowed"
                                             : "hover:italic"
                                     }`}
@@ -716,8 +798,12 @@ export const NewsPageClient = () => {
                                 <button
                                     type="button"
                                     onClick={handleNext}
-                                    disabled={currentPage >= totalPages - 1}
+                                    disabled={
+                                        isInitialNewsLoading ||
+                                        currentPage >= totalPages - 1
+                                    }
                                     className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${
+                                        isInitialNewsLoading ||
                                         currentPage >= totalPages - 1
                                             ? "opacity-50 cursor-not-allowed"
                                             : "hover:italic"
@@ -776,65 +862,84 @@ export const NewsPageClient = () => {
                                     Trending News
                                 </h4>
 
-                                {rightArticles.map((article) => (
-                                    <article
-                                        key={article.id}
-                                        className="flex flex-col gap-2 group cursor-pointer hover:opacity-70 transition-opacity"
-                                    >
-                                        <div className="flex gap-3">
-                                            <a
-                                                href={article.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="block shrink-0"
-                                                aria-label={article.title}
-                                            >
-                                                <div className="w-28 h-28 grayscale border border-black overflow-hidden bg-black/5">
-                                                    <img
-                                                        src={`https://picsum.photos/seed/${article.id}-thumb/200/120`}
-                                                        alt={article.title}
-                                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                                                        referrerPolicy="no-referrer"
-                                                    />
-                                                </div>
-                                            </a>
-                                            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                                                <a
-                                                    href={article.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="block"
-                                                    aria-label={article.title}
-                                                >
-                                                    <h5 className="text-sm font-bold leading-tight group-hover:underline line-clamp-3">
-                                                        {article.title}
-                                                    </h5>
-                                                </a>
-                                                {article.description && (
-                                                    <p className="text-[10px] leading-relaxed opacity-70 line-clamp-2">
-                                                        {article.description}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center justify-between gap-2 text-[9px] news-font-mono text-gray-600">
-                                            <span className="min-w-0 truncate">
-                                                {article.source} • {article.relativeTime}
-                                            </span>
-                                            <span className="flex items-center gap-2 shrink-0">
-                                                <NewsPageAiSummaryTooltip article={article} />
-                                                <a
-                                                    href={article.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-[10px] text-blue-600 hover:underline font-medium"
-                                                >
-                                                    Read →
-                                                </a>
-                                            </span>
-                                        </div>
-                                    </article>
-                                ))}
+                                {isInitialNewsLoading
+                                    ? Array.from({
+                                          length: RIGHT_SKELETON_COUNT,
+                                      }).map((_, idx) => (
+                                          <article
+                                              key={`right-skeleton-${idx}`}
+                                              className="space-y-3 animate-pulse"
+                                          >
+                                              <div className="flex gap-3">
+                                                  <div className="w-28 h-28 border border-black bg-black/10 shrink-0" />
+                                                  <div className="flex-1 space-y-2">
+                                                      <div className="h-4 w-full bg-black/15" />
+                                                      <div className="h-4 w-5/6 bg-black/10" />
+                                                      <div className="h-3 w-4/5 bg-black/10" />
+                                                  </div>
+                                              </div>
+                                              <div className="h-3 w-2/3 bg-black/10" />
+                                          </article>
+                                      ))
+                                    : rightArticles.map((article) => (
+                                          <article
+                                              key={article.id}
+                                              className="flex flex-col gap-2 group cursor-pointer hover:opacity-70 transition-opacity"
+                                          >
+                                              <div className="flex gap-3">
+                                                  <a
+                                                      href={article.url}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="block shrink-0"
+                                                      aria-label={article.title}
+                                                  >
+                                                      <div className="w-28 h-28 grayscale border border-black overflow-hidden bg-black/5">
+                                                          <img
+                                                              src={`https://picsum.photos/seed/${article.id}-thumb/200/120`}
+                                                              alt={article.title}
+                                                              className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                                              referrerPolicy="no-referrer"
+                                                          />
+                                                      </div>
+                                                  </a>
+                                                  <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                                      <a
+                                                          href={article.url}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                          className="block"
+                                                          aria-label={article.title}
+                                                      >
+                                                          <h5 className="text-sm font-bold leading-tight group-hover:underline line-clamp-3">
+                                                              {article.title}
+                                                          </h5>
+                                                      </a>
+                                                      {article.description && (
+                                                          <p className="text-[10px] leading-relaxed opacity-70 line-clamp-2">
+                                                              {article.description}
+                                                          </p>
+                                                      )}
+                                                  </div>
+                                              </div>
+                                              <div className="flex items-center justify-between gap-2 text-[9px] news-font-mono text-gray-600">
+                                                  <span className="min-w-0 truncate">
+                                                      {article.source} • {article.relativeTime}
+                                                  </span>
+                                                  <span className="flex items-center gap-2 shrink-0">
+                                                      <NewsPageAiSummaryTooltip article={article} />
+                                                      <a
+                                                          href={article.url}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                          className="text-[10px] text-blue-600 hover:underline font-medium"
+                                                      >
+                                                          Read →
+                                                      </a>
+                                                  </span>
+                                              </div>
+                                          </article>
+                                      ))}
                             </div>
 
                             <div className="news-newspaper-divider-thick pt-6">

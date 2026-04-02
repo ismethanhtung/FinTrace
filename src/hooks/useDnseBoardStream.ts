@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
     extractDnseBoardPatches,
+    extractDnseMarketIndexPatches,
     mergeDnseBoardState,
+    mergeDnseMarketIndexState,
+    type DnseMarketIndexState,
     type DnseBoardSymbolState,
 } from "../lib/dnse/boardRealtime";
 
@@ -42,6 +45,7 @@ export function useDnseBoardStream(
         board?: string;
         boards?: string[];
         marketIndex?: string;
+        marketIndexes?: string[];
         resolution?: string;
     },
 ) {
@@ -51,6 +55,9 @@ export function useDnseBoardStream(
     const [error, setError] = useState<string | null>(null);
     const [dataBySymbol, setDataBySymbol] = useState<
         Record<string, DnseBoardSymbolState>
+    >({});
+    const [dataByMarketIndex, setDataByMarketIndex] = useState<
+        Record<string, DnseMarketIndexState>
     >({});
 
     const normalizedSymbols = useMemo(
@@ -90,6 +97,21 @@ export function useDnseBoardStream(
     );
     const boardsKey = useMemo(() => boards.join(","), [boards]);
     const marketIndex = (opts?.marketIndex || "VNINDEX").trim().toUpperCase();
+    const marketIndexes = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    [marketIndex, ...(opts?.marketIndexes ?? [])]
+                        .map((value) => value.trim().toUpperCase())
+                        .filter((value) => /^[A-Z0-9_]{1,24}$/.test(value)),
+                ),
+            ).sort((a, b) => a.localeCompare(b)),
+        [marketIndex, opts?.marketIndexes],
+    );
+    const marketIndexesKey = useMemo(
+        () => marketIndexes.join(","),
+        [marketIndexes],
+    );
     const resolution = (opts?.resolution || "1").trim().toUpperCase();
 
     useEffect(() => {
@@ -126,7 +148,9 @@ export function useDnseBoardStream(
                     `expected_price.${boardCode}.json`,
                 ]),
                 `ohlc.${resolution}.json`,
-                `market_index.${marketIndex}.json`,
+                ...marketIndexes.map(
+                    (indexName) => `market_index.${indexName}.json`,
+                ),
             ]),
         );
 
@@ -139,7 +163,9 @@ export function useDnseBoardStream(
         if (channels.length) {
             qs.set("channels", channels.join(","));
         }
-        const es = new EventSource(`/api/dnse/realtime/stream?${qs.toString()}`);
+        const es = new EventSource(
+            `/api/dnse/realtime/stream?${qs.toString()}`,
+        );
         eventSourceRef.current = es;
 
         es.addEventListener("info", (event) => {
@@ -169,7 +195,21 @@ export function useDnseBoardStream(
                 const payload = JSON.parse((event as MessageEvent).data) as {
                     data?: unknown;
                 };
-                const patches = extractDnseBoardPatches(payload.data ?? payload);
+                const patches = extractDnseBoardPatches(
+                    payload.data ?? payload,
+                );
+                const marketIndexPatches = extractDnseMarketIndexPatches(
+                    payload.data ?? payload,
+                );
+
+                if (marketIndexPatches.length) {
+                    setDataByMarketIndex((prev) =>
+                        mergeDnseMarketIndexState(prev, marketIndexPatches),
+                    );
+                    setLastUpdatedAt(Date.now());
+                    setStatus("connected");
+                }
+
                 if (!patches.length) return;
 
                 const filteredPatches = patches.filter((patch) =>
@@ -195,7 +235,8 @@ export function useDnseBoardStream(
                     type?: string;
                     error?: string;
                 };
-                message = payload.message || payload.error || payload.type || message;
+                message =
+                    payload.message || payload.error || payload.type || message;
             } catch {
                 // ignore parse error, keep generic message
             }
@@ -210,13 +251,21 @@ export function useDnseBoardStream(
             }
             setStatus((prev) => (prev === "idle" ? prev : "disconnected"));
         };
-    }, [board, boardsKey, marketIndex, resolution, streamSymbolsKey]);
+    }, [
+        board,
+        boardsKey,
+        marketIndex,
+        marketIndexesKey,
+        resolution,
+        streamSymbolsKey,
+    ]);
 
     return {
         status,
         error,
         lastUpdatedAt,
         dataBySymbol,
+        dataByMarketIndex,
         streamSymbolCount: streamSymbols.length,
         isTruncated,
     };

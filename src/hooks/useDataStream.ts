@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMarket } from "../context/MarketContext";
 import { useUniverse } from "../context/UniverseContext";
+import {
+    binanceService,
+    type BinanceRecentTrade,
+} from "../services/binanceService";
 import type {
     DataStreamConfig,
     DataStreamEvent,
@@ -203,6 +207,66 @@ export function useDataStream() {
         w.postMessage(msg);
     }, []);
 
+    const pushSnapshotTrades = useCallback(
+        async (attemptId: number) => {
+            if (!isHydrated) return;
+            if (universe !== "coin") return;
+            if (!hasValidSelectedSymbol || !resolvedSelectedSymbol) return;
+
+            const getRecentTrades =
+                market === "futures"
+                    ? binanceService.getFuturesRecentTrades.bind(binanceService)
+                    : binanceService.getRecentTrades.bind(binanceService);
+
+            const raw = await getRecentTrades(resolvedSelectedSymbol, 1000);
+            if (!mountedRef.current) return;
+            if (attemptId !== connectionAttemptIdRef.current) return;
+
+            // Reset stream state for the currently selected pair, then seed snapshot.
+            const w = workerRef.current;
+            if (!w) return;
+            const resetMsg: DataStreamWorkerClientMessage = { type: "RESET" };
+            w.postMessage(resetMsg);
+
+            const ordered = [...raw].sort(
+                (a: BinanceRecentTrade, b: BinanceRecentTrade) =>
+                    a.time - b.time,
+            );
+
+            for (const t of ordered) {
+                const price = Number.parseFloat(t.price);
+                const qty = Number.parseFloat(t.qty);
+                if (!Number.isFinite(price) || !Number.isFinite(qty)) continue;
+
+                const event: DataStreamEvent = {
+                    kind: "trade",
+                    marketType: market,
+                    pair: resolvedSelectedSymbol,
+                    token: tokenFromPair(resolvedSelectedSymbol),
+                    side: t.isBuyerMaker ? "sell" : "buy",
+                    usdValue: price * qty,
+                    price,
+                    qty,
+                    tradeId: String(t.id),
+                    eventTimeMs: t.time,
+                    source:
+                        market === "futures"
+                            ? "Binance Futures"
+                            : "Binance Spot",
+                };
+                postEventToWorker(event);
+            }
+        },
+        [
+            hasValidSelectedSymbol,
+            isHydrated,
+            market,
+            postEventToWorker,
+            resolvedSelectedSymbol,
+            universe,
+        ],
+    );
+
     // Sound effect when highlight sequence changes.
     const prevHighlightSeqRef = useRef(0);
     useEffect(() => {
@@ -252,6 +316,13 @@ export function useDataStream() {
 
         setError(null);
         setConnectionStatus("connecting");
+
+        pushSnapshotTrades(attemptId).catch((err: unknown) => {
+            console.error(
+                "[useDataStream] Failed to fetch snapshot trades:",
+                err,
+            );
+        });
 
         const onOpen = () => {
             if (!mountedRef.current) return;
@@ -363,6 +434,7 @@ export function useDataStream() {
         market,
         pair,
         pairLower,
+        pushSnapshotTrades,
         postEventToWorker,
         resolvedSelectedSymbol,
         isHydrated,
