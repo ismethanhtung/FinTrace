@@ -28,6 +28,7 @@ App runs at: **http://localhost:3000**
 | [`docs/API.md`](docs/API.md) | External API documentation (Binance, Gemini) |
 | [`docs/dnse-api.md`](docs/dnse-api.md) | DNSE API reference snapshot (source material) |
 | [`docs/dnse-public-market-rules.md`](docs/dnse-public-market-rules.md) | Security rules for DNSE public market-data-only integration |
+| [`docs/dnse-test-console.md`](docs/dnse-test-console.md) | How to use `/dnse-realtime` for full DNSE REST + WebSocket QA |
 | [`docs/CODING_CONVENTIONS.md`](docs/CODING_CONVENTIONS.md) | Code style guide with examples |
 | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | How to contribute — setup, branching, commits |
 | [`docs/universe-adapter-guide.md`](docs/universe-adapter-guide.md) | Coin/Stock universe switch and adapter extension guide |

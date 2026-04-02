@@ -24,6 +24,7 @@ export type UniverseContextValue = {
     universe: AssetUniverse;
     setUniverse: (next: AssetUniverse) => void;
     isHydrated: boolean;
+    isMockUniverse: boolean;
     routeSwitch: (next: AssetUniverse) => void;
 };
 
@@ -87,6 +88,7 @@ export const UniverseProvider = ({
             universe,
             setUniverse,
             isHydrated,
+            isMockUniverse: universe === "stock",
             routeSwitch,
         }),
         [isHydrated, routeSwitch, setUniverse, universe],

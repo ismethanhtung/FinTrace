@@ -48,6 +48,7 @@ export const TickerBar = () => {
     const {
         assets,
         setSelectedSymbol,
+        universe,
         marketType,
         spotStreamStatus,
         futuresStreamStatus,
@@ -408,7 +409,7 @@ export const TickerBar = () => {
                                 <span className="text-[10px] font-semibold whitespace-nowrap w-[72px]">
                                     {asset.symbol}
                                     <span className="text-muted font-normal">
-                                        /USDT
+                                        /{universe === "stock" ? "VND" : "USDT"}
                                     </span>
                                 </span>
                                 <span

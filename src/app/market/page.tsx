@@ -598,7 +598,7 @@ export default function MarketPage() {
                 isRefreshing={isRefreshing}
                 refreshTitle="Refresh markets"
                 refreshAriaLabel="Refresh markets"
-                headerClassName="sticky top-0 px-6"
+                headerClassName="sticky top-0"
                 rightExtra={
                     <div className="relative hidden md:block">
                         <Search
