@@ -114,6 +114,29 @@ describe("extractDnseBoardPatches", () => {
             },
         ]);
     });
+
+    it("extracts ohlc volume from channel b payload", () => {
+        const patches = extractDnseBoardPatches({
+            data: {
+                T: "b",
+                symbol: "HPG",
+                close: 27.35,
+                high: 27.4,
+                low: 27.3,
+                volume: 924300,
+            },
+        });
+
+        expect(patches).toEqual([
+            {
+                symbol: "HPG",
+                price: 27.35,
+                totalVolumeTraded: 924300,
+                highestPrice: 27.4,
+                lowestPrice: 27.3,
+            },
+        ]);
+    });
 });
 
 describe("mergeDnseBoardState", () => {

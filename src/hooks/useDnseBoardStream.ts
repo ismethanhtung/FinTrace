@@ -29,6 +29,13 @@ function normalizeSymbol(raw: string): string | null {
     return symbol;
 }
 
+function normalizeBoardCode(raw: string): string | null {
+    const board = raw.trim().toUpperCase();
+    if (!board) return null;
+    if (!/^[A-Z0-9_]{1,24}$/.test(board)) return null;
+    return board;
+}
+
 export function useDnseBoardStream(
     symbols: string[],
     opts?: {
@@ -54,12 +61,16 @@ export function useDnseBoardStream(
                         .map((raw) => normalizeSymbol(raw))
                         .filter((value): value is string => Boolean(value)),
                 ),
-            ),
+            ).sort((a, b) => a.localeCompare(b)),
         [symbols],
     );
     const streamSymbols = useMemo(
         () => normalizedSymbols.slice(0, MAX_STREAM_SYMBOLS),
         [normalizedSymbols],
+    );
+    const streamSymbolsKey = useMemo(
+        () => streamSymbols.join(","),
+        [streamSymbols],
     );
     const isTruncated = normalizedSymbols.length > streamSymbols.length;
     const board = (opts?.board || "G1").trim().toUpperCase();
@@ -71,26 +82,32 @@ export function useDnseBoardStream(
                         ? opts.boards
                         : [...DEFAULT_CHANNEL_BOARDS]
                     )
-                        .map((value) => value.trim().toUpperCase())
-                        .filter(Boolean),
+                        .map((value) => normalizeBoardCode(value))
+                        .filter((value): value is string => Boolean(value)),
                 ),
-            ),
+            ).sort((a, b) => a.localeCompare(b)),
         [opts?.boards],
     );
+    const boardsKey = useMemo(() => boards.join(","), [boards]);
     const marketIndex = (opts?.marketIndex || "VNINDEX").trim().toUpperCase();
     const resolution = (opts?.resolution || "1").trim().toUpperCase();
 
     useEffect(() => {
-        if (!streamSymbols.length) {
+        const symbolsForStream = streamSymbolsKey
+            ? streamSymbolsKey.split(",")
+            : [];
+        const boardsForChannels = boardsKey ? boardsKey.split(",") : [];
+
+        if (!symbolsForStream.length) {
             setDataBySymbol({});
             setStatus("idle");
             return;
         }
 
-        const allowed = new Set(streamSymbols);
+        const allowed = new Set(symbolsForStream);
         setDataBySymbol((prev) => {
             const next: Record<string, DnseBoardSymbolState> = {};
-            for (const symbol of streamSymbols) {
+            for (const symbol of symbolsForStream) {
                 const existing = prev[symbol];
                 if (existing) next[symbol] = existing;
             }
@@ -101,7 +118,7 @@ export function useDnseBoardStream(
 
         const channels = Array.from(
             new Set([
-                ...boards.flatMap((boardCode) => [
+                ...boardsForChannels.flatMap((boardCode) => [
                     `security_definition.${boardCode}.json`,
                     `tick.${boardCode}.json`,
                     `tick_extra.${boardCode}.json`,
@@ -114,7 +131,7 @@ export function useDnseBoardStream(
         );
 
         const qs = new URLSearchParams({
-            symbols: streamSymbols.join(","),
+            symbols: symbolsForStream.join(","),
             board,
             marketIndex,
             resolution,
@@ -193,7 +210,7 @@ export function useDnseBoardStream(
             }
             setStatus((prev) => (prev === "idle" ? prev : "disconnected"));
         };
-    }, [board, boards, marketIndex, resolution, streamSymbols]);
+    }, [board, boardsKey, marketIndex, resolution, streamSymbolsKey]);
 
     return {
         status,

@@ -159,11 +159,16 @@ function toSymbolPatch(record: JsonRecord): DnseBoardSymbolState | null {
         readNumber(record.totalVolumeTraded) ??
         readNumber(record.totalVolume) ??
         readNumber(record.totalMatchVolume) ??
-        readNumber(record.total_volume_traded);
+        readNumber(record.total_volume_traded) ??
+        readNumber(record.volume);
     const highestPrice =
-        readNumber(record.highestPrice) ?? readNumber(record.highest_price);
+        readNumber(record.highestPrice) ??
+        readNumber(record.highest_price) ??
+        readNumber(record.high);
     const lowestPrice =
-        readNumber(record.lowestPrice) ?? readNumber(record.lowest_price);
+        readNumber(record.lowestPrice) ??
+        readNumber(record.lowest_price) ??
+        readNumber(record.low);
 
     if (price != null) {
         patch.price = price;

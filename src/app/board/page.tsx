@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import React, {
     useMemo,
     useState,
@@ -15,6 +16,7 @@ import {
     LayoutGrid,
     ChevronDown,
     ArrowUp,
+    ArrowDown,
     Sun,
     Moon,
 } from "lucide-react";
@@ -33,6 +35,7 @@ import { cn } from "../../lib/utils";
 import { useUniverse } from "../../context/UniverseContext";
 import { useAppSettings } from "../../context/AppSettingsContext";
 import { useMarket } from "../../context/MarketContext";
+import { useDnseBoardStream } from "../../hooks/useDnseBoardStream";
 
 type BoardStockRow = {
     id: string;
@@ -53,6 +56,121 @@ type BoardStockRow = {
     foreign: { buy: string; sell: string; room: string };
 };
 
+type BoardSortKey =
+    | "ticker"
+    | "ceiling"
+    | "floor"
+    | "ref"
+    | "buy0Price"
+    | "buy0Vol"
+    | "buy1Price"
+    | "buy1Vol"
+    | "buy2Price"
+    | "buy2Vol"
+    | "matchPrice"
+    | "matchVol"
+    | "matchChange"
+    | "matchPercent"
+    | "sell0Price"
+    | "sell0Vol"
+    | "sell1Price"
+    | "sell1Vol"
+    | "sell2Price"
+    | "sell2Vol"
+    | "totalVol"
+    | "high"
+    | "low"
+    | "foreignBuy"
+    | "foreignSell"
+    | "foreignRoom";
+
+function parseBoardVolString(s: string): number {
+    const n = Number(String(s).replace(/,/g, ""));
+    return Number.isFinite(n) ? n : 0;
+}
+
+function getBoardSortValue(
+    row: BoardStockRow,
+    key: BoardSortKey,
+): number | string {
+    switch (key) {
+        case "ticker":
+            return row.ticker;
+        case "ceiling":
+            return row.ceiling;
+        case "floor":
+            return row.floor;
+        case "ref":
+            return row.ref;
+        case "buy0Price":
+            return row.buy[0]?.price ?? 0;
+        case "buy0Vol":
+            return parseBoardVolString(row.buy[0]?.vol ?? "0");
+        case "buy1Price":
+            return row.buy[1]?.price ?? 0;
+        case "buy1Vol":
+            return parseBoardVolString(row.buy[1]?.vol ?? "0");
+        case "buy2Price":
+            return row.buy[2]?.price ?? 0;
+        case "buy2Vol":
+            return parseBoardVolString(row.buy[2]?.vol ?? "0");
+        case "matchPrice":
+            return row.match.price;
+        case "matchVol":
+            return parseBoardVolString(row.match.vol);
+        case "matchChange":
+            return row.match.change;
+        case "matchPercent":
+            return row.match.percent;
+        case "sell0Price":
+            return row.sell[0]?.price ?? 0;
+        case "sell0Vol":
+            return parseBoardVolString(row.sell[0]?.vol ?? "0");
+        case "sell1Price":
+            return row.sell[1]?.price ?? 0;
+        case "sell1Vol":
+            return parseBoardVolString(row.sell[1]?.vol ?? "0");
+        case "sell2Price":
+            return row.sell[2]?.price ?? 0;
+        case "sell2Vol":
+            return parseBoardVolString(row.sell[2]?.vol ?? "0");
+        case "totalVol":
+            return parseBoardVolString(row.totalVol);
+        case "high":
+            return row.high;
+        case "low":
+            return row.low;
+        case "foreignBuy":
+            return parseBoardVolString(row.foreign.buy);
+        case "foreignSell":
+            return parseBoardVolString(row.foreign.sell);
+        case "foreignRoom":
+            return parseBoardVolString(row.foreign.room || "0");
+        default:
+            return 0;
+    }
+}
+
+function compareBoardSortValues(
+    a: number | string,
+    b: number | string,
+): number {
+    if (typeof a === "string" && typeof b === "string") {
+        return a.localeCompare(b, "vi", {
+            sensitivity: "base",
+            numeric: true,
+        });
+    }
+    const na = typeof a === "number" ? a : Number(a);
+    const nb = typeof b === "number" ? b : Number(b);
+    const aBad = !Number.isFinite(na);
+    const bBad = !Number.isFinite(nb);
+    if (aBad && bBad) return 0;
+    if (aBad) return 1;
+    if (bBad) return -1;
+    return na - nb;
+}
+
 type IndexData = {
     name: string;
     value: number;
@@ -64,11 +182,51 @@ type IndexData = {
     down: number;
 };
 
+type CellFlashTone =
+    | "emerald"
+    | "rose"
+    | "amber"
+    | "cyan"
+    | "fuchsia"
+    | "slate";
+
+type CellFlashState = {
+    until: number;
+    tone: CellFlashTone;
+};
+
 const INDEX_NAMES = ["VNINDEX", "VN30", "HNX30", "VNXALL", "HNXINDEX", "UPCOM"];
 const INITIAL_COL_WIDTHS = [
     90, 64, 64, 64, 64, 84, 64, 84, 64, 84, 64, 84, 64, 72, 64, 84, 64, 84, 64,
     84, 112, 64, 64, 110, 110, 130,
 ];
+
+const EMPTY_BOARD_PLACEHOLDER: BoardStockRow = {
+    id: "EMPTY",
+    ticker: "0",
+    name: "0",
+    logoUrl: undefined,
+    exchange: undefined,
+    indexMembership: [],
+    ceiling: 0,
+    floor: 0,
+    ref: 0,
+    buy: [
+        { price: 0, vol: "0" },
+        { price: 0, vol: "0" },
+        { price: 0, vol: "0" },
+    ],
+    match: { price: 0, vol: "0", change: 0, percent: 0 },
+    sell: [
+        { price: 0, vol: "0" },
+        { price: 0, vol: "0" },
+        { price: 0, vol: "0" },
+    ],
+    totalVol: "0",
+    high: 0,
+    low: 0,
+    foreign: { buy: "0", sell: "0", room: "0" },
+};
 
 const INDICES: IndexData[] = INDEX_NAMES.map((name) => ({
     name,
@@ -80,6 +238,35 @@ const INDICES: IndexData[] = INDEX_NAMES.map((name) => ({
     ref: 0,
     down: 0,
 }));
+
+const BOARD_CELL_FLASH_MS = 900;
+
+const FLASH_BG_CLASS_BY_TONE: Record<CellFlashTone, string> = {
+    emerald: "bg-emerald-500 !text-white",
+    rose: "bg-rose-500 !text-white",
+    amber: "bg-amber-500 !text-white",
+    cyan: "bg-cyan-500 !text-white",
+    fuchsia: "bg-fuchsia-500 !text-white",
+    slate: "bg-slate-500 !text-white",
+};
+
+function formatBoardVolume(value: number | undefined): string {
+    const safe = Number.isFinite(value) ? Math.max(0, value ?? 0) : 0;
+    return Math.round(safe).toLocaleString("en-US");
+}
+
+function getPriceTone(
+    value: number,
+    refVal: number,
+    ceiling: number,
+    floor: number,
+): CellFlashTone {
+    if (value === ceiling) return "fuchsia";
+    if (value === floor) return "cyan";
+    if (value > refVal) return "emerald";
+    if (value < refVal) return "rose";
+    return "amber";
+}
 
 function generateChartData(points: number, base: number) {
     return Array.from({ length: points }, (_, i) => ({
@@ -103,11 +290,17 @@ function ColorText({
     children: React.ReactNode;
     className?: string;
 }) {
-    let color = "text-amber-500";
-    if (value === ceiling) color = "text-fuchsia-500";
-    else if (value === floor) color = "text-cyan-500";
-    else if (value > refVal) color = "text-emerald-500";
-    else if (value < refVal) color = "text-rose-500";
+    const tone = getPriceTone(value, refVal, ceiling, floor);
+    const color =
+        tone === "fuchsia"
+            ? "text-fuchsia-500"
+            : tone === "cyan"
+              ? "text-cyan-500"
+              : tone === "emerald"
+                ? "text-emerald-500"
+                : tone === "rose"
+                  ? "text-rose-500"
+                  : "text-amber-500";
 
     return <span className={cn(color, className)}>{children}</span>;
 }
@@ -275,16 +468,25 @@ function BoardRowSkeleton({
 export default function BoardPage() {
     const { universe } = useUniverse();
     const { toggleTheme, theme } = useAppSettings();
-    const { assets } = useMarket();
+    const router = useRouter();
+    const { assets, setSelectedSymbol } = useMarket();
     const [activeTab, setActiveTab] = useState("VN30");
     const [search, setSearch] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [colWidths, setColWidths] = useState<number[]>(INITIAL_COL_WIDTHS);
+    const [boardSort, setBoardSort] = useState<{
+        key: BoardSortKey;
+        dir: "asc" | "desc";
+    } | null>(null);
     const resizeStateRef = useRef<{
         index: number;
         startX: number;
         startWidth: number;
     } | null>(null);
+    const prevCellValuesRef = useRef<Record<string, number | string>>({});
+    const [cellFlashes, setCellFlashes] = useState<
+        Record<string, CellFlashState>
+    >({});
 
     useEffect(() => {
         if (assets.length > 0) {
@@ -393,16 +595,68 @@ export default function BoardPage() {
         [assets, normalizedTab, q],
     );
 
+    const streamBoards = useMemo(() => {
+        if (normalizedTab === "HNX" || normalizedTab === "HNX30") {
+            return ["G2"];
+        }
+        if (normalizedTab === "UPCOM") {
+            return ["G3"];
+        }
+        if (normalizedTab === "HOSE" || normalizedTab === "VN30") {
+            return ["G1"];
+        }
+        return ["G1", "G2", "G3"];
+    }, [normalizedTab]);
+
+    const streamSymbols = useMemo(
+        () =>
+            filteredAssets
+                .map((asset) => asset.symbol.trim().toUpperCase())
+                .filter(Boolean),
+        [filteredAssets],
+    );
+
+    const {
+        status: streamStatus,
+        error: streamError,
+        dataBySymbol,
+        isTruncated,
+    } = useDnseBoardStream(streamSymbols, {
+        board: streamBoards[0] ?? "G1",
+        boards: streamBoards,
+        marketIndex: "VNINDEX",
+        resolution: "1",
+    });
+
     const boardRows = useMemo<BoardStockRow[]>(
         () =>
             filteredAssets.map((asset) => {
+                const symbol = asset.symbol.trim().toUpperCase();
+                const stream = dataBySymbol[symbol];
                 const price = Number.isFinite(asset.price) ? asset.price : 0;
                 const change = Number.isFinite(asset.change) ? asset.change : 0;
-                const ref = Math.max(0, price - change);
+                const ref = stream?.ref ?? Math.max(0, price - change);
                 const mkQty = Number.isFinite(asset.baseVolume)
                     ? asset.baseVolume
                     : 0;
-                const levelVol = "0";
+                const matchPrice = stream?.price ?? price;
+                const matchChange = ref > 0 ? matchPrice - ref : 0;
+                const matchPercent = ref > 0 ? (matchChange / ref) * 100 : 0;
+
+                const buy = Array.from({ length: 3 }, (_, idx) => {
+                    const level = stream?.bid?.[2 - idx];
+                    return {
+                        price: level?.price ?? 0,
+                        vol: formatBoardVolume(level?.quantity),
+                    };
+                });
+                const sell = Array.from({ length: 3 }, (_, idx) => {
+                    const level = stream?.offer?.[idx];
+                    return {
+                        price: level?.price ?? 0,
+                        vol: formatBoardVolume(level?.quantity),
+                    };
+                });
                 return {
                     id: asset.id,
                     ticker: asset.symbol,
@@ -410,65 +664,259 @@ export default function BoardPage() {
                     logoUrl: asset.logoUrl,
                     exchange: asset.stockProfile?.exchange,
                     indexMembership: asset.stockProfile?.indexMembership ?? [],
-                    ceiling: 0,
-                    floor: 0,
+                    ceiling: stream?.ceiling ?? 0,
+                    floor: stream?.floor ?? 0,
                     ref,
-                    buy: [
-                        { price: 0, vol: levelVol },
-                        { price: 0, vol: levelVol },
-                        { price: 0, vol: levelVol },
-                    ],
+                    buy,
                     match: {
-                        price,
-                        vol: Math.round(mkQty).toLocaleString("en-US"),
-                        change,
-                        percent: Number.isFinite(asset.changePercent)
-                            ? asset.changePercent
+                        price: matchPrice,
+                        vol: formatBoardVolume(stream?.quantity ?? mkQty),
+                        change: Number.isFinite(matchChange) ? matchChange : 0,
+                        percent: Number.isFinite(matchPercent)
+                            ? matchPercent
                             : 0,
                     },
-                    sell: [
-                        { price: 0, vol: levelVol },
-                        { price: 0, vol: levelVol },
-                        { price: 0, vol: levelVol },
-                    ],
-                    totalVol: Math.round(mkQty).toLocaleString("en-US"),
-                    high: Number.isFinite(asset.high24h) ? asset.high24h : 0,
-                    low: Number.isFinite(asset.low24h) ? asset.low24h : 0,
+                    sell,
+                    totalVol: formatBoardVolume(stream?.totalVolumeTraded ?? mkQty),
+                    high:
+                        stream?.highestPrice ??
+                        (Number.isFinite(asset.high24h) ? asset.high24h : 0),
+                    low:
+                        stream?.lowestPrice ??
+                        (Number.isFinite(asset.low24h) ? asset.low24h : 0),
                     foreign: { buy: "0", sell: "0", room: "0" },
                 };
             }),
-        [filteredAssets],
+        [dataBySymbol, filteredAssets],
     );
-    const rowsToRender = boardRows.length
-        ? boardRows
-        : [
-              {
-                  id: "EMPTY",
-                  ticker: "0",
-                  name: "0",
-                  logoUrl: undefined,
-                  exchange: undefined,
-                  indexMembership: [],
-                  ceiling: 0,
-                  floor: 0,
-                  ref: 0,
-                  buy: [
-                      { price: 0, vol: "0" },
-                      { price: 0, vol: "0" },
-                      { price: 0, vol: "0" },
-                  ],
-                  match: { price: 0, vol: "0", change: 0, percent: 0 },
-                  sell: [
-                      { price: 0, vol: "0" },
-                      { price: 0, vol: "0" },
-                      { price: 0, vol: "0" },
-                  ],
-                  totalVol: "0",
-                  high: 0,
-                  low: 0,
-                  foreign: { buy: "0", sell: "0", room: "0" },
-              } satisfies BoardStockRow,
-          ];
+
+    const rowsForTable = useMemo(() => {
+        const base = boardRows.length ? boardRows : [EMPTY_BOARD_PLACEHOLDER];
+        if (!boardRows.length || !boardSort) return base;
+        const order = new Map(base.map((r, i) => [r.id, i]));
+        return [...base].sort((a, b) => {
+            const va = getBoardSortValue(a, boardSort.key);
+            const vb = getBoardSortValue(b, boardSort.key);
+            let c = compareBoardSortValues(va, vb);
+            if (c === 0) c = (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0);
+            return boardSort.dir === "asc" ? c : -c;
+        });
+    }, [boardRows, boardSort]);
+
+    const rowCellSnapshots = useMemo(() => {
+        const snapshots: Array<{
+            key: string;
+            value: number | string;
+            tone: CellFlashTone;
+        }> = [];
+        for (const row of rowsForTable) {
+            if (row.id === "EMPTY") continue;
+            snapshots.push(
+                {
+                    key: `${row.id}:ceiling`,
+                    value: row.ceiling,
+                    tone: "fuchsia",
+                },
+                {
+                    key: `${row.id}:floor`,
+                    value: row.floor,
+                    tone: "cyan",
+                },
+                { key: `${row.id}:ref`, value: row.ref, tone: "amber" },
+                {
+                    key: `${row.id}:matchPrice`,
+                    value: row.match.price,
+                    tone: getPriceTone(
+                        row.match.price,
+                        row.ref,
+                        row.ceiling,
+                        row.floor,
+                    ),
+                },
+                {
+                    key: `${row.id}:matchVol`,
+                    value: row.match.vol,
+                    tone: "emerald",
+                },
+                {
+                    key: `${row.id}:matchChange`,
+                    value: row.match.change,
+                    tone: row.match.change >= 0 ? "emerald" : "rose",
+                },
+                {
+                    key: `${row.id}:matchPercent`,
+                    value: row.match.percent,
+                    tone: row.match.percent >= 0 ? "emerald" : "rose",
+                },
+                {
+                    key: `${row.id}:totalVol`,
+                    value: row.totalVol,
+                    tone: "slate",
+                },
+                {
+                    key: `${row.id}:high`,
+                    value: row.high,
+                    tone: "emerald",
+                },
+                { key: `${row.id}:low`, value: row.low, tone: "amber" },
+            );
+            for (let i = 0; i < 3; i += 1) {
+                const buy = row.buy[i];
+                const sell = row.sell[i];
+                snapshots.push(
+                    {
+                        key: `${row.id}:buy${i}Price`,
+                        value: buy?.price ?? 0,
+                        tone: getPriceTone(
+                            buy?.price ?? 0,
+                            row.ref,
+                            row.ceiling,
+                            row.floor,
+                        ),
+                    },
+                    {
+                        key: `${row.id}:buy${i}Vol`,
+                        value: buy?.vol ?? "0",
+                        tone: "emerald",
+                    },
+                    {
+                        key: `${row.id}:sell${i}Price`,
+                        value: sell?.price ?? 0,
+                        tone: getPriceTone(
+                            sell?.price ?? 0,
+                            row.ref,
+                            row.ceiling,
+                            row.floor,
+                        ),
+                    },
+                    {
+                        key: `${row.id}:sell${i}Vol`,
+                        value: sell?.vol ?? "0",
+                        tone: "rose",
+                    },
+                );
+            }
+        }
+        return snapshots;
+    }, [rowsForTable]);
+
+    useEffect(() => {
+        const now = Date.now();
+        const prev = prevCellValuesRef.current;
+        const nextValues: Record<string, number | string> = {};
+        const updates: Record<string, CellFlashState> = {};
+
+        for (const cell of rowCellSnapshots) {
+            const prevValue = prev[cell.key];
+            nextValues[cell.key] = cell.value;
+            if (prevValue !== undefined && prevValue !== cell.value) {
+                updates[cell.key] = {
+                    until: now + BOARD_CELL_FLASH_MS,
+                    tone: cell.tone,
+                };
+            }
+        }
+
+        prevCellValuesRef.current = nextValues;
+        if (!Object.keys(updates).length) return;
+
+        setCellFlashes((prevFlashes) => {
+            const next = { ...prevFlashes };
+            for (const [cellKey, flash] of Object.entries(updates)) {
+                next[cellKey] = flash;
+            }
+            return next;
+        });
+    }, [rowCellSnapshots]);
+
+    useEffect(() => {
+        if (!Object.keys(cellFlashes).length) return;
+        const timer = window.setInterval(() => {
+            const now = Date.now();
+            setCellFlashes((prevFlashes) => {
+                let changed = false;
+                const next: Record<string, CellFlashState> = {};
+                for (const [cellKey, flash] of Object.entries(prevFlashes)) {
+                    if (flash.until > now) {
+                        next[cellKey] = flash;
+                    } else {
+                        changed = true;
+                    }
+                }
+                return changed ? next : prevFlashes;
+            });
+        }, 120);
+
+        return () => window.clearInterval(timer);
+    }, [cellFlashes]);
+
+    const flashClass = useCallback(
+        (cellKey: string) => {
+            const flash = cellFlashes[cellKey];
+            return flash ? FLASH_BG_CLASS_BY_TONE[flash.tone] : "";
+        },
+        [cellFlashes],
+    );
+
+    const isFlashing = useCallback(
+        (cellKey: string) => Boolean(cellFlashes[cellKey]),
+        [cellFlashes],
+    );
+
+    const cycleBoardSort = useCallback((key: BoardSortKey) => {
+        setBoardSort((prev) => {
+            if (!prev || prev.key !== key) return { key, dir: "asc" };
+            if (prev.dir === "asc") return { key, dir: "desc" };
+            return null;
+        });
+    }, []);
+
+    const headerSortClick = useCallback(
+        (key: BoardSortKey) => (e: React.MouseEvent) => {
+            if ((e.target as HTMLElement).closest(".cursor-col-resize")) {
+                return;
+            }
+            cycleBoardSort(key);
+        },
+        [cycleBoardSort],
+    );
+
+    const sortGlyph = useCallback(
+        (key: BoardSortKey) => {
+            if (!boardSort || boardSort.key !== key) return null;
+            return boardSort.dir === "asc" ? (
+                <ArrowUp className="shrink-0 opacity-70" size={10} />
+            ) : (
+                <ArrowDown className="shrink-0 opacity-70" size={10} />
+            );
+        },
+        [boardSort],
+    );
+
+    const sortableHeaderClass =
+        "cursor-pointer select-none hover:bg-accent/25 transition-colors";
+
+    const goToHomeWithStock = useCallback(
+        (assetId: string) => {
+            if (assetId === "EMPTY") return;
+            setSelectedSymbol(assetId);
+            router.push("/");
+        },
+        [router, setSelectedSymbol],
+    );
+
+    const streamStatusClass =
+        streamStatus === "connected"
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+            : streamStatus === "error"
+              ? "border-rose-500/30 bg-rose-500/10 text-rose-500"
+              : "border-amber-500/30 bg-amber-500/10 text-amber-500";
+    const streamStatusLabel =
+        streamStatus === "connected"
+            ? "DNSE: connected"
+            : streamStatus === "error"
+              ? "DNSE: error"
+              : "DNSE: connecting";
 
     return (
         <div className="flex h-screen w-full flex-col overflow-hidden bg-main text-main">
@@ -673,6 +1121,26 @@ export default function BoardPage() {
                         </div>
 
                         <div className="ml-auto flex items-center gap-2">
+                            <div className="hidden lg:flex items-center gap-2">
+                                <span
+                                    className={cn(
+                                        "rounded-sm border px-2 py-0.5 text-[10px] font-semibold",
+                                        streamStatusClass,
+                                    )}
+                                >
+                                    {streamStatusLabel}
+                                </span>
+                                {isTruncated ? (
+                                    <span className="rounded-sm border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-500">
+                                        Limit stream 300 mã
+                                    </span>
+                                ) : null}
+                                {streamError ? (
+                                    <span className="max-w-[220px] truncate rounded-sm border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-500">
+                                        {streamError}
+                                    </span>
+                                ) : null}
+                            </div>
                             <button
                                 onClick={toggleTheme}
                                 className="rounded-md p-1.5 text-muted hover:bg-main hover:text-main"
@@ -710,9 +1178,16 @@ export default function BoardPage() {
                                 <tr className="border-b border-main text-muted leading-none">
                                     <th
                                         rowSpan={2}
-                                        className="relative min-w-[90px] border-r border-b border-main p-2"
+                                        className={cn(
+                                            "relative min-w-[90px] border-r border-b border-main p-2",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("ticker")}
                                     >
-                                        CK
+                                        <span className="inline-flex items-center gap-0.5">
+                                            CK
+                                            {sortGlyph("ticker")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -722,9 +1197,16 @@ export default function BoardPage() {
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="relative border-r border-b border-main p-2 text-fuchsia-500"
+                                        className={cn(
+                                            "relative border-r border-b border-main p-2 text-fuchsia-500",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("ceiling")}
                                     >
-                                        Trần
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Trần
+                                            {sortGlyph("ceiling")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -734,9 +1216,16 @@ export default function BoardPage() {
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="relative border-r border-b border-main p-2 text-cyan-500"
+                                        className={cn(
+                                            "relative border-r border-b border-main p-2 text-cyan-500",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("floor")}
                                     >
-                                        Sàn
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Sàn
+                                            {sortGlyph("floor")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -746,9 +1235,16 @@ export default function BoardPage() {
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="relative border-r border-b border-main p-2 text-amber-500"
+                                        className={cn(
+                                            "relative border-r border-b border-main p-2 text-amber-500",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("ref")}
                                     >
-                                        TC
+                                        <span className="inline-flex items-center gap-0.5">
+                                            TC
+                                            {sortGlyph("ref")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -758,7 +1254,7 @@ export default function BoardPage() {
                                     </th>
                                     <th
                                         colSpan={6}
-                                        className="border-r border-main border-b border-main p-1 text-center"
+                                        className="border-r border-main border-b border-main p-2 text-center"
                                     >
                                         Bên mua
                                     </th>
@@ -776,9 +1272,16 @@ export default function BoardPage() {
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="relative border-r border-b border-main p-2"
+                                        className={cn(
+                                            "relative border-r border-b border-main p-2",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("totalVol")}
                                     >
-                                        Tổng KL
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Tổng KL
+                                            {sortGlyph("totalVol")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -788,9 +1291,16 @@ export default function BoardPage() {
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="relative border-r border-b border-main p-2"
+                                        className={cn(
+                                            "relative border-r border-b border-main p-2",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("high")}
                                     >
-                                        Cao
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Cao
+                                            {sortGlyph("high")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -800,9 +1310,16 @@ export default function BoardPage() {
                                     </th>
                                     <th
                                         rowSpan={2}
-                                        className="relative border-r border-b border-main p-2"
+                                        className={cn(
+                                            "relative border-r border-b border-main p-2",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("low")}
                                     >
-                                        Thấp
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Thấp
+                                            {sortGlyph("low")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -818,8 +1335,16 @@ export default function BoardPage() {
                                     </th>
                                 </tr>
                                 <tr className="border-b border-main text-[10px] text-muted leading-none">
-                                    <th className="relative border-r border-main p-1">
-                                        Giá 3
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("buy0Price")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Giá 3{sortGlyph("buy0Price")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -827,8 +1352,16 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        KL 3
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("buy0Vol")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            KL 3{sortGlyph("buy0Vol")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -836,8 +1369,16 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        Giá 2
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-2",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("buy1Price")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Giá 2{sortGlyph("buy1Price")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -845,8 +1386,16 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        KL 2
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("buy1Vol")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            KL 2{sortGlyph("buy1Vol")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -854,8 +1403,16 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        Giá 1
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("buy2Price")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Giá 1{sortGlyph("buy2Price")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -863,8 +1420,16 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        KL 1
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("buy2Vol")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            KL 1{sortGlyph("buy2Vol")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -873,8 +1438,17 @@ export default function BoardPage() {
                                         />
                                     </th>
 
-                                    <th className="relative border-r border-main p-1">
-                                        Giá
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("matchPrice")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Giá
+                                            {sortGlyph("matchPrice")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -882,8 +1456,17 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        KL
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("matchVol")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            KL
+                                            {sortGlyph("matchVol")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -891,8 +1474,17 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        +/-
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("matchChange")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            +/-
+                                            {sortGlyph("matchChange")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -900,8 +1492,19 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        +/- (%)
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick(
+                                            "matchPercent",
+                                        )}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            +/- (%)
+                                            {sortGlyph("matchPercent")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -910,8 +1513,16 @@ export default function BoardPage() {
                                         />
                                     </th>
 
-                                    <th className="relative border-r border-main p-1">
-                                        Giá 1
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("sell0Price")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Giá 1{sortGlyph("sell0Price")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -919,8 +1530,16 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        KL 1
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("sell0Vol")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            KL 1{sortGlyph("sell0Vol")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -928,8 +1547,16 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        Giá 2
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("sell1Price")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Giá 2{sortGlyph("sell1Price")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -937,8 +1564,16 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        KL 2
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("sell1Vol")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            KL 2{sortGlyph("sell1Vol")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -946,8 +1581,16 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        Giá 3
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("sell2Price")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Giá 3{sortGlyph("sell2Price")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -955,8 +1598,16 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        KL 3
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("sell2Vol")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            KL 3{sortGlyph("sell2Vol")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -965,8 +1616,17 @@ export default function BoardPage() {
                                         />
                                     </th>
 
-                                    <th className="relative border-r border-main p-1">
-                                        NN mua
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("foreignBuy")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            NN mua
+                                            {sortGlyph("foreignBuy")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -974,8 +1634,17 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative border-r border-main p-1">
-                                        NN bán
+                                    <th
+                                        className={cn(
+                                            "relative border-r border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("foreignSell")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            NN bán
+                                            {sortGlyph("foreignSell")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -983,8 +1652,17 @@ export default function BoardPage() {
                                             }
                                         />
                                     </th>
-                                    <th className="relative p-1">
-                                        Room
+                                    <th
+                                        className={cn(
+                                            "relative border-b border-main p-1",
+                                            sortableHeaderClass,
+                                        )}
+                                        onClick={headerSortClick("foreignRoom")}
+                                    >
+                                        <span className="inline-flex items-center gap-0.5">
+                                            Room
+                                            {sortGlyph("foreignRoom")}
+                                        </span>
                                         <div
                                             className={resizeHandleClass}
                                             onMouseDown={(e) =>
@@ -1003,152 +1681,304 @@ export default function BoardPage() {
                                               isLight={isLight}
                                           />
                                       ))
-                                    : rowsToRender.map((stock, index) => (
-                                          <tr
-                                              key={stock.id}
-                                              className={getRowClassName(index)}
-                                          >
-                                              <td className="border-r border-main p-2 font-semibold">
-                                                  <div className="flex items-center gap-1.5 min-w-0">
-                                                      <TokenAvatar
-                                                          symbol={stock.ticker}
-                                                          logoUrl={
-                                                              stock.logoUrl
-                                                          }
-                                                          size={18}
-                                                      />
-                                                      <div className="min-w-0">
-                                                          <div className="truncate">
-                                                              {stock.ticker}
+                                    : rowsForTable.map((stock, index) => {
+                                          const rowKey = stock.id;
+                                          return (
+                                              <tr
+                                                  key={stock.id}
+                                                  className={getRowClassName(
+                                                      index,
+                                                  )}
+                                              >
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-2 font-semibold",
+                                                          stock.id !== "EMPTY" &&
+                                                              "cursor-pointer hover:bg-accent/15",
+                                                      )}
+                                                      onClick={() =>
+                                                          goToHomeWithStock(
+                                                              stock.id,
+                                                          )
+                                                      }
+                                                      title={
+                                                          stock.id === "EMPTY"
+                                                              ? undefined
+                                                              : `Mở ${stock.ticker} trên trang chủ`
+                                                      }
+                                                  >
+                                                      <div className="flex items-center gap-1.5 min-w-0">
+                                                          <TokenAvatar
+                                                              symbol={
+                                                                  stock.ticker
+                                                              }
+                                                              logoUrl={
+                                                                  stock.logoUrl
+                                                              }
+                                                              size={18}
+                                                          />
+                                                          <div className="min-w-0">
+                                                              <div className="truncate">
+                                                                  {stock.ticker}
+                                                              </div>
                                                           </div>
                                                       </div>
-                                                  </div>
-                                              </td>
-                                              <td className="border-r border-main p-2 text-right text-fuchsia-500">
-                                                  {stock.ceiling.toFixed(2)}
-                                              </td>
-                                              <td className="border-r border-main p-2 text-right text-cyan-500">
-                                                  {stock.floor.toFixed(2)}
-                                              </td>
-                                              <td className="border-r border-main p-2 text-right text-amber-500">
-                                                  {stock.ref.toFixed(2)}
-                                              </td>
-
-                                              {stock.buy.map((b, i) => (
-                                                  <React.Fragment
-                                                      key={`${stock.ticker}-buy-${i}`}
+                                                  </td>
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-2 text-right text-fuchsia-500",
+                                                          flashClass(
+                                                              `${rowKey}:ceiling`,
+                                                          ),
+                                                      )}
                                                   >
-                                                      <td className="border-r border-main p-1 text-right">
-                                                          <ColorText
-                                                              value={b.price}
-                                                              refVal={stock.ref}
-                                                              ceiling={
-                                                                  stock.ceiling
-                                                              }
-                                                              floor={
-                                                                  stock.floor
-                                                              }
+                                                      {stock.ceiling.toFixed(2)}
+                                                  </td>
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-2 text-right text-cyan-500",
+                                                          flashClass(
+                                                              `${rowKey}:floor`,
+                                                          ),
+                                                      )}
+                                                  >
+                                                      {stock.floor.toFixed(2)}
+                                                  </td>
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-2 text-right text-amber-500",
+                                                          flashClass(
+                                                              `${rowKey}:ref`,
+                                                          ),
+                                                      )}
+                                                  >
+                                                      {stock.ref.toFixed(2)}
+                                                  </td>
+
+                                                  {stock.buy.map((b, i) => {
+                                                      const priceKey = `${rowKey}:buy${i}Price`;
+                                                      const volKey = `${rowKey}:buy${i}Vol`;
+                                                      return (
+                                                          <React.Fragment
+                                                              key={`${stock.ticker}-buy-${i}`}
                                                           >
-                                                              {b.price.toFixed(
-                                                                  2,
-                                                              )}
-                                                          </ColorText>
-                                                      </td>
-                                                      <td className="border-r border-main p-1 text-right font-semibold text-emerald-500">
-                                                          {b.vol}
-                                                      </td>
-                                                  </React.Fragment>
-                                              ))}
+                                                              <td
+                                                                  className={cn(
+                                                                      "border-r border-main p-1 text-right",
+                                                                      flashClass(
+                                                                          priceKey,
+                                                                      ),
+                                                                  )}
+                                                              >
+                                                                  <ColorText
+                                                                      value={
+                                                                          b.price
+                                                                      }
+                                                                      refVal={
+                                                                          stock.ref
+                                                                      }
+                                                                      ceiling={
+                                                                          stock.ceiling
+                                                                      }
+                                                                      floor={
+                                                                          stock.floor
+                                                                      }
+                                                                      className={
+                                                                          isFlashing(
+                                                                              priceKey,
+                                                                          )
+                                                                              ? "!text-white"
+                                                                              : undefined
+                                                                      }
+                                                                  >
+                                                                      {b.price.toFixed(
+                                                                          2,
+                                                                      )}
+                                                                  </ColorText>
+                                                              </td>
+                                                              <td
+                                                                  className={cn(
+                                                                      "border-r border-main p-1 text-right font-semibold text-emerald-500",
+                                                                      flashClass(
+                                                                          volKey,
+                                                                      ),
+                                                                  )}
+                                                              >
+                                                                  {b.vol}
+                                                              </td>
+                                                          </React.Fragment>
+                                                      );
+                                                  })}
 
-                                              <td className="border-r border-main p-1 text-right">
-                                                  <ColorText
-                                                      value={stock.match.price}
-                                                      refVal={stock.ref}
-                                                      ceiling={stock.ceiling}
-                                                      floor={stock.floor}
-                                                      className="font-semibold"
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-1 text-right",
+                                                          flashClass(
+                                                              `${rowKey}:matchPrice`,
+                                                          ),
+                                                      )}
                                                   >
-                                                      {stock.match.price.toFixed(
+                                                      <ColorText
+                                                          value={
+                                                              stock.match.price
+                                                          }
+                                                          refVal={stock.ref}
+                                                          ceiling={stock.ceiling}
+                                                          floor={stock.floor}
+                                                          className={cn(
+                                                              "font-semibold",
+                                                              isFlashing(
+                                                                  `${rowKey}:matchPrice`,
+                                                              ) && "!text-white",
+                                                          )}
+                                                      >
+                                                          {stock.match.price.toFixed(
+                                                              2,
+                                                          )}
+                                                      </ColorText>
+                                                  </td>
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-1 text-right font-semibold text-emerald-500",
+                                                          flashClass(
+                                                              `${rowKey}:matchVol`,
+                                                          ),
+                                                      )}
+                                                  >
+                                                      {stock.match.vol}
+                                                  </td>
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-1 text-right",
+                                                          stock.match.change >= 0
+                                                              ? "text-emerald-500"
+                                                              : "text-rose-500",
+                                                          flashClass(
+                                                              `${rowKey}:matchChange`,
+                                                          ),
+                                                      )}
+                                                  >
+                                                      {stock.match.change.toFixed(
                                                           2,
                                                       )}
-                                                  </ColorText>
-                                              </td>
-                                              <td className="border-r border-main p-1 text-right font-semibold text-emerald-500">
-                                                  {stock.match.vol}
-                                              </td>
-                                              <td
-                                                  className={cn(
-                                                      "border-r border-main p-1 text-right",
-                                                      stock.match.change >= 0
-                                                          ? "text-emerald-500"
-                                                          : "text-rose-500",
-                                                  )}
-                                              >
-                                                  {stock.match.change.toFixed(
-                                                      2,
-                                                  )}
-                                              </td>
-                                              <td
-                                                  className={cn(
-                                                      "border-r border-main p-1 text-right",
-                                                      stock.match.percent >= 0
-                                                          ? "text-emerald-500"
-                                                          : "text-rose-500",
-                                                  )}
-                                              >
-                                                  {stock.match.percent.toFixed(
-                                                      2,
-                                                  )}
-                                                  %
-                                              </td>
-
-                                              {stock.sell.map((s, i) => (
-                                                  <React.Fragment
-                                                      key={`${stock.ticker}-sell-${i}`}
+                                                  </td>
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-1 text-right",
+                                                          stock.match.percent >=
+                                                              0
+                                                              ? "text-emerald-500"
+                                                              : "text-rose-500",
+                                                          flashClass(
+                                                              `${rowKey}:matchPercent`,
+                                                          ),
+                                                      )}
                                                   >
-                                                      <td className="border-r border-main p-1 text-right">
-                                                          <ColorText
-                                                              value={s.price}
-                                                              refVal={stock.ref}
-                                                              ceiling={
-                                                                  stock.ceiling
-                                                              }
-                                                              floor={
-                                                                  stock.floor
-                                                              }
+                                                      {stock.match.percent.toFixed(
+                                                          2,
+                                                      )}
+                                                      %
+                                                  </td>
+
+                                                  {stock.sell.map((s, i) => {
+                                                      const priceKey = `${rowKey}:sell${i}Price`;
+                                                      const volKey = `${rowKey}:sell${i}Vol`;
+                                                      return (
+                                                          <React.Fragment
+                                                              key={`${stock.ticker}-sell-${i}`}
                                                           >
-                                                              {s.price.toFixed(
-                                                                  2,
-                                                              )}
-                                                          </ColorText>
-                                                      </td>
-                                                      <td className="border-r border-main p-1 text-right font-semibold text-rose-500">
-                                                          {s.vol}
-                                                      </td>
-                                                  </React.Fragment>
-                                              ))}
+                                                              <td
+                                                                  className={cn(
+                                                                      "border-r border-main p-1 text-right",
+                                                                      flashClass(
+                                                                          priceKey,
+                                                                      ),
+                                                                  )}
+                                                              >
+                                                                  <ColorText
+                                                                      value={
+                                                                          s.price
+                                                                      }
+                                                                      refVal={
+                                                                          stock.ref
+                                                                      }
+                                                                      ceiling={
+                                                                          stock.ceiling
+                                                                      }
+                                                                      floor={
+                                                                          stock.floor
+                                                                      }
+                                                                      className={
+                                                                          isFlashing(
+                                                                              priceKey,
+                                                                          )
+                                                                              ? "!text-white"
+                                                                              : undefined
+                                                                      }
+                                                                  >
+                                                                      {s.price.toFixed(
+                                                                          2,
+                                                                      )}
+                                                                  </ColorText>
+                                                              </td>
+                                                              <td
+                                                                  className={cn(
+                                                                      "border-r border-main p-1 text-right font-semibold text-rose-500",
+                                                                      flashClass(
+                                                                          volKey,
+                                                                      ),
+                                                                  )}
+                                                              >
+                                                                  {s.vol}
+                                                              </td>
+                                                          </React.Fragment>
+                                                      );
+                                                  })}
 
-                                              <td className="border-r border-main p-2 text-right">
-                                                  {stock.totalVol}
-                                              </td>
-                                              <td className="border-r border-main p-2 text-right text-emerald-500">
-                                                  {stock.high.toFixed(2)}
-                                              </td>
-                                              <td className="border-r border-main p-2 text-right text-amber-500">
-                                                  {stock.low.toFixed(2)}
-                                              </td>
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-2 text-right",
+                                                          flashClass(
+                                                              `${rowKey}:totalVol`,
+                                                          ),
+                                                      )}
+                                                  >
+                                                      {stock.totalVol}
+                                                  </td>
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-2 text-right text-emerald-500",
+                                                          flashClass(
+                                                              `${rowKey}:high`,
+                                                          ),
+                                                      )}
+                                                  >
+                                                      {stock.high.toFixed(2)}
+                                                  </td>
+                                                  <td
+                                                      className={cn(
+                                                          "border-r border-main p-2 text-right text-amber-500",
+                                                          flashClass(
+                                                              `${rowKey}:low`,
+                                                          ),
+                                                      )}
+                                                  >
+                                                      {stock.low.toFixed(2)}
+                                                  </td>
 
-                                              <td className="border-r border-main p-1 text-right">
-                                                  {stock.foreign.buy}
-                                              </td>
-                                              <td className="border-r border-main p-1 text-right">
-                                                  {stock.foreign.sell}
-                                              </td>
-                                              <td className="p-1 text-right">
-                                                  {stock.foreign.room || "--"}
-                                              </td>
-                                          </tr>
-                                      ))}
+                                                  <td className="border-r border-main p-1 text-right">
+                                                      {stock.foreign.buy}
+                                                  </td>
+                                                  <td className="border-r border-main p-1 text-right">
+                                                      {stock.foreign.sell}
+                                                  </td>
+                                                  <td className="p-1 text-right">
+                                                      {stock.foreign.room ||
+                                                          "--"}
+                                                  </td>
+                                              </tr>
+                                          );
+                                      })}
                             </tbody>
                         </table>
                     </div>
