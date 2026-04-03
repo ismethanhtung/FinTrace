@@ -11,6 +11,7 @@ import {
     THEME_COOKIE_KEY,
     UNIVERSE_COOKIE_KEY,
 } from "../lib/preferences";
+import { getColorSchemeForTheme } from "../lib/themeDom";
 
 const jetbrainsMono = JetBrains_Mono({
     subsets: ["latin"],
@@ -23,6 +24,11 @@ const THEME_BOOTSTRAP_SCRIPT = `
     const raw = localStorage.getItem("ft-theme");
     const allowed = new Set(["light","dark1","dark2","dark3","dark4","dark5"]);
     const next = allowed.has(raw) ? raw : null;
+    const fallback = document.documentElement.getAttribute("data-theme");
+    const applied = next || fallback;
+    if (applied) {
+      document.documentElement.style.colorScheme = applied === "light" ? "light" : "dark";
+    }
     if (next) {
       document.documentElement.setAttribute("data-theme", next);
     }
@@ -54,7 +60,12 @@ export default async function RootLayout({
     );
 
     return (
-        <html lang="en" data-theme={initialTheme} suppressHydrationWarning>
+        <html
+            lang="en"
+            data-theme={initialTheme}
+            style={{ colorScheme: getColorSchemeForTheme(initialTheme) }}
+            suppressHydrationWarning
+        >
             <head>
                 <script
                     dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}

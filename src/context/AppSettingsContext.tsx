@@ -5,6 +5,7 @@ import React, {
     useContext,
     useState,
     useEffect,
+    useLayoutEffect,
     useCallback,
 } from "react";
 import { getDefaultModelForProvider } from "../lib/aiModelDefaults";
@@ -14,6 +15,7 @@ import {
     THEME_COOKIE_KEY,
     THEME_STORAGE_KEY,
 } from "../lib/preferences";
+import { applyThemeToDocument } from "../lib/themeDom";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type AppFont =
@@ -310,6 +312,7 @@ export const AppSettingsProvider = ({
         if (savedThemeRaw) {
             const savedTheme = normalizeTheme(savedThemeRaw);
             if (THEME_CYCLE.includes(savedTheme)) {
+                applyThemeToDocument(savedTheme);
                 setThemeState(savedTheme);
                 persistClientPreferenceCookie(THEME_COOKIE_KEY, savedTheme);
             }
@@ -343,9 +346,9 @@ export const AppSettingsProvider = ({
         );
     }, [font]);
 
-    // Apply theme
-    useEffect(() => {
-        document.documentElement.setAttribute("data-theme", theme);
+    // Keep DOM theme attribute in sync before paint to prevent mixed frame.
+    useLayoutEffect(() => {
+        applyThemeToDocument(theme);
     }, [theme]);
 
     useEffect(() => {
@@ -417,6 +420,7 @@ export const AppSettingsProvider = ({
     }, []);
 
     const setTheme = useCallback((t: AppTheme) => {
+        applyThemeToDocument(t, { disableTransitions: true });
         setThemeState(t);
         localStorage.setItem(THEME_STORAGE_KEY, t);
         persistClientPreferenceCookie(THEME_COOKIE_KEY, t);
@@ -426,6 +430,7 @@ export const AppSettingsProvider = ({
         setThemeState((prev) => {
             const idx = THEME_CYCLE.indexOf(prev);
             const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
+            applyThemeToDocument(next, { disableTransitions: true });
             localStorage.setItem(THEME_STORAGE_KEY, next);
             persistClientPreferenceCookie(THEME_COOKIE_KEY, next);
             return next;

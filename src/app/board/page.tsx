@@ -9,6 +9,7 @@ import React, {
     useEffect,
     useCallback,
     useRef,
+    useDeferredValue,
 } from "react";
 import {
     Search,
@@ -24,8 +25,9 @@ import {
     Moon,
 } from "lucide-react";
 import {
-    AreaChart,
+    ComposedChart,
     Area,
+    Bar,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -43,6 +45,11 @@ import { useDnseBoardStream } from "../../hooks/useDnseBoardStream";
 import { useVietcapBoardSnapshot } from "../../hooks/useVietcapBoardSnapshot";
 import { useVietcapMarketIndexes } from "../../hooks/useVietcapMarketIndexes";
 import { useKbIndexIntraday } from "../../hooks/useKbIndexIntraday";
+import {
+    getKbMiniChartMaxHourInVn,
+    KB_SESSION_END_HOUR,
+    KB_SESSION_START_HOUR,
+} from "../../lib/kb/indexIntraday";
 
 type BoardStockRow = {
     id: string;
@@ -203,6 +210,13 @@ type IndexData = {
     down: number;
 };
 
+type BoardSearchMeta = {
+    symbol: string;
+    name: string;
+    id: string;
+    groups: string[];
+};
+
 type CellFlashTone =
     | "emerald"
     | "rose"
@@ -218,8 +232,8 @@ type CellFlashState = {
 
 const INDEX_NAMES = ["VNINDEX", "VN30", "HNX30", "HNXINDEX", "UPCOM"] as const;
 const INITIAL_COL_WIDTHS = [
-    70, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 64, 60, 60, 60, 60,
-    70, 90, 64, 64, 82, 82, 94,
+    74, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 64, 60, 60, 60, 60,
+    70, 90, 64, 64, 80, 80, 92,
 ];
 
 const BOARD_TABLE_COLSPAN = 26;
@@ -238,14 +252,18 @@ const EMPTY_INDEX_STATS: IndexData = {
 };
 
 const BOARD_CELL_FLASH_MS = 600;
+const BOARD_MAX_FLASH_ROWS = 320;
 const STOCK_LAMBDA_URL = process.env.NEXT_PUBLIC_STOCK_LAMBDA_URL?.trim() || "";
 const BOARD_RECENTS_KEY = "fintrace_board_recent_symbols";
 const BOARD_MAX_RECENTS = 8;
 const BOARD_PRICE_SCALE_FACTOR = 1000;
 const DNSE_SOCKET_VOLUME_MULTIPLIER = 10;
-const MINI_CHART_SESSION_START_HOUR = 9;
-const MINI_CHART_SESSION_END_HOUR = 15;
+const MINI_CHART_SESSION_START_HOUR = KB_SESSION_START_HOUR;
+const MINI_CHART_SESSION_END_HOUR = KB_SESSION_END_HOUR;
 const MINI_CHART_SESSION_TICKS = [9, 10, 11, 12, 13, 14, 15] as const;
+const MINI_CHART_VOLUME_AXIS_PADDING = 1.6;
+const MINI_CHART_MIN_BAR_SIZE = 0;
+const MINI_CHART_MAX_BAR_SIZE = 9;
 
 const FLASH_BG_CLASS_BY_TONE: Record<CellFlashTone, string> = {
     emerald: "bg-emerald-500 !text-white",
@@ -403,13 +421,13 @@ function ColorText({
     return <span className={cn(color, className)}>{children}</span>;
 }
 
-function MiniChart({
+const MiniChart = React.memo(function MiniChart({
     data,
     color,
     title,
     stats,
 }: {
-    data: { time: number; value: number }[];
+    data: { time: number; value: number; volume: number }[];
     color: string;
     title: string;
     stats: IndexData;
@@ -457,6 +475,7 @@ function MiniChart({
         const out: Array<{
             time: number;
             value: number;
+            volume: number;
             above: number | null;
             below: number | null;
         }> = [];
@@ -476,6 +495,7 @@ function MiniChart({
                         out.push({
                             time: crossTime,
                             value: referencePrice,
+                            volume: 0,
                             above: referencePrice,
                             below: referencePrice,
                         });
@@ -486,12 +506,39 @@ function MiniChart({
             out.push({
                 time: point.time,
                 value: point.value,
+                volume: point.volume,
                 above: isAbove ? point.value : null,
                 below: isAbove ? null : point.value,
             });
         }
         return out;
     }, [data, hasReferencePrice, referencePrice]);
+    const maxVolume = useMemo(
+        () =>
+            chartSeries.reduce(
+                (max, point) =>
+                    Number.isFinite(point.volume) && point.volume > max
+                        ? point.volume
+                        : max,
+                0,
+            ),
+        [chartSeries],
+    );
+    const volumeAxisMax = useMemo(() => {
+        if (!Number.isFinite(maxVolume) || maxVolume <= 0) return 1;
+        return maxVolume * MINI_CHART_VOLUME_AXIS_PADDING;
+    }, [maxVolume]);
+    const volumeBarSize = useMemo(() => {
+        const safeMinBarSize =
+            MINI_CHART_MIN_BAR_SIZE > 0 ? MINI_CHART_MIN_BAR_SIZE : 0.1;
+        const count = Math.max(1, chartSeries.length);
+        const perPointWidth = chartSize.width / count;
+        const candidate = perPointWidth * 0.45;
+        return Math.max(
+            safeMinBarSize,
+            Math.min(MINI_CHART_MAX_BAR_SIZE, candidate),
+        );
+    }, [chartSeries.length, chartSize.width]);
     const yDomain = useMemo(
         () =>
             ([dataMin, dataMax]: [number, number]) => {
@@ -509,7 +556,7 @@ function MiniChart({
     );
 
     return (
-        <div className="flex-1 min-w-[240px] min-h-[142px] min-w-0 border border-main bg-secondary rounded-sm p-2">
+        <div className="flex-1 min-w-[240px] min-h-[142px] min-w-0 border border-main bg-secondary rounded-sm p-2 overflow-hidden">
             <div className="mb-2 flex items-start justify-between gap-2">
                 <div>
                     <div className="flex items-center gap-1 text-[11px] font-semibold text-main">
@@ -562,9 +609,12 @@ function MiniChart({
                     </div>
                 </div>
             </div>
-            <div ref={chartHostRef} className="h-20 w-full min-w-0">
+            <div
+                ref={chartHostRef}
+                className="h-20 w-full min-w-0 overflow-hidden"
+            >
                 {chartSize.width > 0 && chartSize.height > 0 ? (
-                    <AreaChart
+                    <ComposedChart
                         width={chartSize.width}
                         height={chartSize.height}
                         data={chartSeries}
@@ -593,8 +643,16 @@ function MiniChart({
                             axisLine={{ stroke: "var(--border-color)" }}
                             tickLine={false}
                         />
-                        <YAxis hide domain={yDomain} />
+                        <YAxis yAxisId="price" hide domain={yDomain} />
+                        <YAxis
+                            yAxisId="volume"
+                            hide
+                            domain={[0, volumeAxisMax]}
+                        />
                         <Tooltip
+                            cursor={false}
+                            isAnimationActive={false}
+                            allowEscapeViewBox={{ x: false, y: false }}
                             labelFormatter={(value) => {
                                 const n = Number(value);
                                 if (!Number.isFinite(n)) return "";
@@ -611,9 +669,14 @@ function MiniChart({
                                 fontSize: "10px",
                                 color: "var(--text-main)",
                             }}
+                            wrapperStyle={{
+                                pointerEvents: "none",
+                                zIndex: 20,
+                            }}
                         />
                         {hasReferencePrice ? (
                             <ReferenceLine
+                                yAxisId="price"
                                 y={referencePrice}
                                 stroke="#facc15"
                                 strokeDasharray="4 2"
@@ -626,9 +689,21 @@ function MiniChart({
                                 ifOverflow="extendDomain"
                             />
                         ) : null}
+                        <Bar
+                            yAxisId="volume"
+                            dataKey="volume"
+                            fill="#1e3a8a"
+                            fillOpacity={1}
+                            stroke="#1e3a8a"
+                            strokeOpacity={1}
+                            strokeWidth={0.6}
+                            barSize={volumeBarSize}
+                            isAnimationActive={false}
+                        />
                         <Area
                             type="monotone"
                             dataKey="above"
+                            yAxisId="price"
                             stroke={hasReferencePrice ? "#22c55e" : color}
                             fill="none"
                             fillOpacity={0}
@@ -640,6 +715,7 @@ function MiniChart({
                             <Area
                                 type="monotone"
                                 dataKey="below"
+                                yAxisId="price"
                                 stroke="#ef4444"
                                 fill="none"
                                 fillOpacity={0}
@@ -648,12 +724,12 @@ function MiniChart({
                                 connectNulls={false}
                             />
                         ) : null}
-                    </AreaChart>
+                    </ComposedChart>
                 ) : null}
             </div>
         </div>
     );
-}
+});
 
 function BoardRowSkeleton({
     index,
@@ -791,7 +867,8 @@ export default function BoardPage() {
     );
     const resizeHandleClass =
         "absolute right-0 top-0 z-20 h-full w-1.5 cursor-col-resize bg-transparent hover:bg-accent/50";
-    const q = search.trim().toLowerCase();
+    const deferredSearch = useDeferredValue(search);
+    const q = deferredSearch.trim().toLowerCase();
     const normalizedTab = activeTab.trim().toUpperCase();
 
     const streamBoards = useMemo(() => {
@@ -850,68 +927,89 @@ export default function BoardPage() {
             return groups.includes(normalizedTab);
         });
     }, [normalizedTab, symbols, vietcapGroupsBySymbol]);
+    const searchMetaBySymbol = useMemo(() => {
+        const out = new Map<string, BoardSearchMeta>();
+        symbols.forEach((symbol) => {
+            const normalized = symbol.trim().toUpperCase();
+            if (!normalized) return;
+            const snapshot = vietcapSnapshotBySymbol[normalized];
+            const groups = (vietcapGroupsBySymbol[normalized] || []).map((g) =>
+                g.trim().toUpperCase(),
+            );
+            const name = (snapshot?.companyName || normalized).trim();
+            out.set(normalized, {
+                symbol: normalized,
+                name: name || normalized,
+                id: normalized,
+                groups,
+            });
+        });
+        return out;
+    }, [symbols, vietcapGroupsBySymbol, vietcapSnapshotBySymbol]);
     const searchResults = useMemo(() => {
-        if (!q) return [];
-        return symbols
-            .filter((symbol) => {
-                const snapshot = vietcapSnapshotBySymbol[symbol];
-                const asset = assetBySymbol.get(symbol);
-                const name = (
-                    snapshot?.companyName ||
-                    asset?.name ||
-                    symbol
-                ).toLowerCase();
-                const id = (asset?.id || symbol).toLowerCase();
+        if (!isSearchOpen || !q) return [];
+        return tabFilteredSymbols
+            .map((symbol) => searchMetaBySymbol.get(symbol))
+            .filter((meta): meta is BoardSearchMeta => Boolean(meta))
+            .filter((meta) => {
+                const symbolText = meta.symbol.toLowerCase();
+                const nameText = meta.name.toLowerCase();
+                const idText = meta.id.toLowerCase();
                 return (
-                    symbol.toLowerCase().includes(q) ||
-                    name.includes(q) ||
-                    id.includes(q)
+                    symbolText.includes(q) ||
+                    nameText.includes(q) ||
+                    idText.includes(q)
                 );
             })
             .slice(0, 12)
-            .map((symbol) => {
-                const groups = (vietcapGroupsBySymbol[symbol] || []).map((g) =>
-                    g.trim().toUpperCase(),
-                );
-                return {
-                    symbol,
-                    name:
-                        vietcapSnapshotBySymbol[symbol]?.companyName ||
-                        assetBySymbol.get(symbol)?.name ||
-                        symbol,
-                    groups,
-                };
-            });
+            .map((meta) => ({ ...meta }));
     }, [
-        assetBySymbol,
+        isSearchOpen,
         q,
-        symbols,
-        vietcapGroupsBySymbol,
-        vietcapSnapshotBySymbol,
+        searchMetaBySymbol,
+        tabFilteredSymbols,
     ]);
     const recentSearchResults = useMemo(
         () =>
             recentSymbols
                 .map((symbol) => {
                     const normalized = symbol.trim().toUpperCase();
-                    const groups = (
-                        vietcapGroupsBySymbol[normalized] || []
-                    ).map((g) => g.trim().toUpperCase());
-                    const name =
-                        vietcapSnapshotBySymbol[normalized]?.companyName ||
-                        assetBySymbol.get(normalized)?.name ||
-                        normalized;
+                    const meta = searchMetaBySymbol.get(normalized);
                     if (!normalized) return null;
-                    return { symbol: normalized, name, groups };
+                    return {
+                        symbol: normalized,
+                        name: meta?.name || normalized,
+                        groups: meta?.groups || [],
+                    };
                 })
                 .filter(Boolean)
                 .slice(0, BOARD_MAX_RECENTS),
         [
-            assetBySymbol,
             recentSymbols,
-            vietcapGroupsBySymbol,
-            vietcapSnapshotBySymbol,
+            searchMetaBySymbol,
         ],
+    );
+    const findFirstSearchCandidate = useCallback(
+        (rawQuery: string): string | null => {
+            const normalizedQuery = rawQuery.trim().toLowerCase();
+            if (!normalizedQuery) return null;
+            for (const symbol of tabFilteredSymbols) {
+                const meta = searchMetaBySymbol.get(symbol);
+                if (!meta) continue;
+                const symbolText = meta.symbol.toLowerCase();
+                const nameText = meta.name.toLowerCase();
+                const idText = meta.id.toLowerCase();
+                if (
+                    symbolText.includes(normalizedQuery) ||
+                    nameText.includes(normalizedQuery) ||
+                    idText.includes(normalizedQuery)
+                ) {
+                    return meta.symbol;
+                }
+            }
+            return null;
+        },
+        [searchMetaBySymbol, tabFilteredSymbols],
     );
 
     const streamSymbols = useMemo(
@@ -998,15 +1096,7 @@ export default function BoardPage() {
             Object.fromEntries(
                 INDEX_NAMES.map((name) => {
                     const source = kbIntradayBySymbol[name] ?? [];
-                    const now = new Date();
-                    const nowHour =
-                        now.getHours() +
-                        now.getMinutes() / 60 +
-                        now.getSeconds() / 3600;
-                    const maxHour = Math.min(
-                        MINI_CHART_SESSION_END_HOUR,
-                        Math.max(MINI_CHART_SESSION_START_HOUR, nowHour),
-                    );
+                    const maxHour = getKbMiniChartMaxHourInVn(new Date());
                     const points = source
                         .filter(
                             (point) =>
@@ -1017,10 +1107,14 @@ export default function BoardPage() {
                         .map((point) => ({
                             time: point.time,
                             value: point.value,
+                            volume: point.volume,
                         }));
                     return [name, points];
                 }),
-            ) as Record<string, { time: number; value: number }[]>,
+            ) as Record<
+                string,
+                { time: number; value: number; volume: number }[]
+            >,
         [kbIntradayBySymbol],
     );
 
@@ -1254,12 +1348,16 @@ export default function BoardPage() {
     ]);
 
     const rowCellSnapshots = useMemo(() => {
+        const rowsForFlash =
+            rowsForTable.length > BOARD_MAX_FLASH_ROWS
+                ? rowsForTable.slice(0, BOARD_MAX_FLASH_ROWS)
+                : rowsForTable;
         const snapshots: Array<{
             key: string;
             value: number | string;
             tone: CellFlashTone;
         }> = [];
-        for (const row of rowsForTable) {
+        for (const row of rowsForFlash) {
             if (row.id === "EMPTY") continue;
             snapshots.push(
                 {
@@ -1840,7 +1938,7 @@ export default function BoardPage() {
                                 onKeyDown={(e) => {
                                     const hasQuery = search.trim().length > 0;
                                     const firstCandidate = hasQuery
-                                        ? searchResults[0]?.symbol
+                                        ? findFirstSearchCandidate(search)
                                         : recentSearchResults[0]?.symbol;
                                     if (
                                         e.key === "Enter" &&
@@ -1893,7 +1991,7 @@ export default function BoardPage() {
                                                                             false,
                                                                         );
                                                                     }}
-                                                                    className="px-4 py-2.5 flex w-full items-center justify-between hover:bg-secondary transition-colors border-b border-main last:border-0"
+                                                                    className="px-4 py-2.5 flex w-full items-center justify-between hover:bg-secondary transition-colors border-b border-main last:border-0 cursor-pointer"
                                                                 >
                                                                     <div className="flex items-center space-x-3 min-w-0">
                                                                         <TokenAvatar
@@ -2019,7 +2117,7 @@ export default function BoardPage() {
                                                                             false,
                                                                         );
                                                                     }}
-                                                                    className="px-4 py-2.5 flex w-full items-center justify-between hover:bg-secondary transition-colors border-b border-main last:border-0"
+                                                                    className="px-4 py-2.5 flex w-full items-center justify-between hover:bg-secondary transition-colors border-b border-main last:border-0 cursor-pointer"
                                                                 >
                                                                     <div className="flex items-center space-x-3 min-w-0">
                                                                         <TokenAvatar

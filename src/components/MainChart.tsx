@@ -55,6 +55,14 @@ const volFmt = (v: number) => {
         : `${(v / 1_000).toFixed(0)}K`;
 };
 
+const compactNumberFmt = (v: number) => {
+    if (!Number.isFinite(v) || v <= 0) return "—";
+    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)}B`;
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(2)}K`;
+    return v.toFixed(2);
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function msToCountdown(ms: number): string {
     if (ms <= 0) return "00:00:00";
@@ -391,6 +399,47 @@ export const MainChart = () => {
                 ? (["chart", "info", "flow", "liquidation"] as const)
                 : (["chart", "info", "flow"] as const)) as readonly ChartTab[],
         [isFutures],
+    );
+    const tabMeta: Record<
+        ChartTab,
+        {
+            label: string;
+            icon: React.ReactNode;
+            activeClass: string;
+            iconClass: string;
+        }
+    > = useMemo(
+        () => ({
+            chart: {
+                label: "CHART",
+                icon: <BarChart2 size={11} />,
+                activeClass:
+                    "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
+                iconClass: "text-blue-400",
+            },
+            info: {
+                label: "INFO",
+                icon: <Info size={11} />,
+                activeClass:
+                    "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
+                iconClass: "text-blue-400",
+            },
+            flow: {
+                label: "FLOW",
+                icon: <Waves size={11} />,
+                activeClass:
+                    "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
+                iconClass: "text-blue-400",
+            },
+            liquidation: {
+                label: "LIQUIDATION",
+                icon: <AlertTriangle size={11} />,
+                activeClass:
+                    "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
+                iconClass: "text-blue-400",
+            },
+        }),
+        [],
     );
 
     useEffect(() => {
@@ -810,16 +859,108 @@ export const MainChart = () => {
         { key: "MA25", label: "MA(25)", color: "#a78bfa" },
         { key: "EMA99", label: "EMA(99)", color: "#38bdf8" },
     ];
+    const priceLabel = currentAsset
+        ? universe === "stock"
+            ? priceFmt(currentAsset.price)
+            : `$${priceFmt(currentAsset.price)}`
+        : "—";
+    const changeLabel = currentAsset
+        ? `${isPositive ? "+" : ""}${currentAsset.changePercent.toFixed(2)}%`
+        : "—";
+    const changeValueLabel = currentAsset
+        ? `${isPositive ? "+" : ""}${Math.abs(
+              currentAsset.change ?? 0,
+          ).toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+          })}`
+        : "—";
+    const sessionStats = [
+        {
+            key: "O",
+            label: "Open",
+            value: displayedLastPoint ? priceFmt(displayedLastPoint.open) : "—",
+            valueClass: "text-main",
+        },
+        {
+            key: "H",
+            label: "High",
+            value: displayedLastPoint ? priceFmt(displayedLastPoint.high) : "—",
+            valueClass: "text-emerald-500",
+        },
+        {
+            key: "L",
+            label: "Low",
+            value: displayedLastPoint ? priceFmt(displayedLastPoint.low) : "—",
+            valueClass: "text-rose-500",
+        },
+        {
+            key: "C",
+            label: "Close",
+            value: displayedLastPoint
+                ? priceFmt(displayedLastPoint.close)
+                : "—",
+            valueClass:
+                displayedLastPoint &&
+                displayedLastPoint.close < displayedLastPoint.open
+                    ? "text-rose-500"
+                    : "text-emerald-500",
+        },
+        {
+            key: "V",
+            label: "Vol",
+            value: displayedLastPoint ? volFmt(displayedLastPoint.volume) : "—",
+            valueClass: "text-accent",
+        },
+    ];
+    const marketStats = currentAsset
+        ? [
+              {
+                  key: "chg",
+                  label: "24h Chg",
+                  value: `${isPositive ? "+" : ""}${priceFmt(currentAsset.change)}`,
+                  sub: `(${isPositive ? "+" : ""}${currentAsset.changePercent.toFixed(2)}%)`,
+                  valueClass: isPositive ? "text-emerald-500" : "text-rose-500",
+              },
+              {
+                  key: "h",
+                  label: "24h High",
+                  value: priceFmt(currentAsset.high24h ?? 0),
+                  sub: "",
+                  valueClass: "text-emerald-500",
+              },
+              {
+                  key: "l",
+                  label: "24h Low",
+                  value: priceFmt(currentAsset.low24h ?? 0),
+                  sub: "",
+                  valueClass: "text-rose-500",
+              },
+              {
+                  key: "baseVol",
+                  label: `Vol(${currentAsset.symbol})`,
+                  value: compactNumberFmt(currentAsset.baseVolume ?? 0),
+                  sub: "",
+                  valueClass: "text-main",
+              },
+              {
+                  key: "quoteVol",
+                  label: `Vol(${universe === "stock" ? "VND" : "USDT"})`,
+                  value: compactNumberFmt(currentAsset.quoteVolumeRaw ?? 0),
+                  sub: "",
+                  valueClass: "text-accent",
+              },
+          ]
+        : [];
 
     return (
         <div className="h-full flex flex-col">
             {/* ── Header ── */}
-            <div className="px-5 pt-3 pb-0 border-b border-main shrink-0">
+            <div className="px-5 pt-3 pb-2 border-b border-main shrink-0">
                 {/* Price row */}
-                <div className="flex items-start justify-between mb-2">
-                    <div>
-                        <div className="flex items-center space-x-2">
-                            <h2 className="text-[16px] font-bold tracking-tight">
+                <div className="flex items-start justify-between gap-4 pb-2">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <h2 className="truncate text-[16px] font-bold tracking-tight">
                                 {currentAsset?.name ??
                                     selectedSymbol.replace(/USDT|-C|-F/gi, "")}
                                 <span className="text-muted font-normal text-[12px] ml-1">
@@ -830,314 +971,204 @@ export const MainChart = () => {
                                 {selectedSymbol}
                             </span>
                         </div>
-                        <div className="flex items-baseline space-x-2 mt-0.5">
+                        <div className="mt-1 flex items-end gap-2">
                             <span className="text-[24px] font-mono font-semibold tracking-tighter leading-none">
-                                {universe === "stock"
-                                    ? priceFmt(currentAsset?.price ?? 0)
-                                    : `$${priceFmt(currentAsset?.price ?? 0)}`}
+                                {priceLabel}
                             </span>
                             <span
                                 className={cn(
-                                    "text-[12px] font-semibold flex items-center space-x-1",
+                                    "inline-flex items-center gap-1   px-1.5 py-0.5 text-[11px] font-semibold",
                                     isPositive
-                                        ? "text-emerald-500"
-                                        : "text-rose-500",
+                                        ? "border-emerald-500/35 text-emerald-500"
+                                        : "border-rose-500/35 text-rose-500",
                                 )}
                             >
                                 {isPositive ? (
-                                    <TrendingUp size={12} />
+                                    <TrendingUp size={11} />
                                 ) : (
-                                    <TrendingDown size={12} />
+                                    <TrendingDown size={11} />
                                 )}
-                                <span>
-                                    {isPositive ? "+" : ""}
-                                    {currentAsset?.changePercent.toFixed(2)}%
-                                    <span className="ml-1 opacity-75">
-                                        ({isPositive ? "+" : ""}
-                                        {Math.abs(
-                                            currentAsset?.change ?? 0,
-                                        ).toLocaleString("en-US", {
-                                            minimumFractionDigits: 2,
-                                        })}
-                                        )
-                                    </span>
+                                <span>{changeLabel}</span>
+                                <span className="opacity-80">
+                                    ({changeValueLabel})
                                 </span>
                             </span>
                         </div>
                     </div>
 
-                    {/* Tab switcher */}
-                    <div className="flex items-center space-x-1 bg-secondary p-0.5 rounded-lg border border-main">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={cn(
-                                    "flex items-center space-x-1 px-2.5 py-1 text-[10px] font-medium rounded-md transition-all",
-                                    activeTab === tab
-                                        ? "bg-main text-accent shadow-sm border border-main"
-                                        : "text-muted hover:text-main",
-                                )}
-                            >
-                                {tab === "chart" ? (
-                                    <BarChart2 size={11} />
-                                ) : tab === "info" ? (
-                                    <Info size={11} />
-                                ) : tab === "liquidation" ? (
-                                    <AlertTriangle size={11} />
-                                ) : (
-                                    <Waves size={11} />
-                                )}
-                                <span>
-                                    {tab === "info"
-                                        ? "Asset Info"
-                                        : tab === "flow"
-                                          ? "Flow"
-                                          : tab === "liquidation"
-                                            ? "Liquidation"
-                                            : "Chart"}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
+                    <div className="shrink-0" />
                 </div>
 
                 {/* ── Stats Section ── */}
-                <div className="py-1.5 border-t border-dashed border-main/60 space-y-1">
-                    <div className="flex items-center space-x-3 text-[10px] flex-wrap gap-y-0.5">
-                        <span className="text-muted font-semibold uppercase tracking-wider mr-1">
+                <div className="space-y-1.5 pt-1.5">
+                    <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap thin-scrollbar text-[10px]">
+                        <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
                             {interval}
                         </span>
-                        {[
-                            {
-                                label: "O",
-                                value: displayedLastPoint
-                                    ? priceFmt(displayedLastPoint.open)
-                                    : "—",
-                                cls: "text-main",
-                            },
-                            {
-                                label: "H",
-                                value: displayedLastPoint
-                                    ? priceFmt(displayedLastPoint.high)
-                                    : "—",
-                                cls: "text-emerald-500",
-                            },
-                            {
-                                label: "L",
-                                value: displayedLastPoint
-                                    ? priceFmt(displayedLastPoint.low)
-                                    : "—",
-                                cls: "text-rose-500",
-                            },
-                            {
-                                label: "C",
-                                value: displayedLastPoint
-                                    ? priceFmt(displayedLastPoint.close)
-                                    : "—",
-                                cls: displayedLastPoint
-                                    ? displayedLastPoint.close >=
-                                      displayedLastPoint.open
-                                        ? "text-emerald-500"
-                                        : "text-rose-500"
-                                    : "text-main",
-                            },
-                            {
-                                label: "Vol",
-                                value: displayedLastPoint
-                                    ? volFmt(displayedLastPoint.volume)
-                                    : "—",
-                                cls: "text-accent",
-                            },
-                        ].map((item) => (
-                            <div
-                                key={item.label}
-                                className="flex items-center space-x-0.5"
+                        {sessionStats.map((item) => (
+                            <span
+                                key={item.key}
+                                className="inline-flex items-center gap-1"
                             >
                                 <span className="text-muted">
                                     {item.label}:
                                 </span>
                                 <span
                                     className={cn(
-                                        "font-mono font-medium",
-                                        item.cls,
+                                        "font-mono font-semibold",
+                                        item.valueClass,
                                     )}
                                 >
                                     {item.value}
                                 </span>
-                            </div>
+                            </span>
                         ))}
                     </div>
 
-                    {currentAsset && (
-                        <div className="flex items-center space-x-3 text-[10px] flex-wrap gap-y-0.5">
-                            <span className="text-muted font-semibold uppercase tracking-wider mr-1">
+                    {marketStats.length > 0 && (
+                        <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap thin-scrollbar text-[10px] pb-0.5">
+                            <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
                                 24h
                             </span>
-                            <div className="flex items-center space-x-0.5">
-                                <span className="text-muted">Chg:</span>
+                            {marketStats.map((item) => (
                                 <span
-                                    className={cn(
-                                        "font-mono font-medium",
-                                        isPositive
-                                            ? "text-emerald-500"
-                                            : "text-rose-500",
-                                    )}
+                                    key={item.key}
+                                    className="inline-flex items-center gap-1"
                                 >
-                                    {isPositive ? "+" : ""}
-                                    {priceFmt(currentAsset.change)}
-                                </span>
-                                <span
-                                    className={cn(
-                                        "font-mono",
-                                        isPositive
-                                            ? "text-emerald-500/70"
-                                            : "text-rose-500/70",
-                                    )}
-                                >
-                                    ({isPositive ? "+" : ""}
-                                    {currentAsset.changePercent.toFixed(2)}%)
-                                </span>
-                            </div>
-                            <div className="flex items-center space-x-0.5">
-                                <span className="text-muted">H:</span>
-                                <span className="font-mono text-emerald-500">
-                                    {priceFmt(currentAsset.high24h ?? 0)}
-                                </span>
-                            </div>
-                            <div className="flex items-center space-x-0.5">
-                                <span className="text-muted">L:</span>
-                                <span className="font-mono text-rose-500">
-                                    {priceFmt(currentAsset.low24h ?? 0)}
-                                </span>
-                            </div>
-                            {currentAsset.baseVolume > 0 && (
-                                <div className="flex items-center space-x-0.5">
                                     <span className="text-muted">
-                                        Vol({currentAsset.symbol}):
+                                        {item.label}:
                                     </span>
-                                    <span className="font-mono text-main">
-                                        {currentAsset.baseVolume >= 1_000_000
-                                            ? `${(currentAsset.baseVolume / 1_000_000).toFixed(2)}M`
-                                            : currentAsset.baseVolume >= 1000
-                                              ? `${(currentAsset.baseVolume / 1000).toFixed(2)}K`
-                                              : currentAsset.baseVolume.toFixed(
-                                                    2,
-                                                )}
+                                    <span
+                                        className={cn(
+                                            "font-mono font-semibold",
+                                            item.valueClass,
+                                        )}
+                                    >
+                                        {item.value}
                                     </span>
-                                </div>
-                            )}
-                            {currentAsset.quoteVolumeRaw > 0 && (
-                                <div className="flex items-center space-x-0.5">
-                                    <span className="text-muted">
-                                        Vol(
-                                        {universe === "stock" ? "VND" : "USDT"}
-                                        ):
-                                    </span>
-                                    <span className="font-mono text-accent">
-                                        {currentAsset.quoteVolumeRaw >=
-                                        1_000_000_000
-                                            ? `${(currentAsset.quoteVolumeRaw / 1_000_000_000).toFixed(2)}B`
-                                            : `${(currentAsset.quoteVolumeRaw / 1_000_000).toFixed(1)}M`}
-                                    </span>
-                                </div>
-                            )}
+                                    {item.sub ? (
+                                        <span className="font-mono text-muted">
+                                            {item.sub}
+                                        </span>
+                                    ) : null}
+                                </span>
+                            ))}
                         </div>
                     )}
                 </div>
 
-                {/* Controls (chart tab only) */}
-                {activeTab === "chart" && (
-                    <div className="flex items-center justify-between py-1.5">
-                        {/* Interval pills */}
-                        <div className="flex items-center space-x-0.5">
-                            {CHART_INTERVALS.map((iv) => (
+                {/* Controls row */}
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 pt-2">
+                    {/* Interval pills */}
+                    <div className="flex items-center space-x-0.5">
+                        {activeTab === "chart" &&
+                            CHART_INTERVALS.map((iv) => (
                                 <button
                                     key={iv}
                                     onClick={() => setInterval(iv)}
                                     className={cn(
-                                        "px-2 py-0.5 text-[10px] font-medium rounded transition-all",
+                                        "h-5 rounded px-2 text-[10px] font-semibold tracking-wide transition-colors",
                                         interval === iv
-                                            ? "bg-accent text-white shadow-sm"
+                                            ? "border-blue-500/40 bg-blue-500/15 text-blue-400 border"
                                             : "text-muted hover:text-main hover:bg-secondary",
                                     )}
                                 >
                                     {iv}
                                 </button>
                             ))}
-                        </div>
+                    </div>
 
-                        <div className="flex items-center space-x-2">
-                            {isPanned && (
-                                <button
-                                    onClick={goToLatest}
-                                    className="flex items-center space-x-1 px-2 py-0.5 rounded border border-accent/40 text-accent text-[10px] font-medium hover:bg-accent/10 transition-colors"
-                                >
-                                    <ChevronsRight size={11} />
-                                    <span>Latest</span>
-                                </button>
-                            )}
-
-                            {isFetchingHistory && (
-                                <Loader2
-                                    size={11}
-                                    className="text-muted animate-spin"
-                                />
-                            )}
-
-                            {/* Chart type */}
-                            <div className="flex items-center bg-secondary border border-main rounded-md ">
-                                <button
-                                    onClick={() => setChartType("candlestick")}
-                                    title="Candlestick"
-                                    className={cn(
-                                        "p-1 rounded transition-all",
-                                        chartType === "candlestick"
-                                            ? "bg-main text-accent shadow-sm"
-                                            : "text-muted hover:text-main",
-                                    )}
-                                >
-                                    <BarChart2 size={12} />
-                                </button>
-                                <button
-                                    onClick={() => setChartType("area")}
-                                    title="Area"
-                                    className={cn(
-                                        "p-1 rounded transition-all",
-                                        chartType === "area"
-                                            ? "bg-main text-accent shadow-sm"
-                                            : "text-muted hover:text-main",
-                                    )}
-                                >
-                                    <LineChart size={12} />
-                                </button>
-                            </div>
-
-                            {/* Indicator toggles */}
-                            <div className="flex items-center space-x-1">
-                                {indicators.map(({ key, label, color }) => (
+                    {/* Chart type + Indicator toggles (center) */}
+                    <div className="flex items-center justify-center">
+                        {activeTab === "chart" && (
+                            <div className="flex items-center space-x-2">
+                                {isPanned && (
                                     <button
-                                        key={key}
-                                        onClick={() => toggleIndicator(key)}
-                                        style={
-                                            activeIndicators.has(key)
-                                                ? { borderColor: color, color }
-                                                : {}
-                                        }
+                                        onClick={goToLatest}
+                                        className="flex items-center space-x-1 px-2 py-0.5 rounded border border-accent/40 text-accent text-[10px] font-medium hover:bg-accent/10 transition-colors"
+                                    >
+                                        <ChevronsRight size={11} />
+                                        <span>Latest</span>
+                                    </button>
+                                )}
+
+                                {isFetchingHistory && (
+                                    <Loader2
+                                        size={11}
+                                        className="text-muted animate-spin"
+                                    />
+                                )}
+
+                                <div className="flex items-center bg-secondary border border-main rounded">
+                                    <button
+                                        onClick={() => setChartType("candlestick")}
+                                        title="Candlestick"
                                         className={cn(
-                                            "px-1.5 py-0.5 text-[10px] font-mono font-semibold rounded border transition-all",
-                                            activeIndicators.has(key)
-                                                ? "bg-transparent"
-                                                : "border-main text-muted hover:border-main",
+                                            "p-1 rounded transition-all",
+                                            chartType === "candlestick"
+                                                ? "bg-main text-accent shadow-sm"
+                                                : "text-muted hover:text-main",
                                         )}
                                     >
-                                        {label}
+                                        <BarChart2 size={12} />
                                     </button>
-                                ))}
+                                    <button
+                                        onClick={() => setChartType("area")}
+                                        title="Area"
+                                        className={cn(
+                                            "p-1 rounded transition-all",
+                                            chartType === "area"
+                                                ? "bg-main text-accent shadow-sm"
+                                                : "text-muted hover:text-main",
+                                        )}
+                                    >
+                                        <LineChart size={12} />
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center space-x-1">
+                                    {indicators.map(({ key, label, color }) => (
+                                        <button
+                                            key={key}
+                                            onClick={() => toggleIndicator(key)}
+                                            style={
+                                                activeIndicators.has(key)
+                                                    ? { borderColor: color, color }
+                                                    : {}
+                                            }
+                                            className={cn(
+                                                "px-1.5 py-0.5 text-[10px] font-mono font-semibold rounded border transition-all",
+                                                activeIndicators.has(key)
+                                                    ? "bg-transparent"
+                                                    : "border-main text-muted hover:border-main",
+                                            )}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
-                )}
+
+                    {/* View switcher (right) */}
+                    <div className="flex items-center justify-end gap-1">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={cn(
+                                    "inline-flex h-6 items-center gap-1 rounded border px-3 text-[9px] font-semibold tracking-wide transition-colors",
+                                    activeTab === tab
+                                        ? tabMeta[tab].activeClass
+                                        : "border-main text-muted hover:text-main hover:bg-secondary",
+                                )}
+                            >
+                                <span>{tabMeta[tab].label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* ── Chart / Info / Flow ── */}

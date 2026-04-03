@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/utils";
 import { useMarket } from "../context/MarketContext";
 import { TokenAvatar } from "./TokenAvatar";
@@ -9,6 +9,7 @@ import type { Asset } from "../services/binanceService";
 import { usePathname, useRouter } from "next/navigation";
 
 type TickerMode = "hot" | "gainers" | "favorites";
+const TICKER_MAX_ITEMS = 96;
 
 const priceFmt = (v: number) =>
     v < 0.001
@@ -60,7 +61,6 @@ export const TickerBar = () => {
     } = useMarket();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [tickerMode, setTickerMode] = useState<TickerMode>("hot");
-    const [nowMs, setNowMs] = useState(() => Date.now());
     const [isOnline, setIsOnline] = useState(
         () => (typeof navigator === "undefined" ? true : navigator.onLine),
     );
@@ -76,11 +76,6 @@ export const TickerBar = () => {
         marketType === "futures"
             ? lastFuturesStreamUpdateAt
             : lastSpotStreamUpdateAt;
-
-    useEffect(() => {
-        const id = setInterval(() => setNowMs(Date.now()), 1000);
-        return () => clearInterval(id);
-    }, []);
 
     useEffect(() => {
         const evaluateQuality = () => {
@@ -190,7 +185,9 @@ export const TickerBar = () => {
     // Keep ticker order stable across websocket ticks to avoid marquee jumps.
     useEffect(() => {
         const modeKey = `${tickerMode}:${marketType}`;
-        const topIds = rankedAssets.slice(0, 140).map((asset) => asset.id);
+        const topIds = rankedAssets
+            .slice(0, TICKER_MAX_ITEMS)
+            .map((asset) => asset.id);
         setStableOrderIds((prev) => {
             if (!topIds.length) return [];
 
@@ -207,7 +204,14 @@ export const TickerBar = () => {
                     seen.add(id);
                 }
             }
-            return kept.slice(0, 140);
+            const next = kept.slice(0, TICKER_MAX_ITEMS);
+            if (
+                next.length === prev.length &&
+                next.every((id, idx) => id === prev[idx])
+            ) {
+                return prev;
+            }
+            return next;
         });
     }, [rankedAssets, tickerMode, marketType]);
 
@@ -221,52 +225,22 @@ export const TickerBar = () => {
             .map((id) => assetById.get(id))
             .filter((asset): asset is Asset => Boolean(asset));
         if (ordered.length) return ordered;
-        return rankedAssets.slice(0, 140);
+        return rankedAssets.slice(0, TICKER_MAX_ITEMS);
     }, [assetById, rankedAssets, stableOrderIds]);
+    const handleSelect = useCallback((id: string) => {
+        setSelectedSymbol(id);
+        if (pathname !== "/") {
+            router.push("/");
+        }
+    }, [pathname, router, setSelectedSymbol]);
 
     if (assets.length === 0) return null;
 
-    const items = [...displayAssets, ...displayAssets];
     const durationSeconds = Math.min(
         Math.max(displayAssets.length * 1.6, 180),
         720,
     );
     const activeMode = modeMeta[tickerMode];
-    const staleMs =
-        typeof lastUpdateAt === "number" ? Math.max(0, nowMs - lastUpdateAt) : null;
-    const isLikelyLive =
-        streamStatus === "connected" &&
-        staleMs !== null &&
-        staleMs < 10_000 &&
-        isOnline;
-    const statusLabel = !isOnline
-        ? "Offline"
-        : networkQuality === "weak"
-          ? "Weak network"
-          : isLikelyLive
-            ? "Stable"
-            : streamStatus === "connecting"
-              ? "Connecting"
-              : streamStatus === "error"
-                ? "Stream error"
-                : streamStatus === "connected"
-                  ? "Stale"
-                  : "Reconnecting";
-    const statusTone = !isOnline
-        ? "text-rose-500"
-        : networkQuality === "weak"
-          ? "text-amber-400"
-          : isLikelyLive
-            ? "text-emerald-500"
-            : streamStatus === "connecting" || streamStatus === "connected"
-              ? "text-amber-400"
-              : "text-rose-500";
-    const handleSelect = (id: string) => {
-        setSelectedSymbol(id);
-        if (pathname !== "/") {
-            router.push("/");
-        }
-    };
 
     return (
         <div className="relative h-8 border-t border-main bg-secondary/40 flex items-center shrink-0">
@@ -274,36 +248,12 @@ export const TickerBar = () => {
                 ref={settingsRef}
                 className="relative flex items-center px-2 border-r border-main h-full shrink-0 gap-2"
             >
-                <div className="flex items-center gap-1.5">
-                    <Wifi
-                        size={11}
-                        className={statusTone}
-                    />
-                    <span
-                        className={cn("text-[10px] font-semibold whitespace-nowrap", statusTone)}
-                    >
-                        {statusLabel}
-                    </span>
-                    <span
-                        className={cn(
-                            "w-1.5 h-1.5 rounded-full shrink-0",
-                            !isOnline
-                                ? "bg-rose-500"
-                                : isLikelyLive
-                                ? "bg-emerald-500"
-                                : "bg-amber-400 animate-pulse",
-                        )}
-                    />
-                    <span className="text-[9px] text-muted tabular-nums">
-                        {lastUpdateAt
-                            ? new Date(lastUpdateAt).toLocaleTimeString("en-US", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  second: "2-digit",
-                              })
-                            : "--:--:--"}
-                    </span>
-                </div>
+                <TickerStatusBadge
+                    isOnline={isOnline}
+                    networkQuality={networkQuality}
+                    streamStatus={streamStatus}
+                    lastUpdateAt={lastUpdateAt}
+                />
 
                 <div className="w-px h-3 bg-main" />
 
@@ -400,44 +350,12 @@ export const TickerBar = () => {
 
             <div className="flex-1 overflow-hidden ticker-wrapper cursor-default select-none">
                 {displayAssets.length > 0 ? (
-                    <div
-                        className="ticker-track items-center gap-0"
-                        style={{ animationDuration: `${durationSeconds}s` }}
-                    >
-                        {items.map((asset, i) => (
-                            <button
-                                key={`${asset.id}-${i}`}
-                                onClick={() => handleSelect(asset.id)}
-                                className="flex items-center space-x-1 px-2.5 h-8 hover:bg-secondary/80 transition-colors border-r border-main last:border-r-0 shrink-0 w-[210px]"
-                            >
-                                <TokenAvatar
-                                    symbol={asset.symbol}
-                                    logoUrl={asset.logoUrl}
-                                    size={14}
-                                />
-                                <span className="text-[10px] font-semibold whitespace-nowrap w-[72px]">
-                                    {asset.symbol}
-                                    <span className="text-muted font-normal">
-                                        /{universe === "stock" ? "VND" : "USDT"}
-                                    </span>
-                                </span>
-                                <span
-                                    className={cn(
-                                        "text-[10px] font-bold tabular-nums w-[48px] text-right",
-                                        asset.changePercent >= 0
-                                            ? "text-emerald-500"
-                                            : "text-rose-500",
-                                    )}
-                                >
-                                    {asset.changePercent >= 0 ? "+" : ""}
-                                    {asset.changePercent.toFixed(2)}%
-                                </span>
-                                <span className="text-[10px] font-mono tabular-nums text-muted whitespace-nowrap w-[68px] text-right">
-                                    {priceFmt(asset.price)}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
+                    <TickerMarquee
+                        assets={displayAssets}
+                        universe={universe}
+                        durationSeconds={durationSeconds}
+                        onSelect={handleSelect}
+                    />
                 ) : (
                     <div className="h-full flex items-center px-4 text-[10px] text-muted">
                         Danh sach asset yeu thich se duoc bo sung o buoc tiep
@@ -459,3 +377,151 @@ export const TickerBar = () => {
         </div>
     );
 };
+
+const TickerStatusBadge = React.memo(function TickerStatusBadge({
+    isOnline,
+    networkQuality,
+    streamStatus,
+    lastUpdateAt,
+}: {
+    isOnline: boolean;
+    networkQuality: "good" | "weak" | "offline";
+    streamStatus: "connecting" | "connected" | "disconnected" | "error";
+    lastUpdateAt: number | null;
+}) {
+    const [nowMs, setNowMs] = useState(() => Date.now());
+
+    useEffect(() => {
+        const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+        return () => window.clearInterval(id);
+    }, []);
+
+    const staleMs =
+        typeof lastUpdateAt === "number" ? Math.max(0, nowMs - lastUpdateAt) : null;
+    const isLikelyLive =
+        streamStatus === "connected" &&
+        staleMs !== null &&
+        staleMs < 10_000 &&
+        isOnline;
+    const statusLabel = !isOnline
+        ? "Offline"
+        : networkQuality === "weak"
+          ? "Weak network"
+          : isLikelyLive
+            ? "Stable"
+            : streamStatus === "connecting"
+              ? "Connecting"
+              : streamStatus === "error"
+                ? "Stream error"
+                : streamStatus === "connected"
+                  ? "Stale"
+                  : "Reconnecting";
+    const statusTone = !isOnline
+        ? "text-rose-500"
+        : networkQuality === "weak"
+          ? "text-amber-400"
+          : isLikelyLive
+            ? "text-emerald-500"
+            : streamStatus === "connecting" || streamStatus === "connected"
+              ? "text-amber-400"
+              : "text-rose-500";
+
+    return (
+        <div className="flex items-center gap-1.5">
+            <Wifi
+                size={11}
+                className={statusTone}
+            />
+            <span
+                className={cn("text-[10px] font-semibold whitespace-nowrap", statusTone)}
+            >
+                {statusLabel}
+            </span>
+            <span
+                className={cn(
+                    "w-1.5 h-1.5 rounded-full shrink-0",
+                    !isOnline
+                        ? "bg-rose-500"
+                        : isLikelyLive
+                        ? "bg-emerald-500"
+                        : "bg-amber-400 animate-pulse",
+                )}
+            />
+            <span className="text-[9px] text-muted tabular-nums">
+                {lastUpdateAt
+                    ? new Date(lastUpdateAt).toLocaleTimeString("en-US", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                      })
+                    : "--:--:--"}
+            </span>
+        </div>
+    );
+});
+
+const TickerMarquee = React.memo(function TickerMarquee({
+    assets,
+    universe,
+    durationSeconds,
+    onSelect,
+}: {
+    assets: Asset[];
+    universe: "coin" | "stock";
+    durationSeconds: number;
+    onSelect: (id: string) => void;
+}) {
+    const items = useMemo(() => {
+        const out: Array<{ key: string; asset: Asset }> = [];
+        for (let copy = 0; copy < 2; copy += 1) {
+            for (const asset of assets) {
+                out.push({
+                    key: `${copy}:${asset.id}`,
+                    asset,
+                });
+            }
+        }
+        return out;
+    }, [assets]);
+
+    return (
+        <div
+            className="ticker-track items-center gap-0"
+            style={{ animationDuration: `${durationSeconds}s` }}
+        >
+            {items.map(({ key, asset }) => (
+                <button
+                    key={key}
+                    onClick={() => onSelect(asset.id)}
+                    className="flex items-center space-x-1 px-2.5 h-8 hover:bg-secondary/80 transition-colors border-r border-main last:border-r-0 shrink-0 w-[210px]"
+                >
+                    <TokenAvatar
+                        symbol={asset.symbol}
+                        logoUrl={asset.logoUrl}
+                        size={14}
+                    />
+                    <span className="text-[10px] font-semibold whitespace-nowrap w-[72px]">
+                        {asset.symbol}
+                        <span className="text-muted font-normal">
+                            /{universe === "stock" ? "VND" : "USDT"}
+                        </span>
+                    </span>
+                    <span
+                        className={cn(
+                            "text-[10px] font-bold tabular-nums w-[48px] text-right",
+                            asset.changePercent >= 0
+                                ? "text-emerald-500"
+                                : "text-rose-500",
+                        )}
+                    >
+                        {asset.changePercent >= 0 ? "+" : ""}
+                        {asset.changePercent.toFixed(2)}%
+                    </span>
+                    <span className="text-[10px] font-mono tabular-nums text-muted whitespace-nowrap w-[68px] text-right">
+                        {priceFmt(asset.price)}
+                    </span>
+                </button>
+            ))}
+        </div>
+    );
+});

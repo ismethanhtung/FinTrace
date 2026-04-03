@@ -15,8 +15,6 @@ import { TokenAvatar } from "./TokenAvatar";
 import { useDnseBoardStream } from "../hooks/useDnseBoardStream";
 import {
     Search,
-    ChevronLeft,
-    ChevronRight,
     ArrowLeftRight,
     ArrowUpDown,
     ArrowDown,
@@ -189,9 +187,9 @@ const StockInfoTooltip = ({ text }: { text: string }) => {
                 onMouseLeave={() => setOpen(false)}
                 onFocus={() => setOpen(true)}
                 onBlur={() => setOpen(false)}
-                className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border border-main text-muted/80 hover:text-main transition-colors"
+                className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full  text-muted hover:text-main transition-colors"
             >
-                <Info size={9} />
+                <Info size={11} />
             </button>
             {mounted &&
                 open &&
@@ -226,6 +224,10 @@ const CoinRow = ({
     const isFutures = asset.marketType === "futures";
     const fundingRate = asset.fundingRate;
     const stockHint = stockTooltipText(asset);
+    const hasValidPrice = Number.isFinite(asset.price) && asset.price > 0;
+    const hasValidChange =
+        Number.isFinite(asset.changePercent) &&
+        (hasValidPrice || Math.abs(asset.changePercent) > TONE_EPS);
 
     return (
         <div
@@ -280,18 +282,21 @@ const CoinRow = ({
             </div>
             <div className="text-right shrink-0 ml-2">
                 <div className="text-[11px] font-mono">
-                    {priceFmt(asset.price)}
+                    {hasValidPrice ? priceFmt(asset.price) : "--"}
                 </div>
                 <div
                     className={cn(
                         "text-[10px] font-medium",
-                        asset.changePercent >= 0
-                            ? "text-emerald-500"
-                            : "text-rose-500",
+                        !hasValidChange
+                            ? "text-muted"
+                            : asset.changePercent >= 0
+                              ? "text-emerald-500"
+                              : "text-rose-500",
                     )}
                 >
-                    {asset.changePercent >= 0 ? "+" : ""}
-                    {asset.changePercent.toFixed(2)}%
+                    {hasValidChange
+                        ? `${asset.changePercent >= 0 ? "+" : ""}${asset.changePercent.toFixed(2)}%`
+                        : "--"}
                 </div>
             </div>
         </div>
@@ -348,11 +353,11 @@ const MarketBar = () => {
                 ? "Derivatives · Stock Feed"
                 : "Primary Market · Stock Feed"
             : isFutures
-              ? "USD-M Perpetual · Binance Futures"
-              : "Spot Market · Binance";
+              ? "Derivatives · Binance Futures"
+              : "Primary Market · Binance";
 
     return (
-        <div className="px-3 py-1.5 border-b border-main bg-secondary/10 shrink-0 space-y-1.5">
+        <div className="px-2 py-1.5 border-b border-main bg-secondary/10 shrink-0 space-y-1.5">
             <div className="flex items-center gap-1.5">
                 <span
                     className={cn(
@@ -394,10 +399,10 @@ const MarketBar = () => {
                     title={
                         universe === "stock"
                             ? "Hiển thị dữ liệu thị trường cơ sở"
-                            : "Hiển thị dữ liệu Spot"
+                            : "Hiển thị dữ liệu Primary market"
                     }
                 >
-                    {universe === "stock" ? "Primary" : "Spot"}
+                    Primary
                 </button>
 
                 <span className="flex items-center justify-center text-muted">
@@ -415,10 +420,10 @@ const MarketBar = () => {
                     title={
                         universe === "stock"
                             ? "Hiển thị dữ liệu phái sinh"
-                            : "Hiển thị dữ liệu USD-M Futures"
+                            : "Hiển thị dữ liệu Derivatives"
                     }
                 >
-                    {universe === "stock" ? "Derivatives" : "Futures"}
+                    Derivatives
                 </button>
             </div>
         </div>
@@ -519,7 +524,6 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         }
         return out;
     }, [assets, dnseBySymbol, universe]);
-    const [isOpen, setIsOpen] = useState(true);
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [search, setSearch] = useState("");
     const [sortMode, setSortMode] = useState<SortMode>("volume");
@@ -618,7 +622,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
             ? displayAssets.slice(0, stockVisibleCount)
             : displayAssets;
 
-    const panelOpen = embedded || isOpen;
+    const panelOpen = true;
     const assetsLoading =
         marketType === "futures" ? isFuturesLoading : isLoading;
 
@@ -765,7 +769,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className={cn(
-                            "w-full bg-secondary border border-main rounded-md py-1.5 pl-7 text-[11px] focus:outline-none focus:ring-1 focus:ring-accent/30",
+                            "w-full bg-secondary border border-main rounded py-1.5 pl-7 text-[11px] focus:outline-none focus:ring-1 focus:ring-accent/30",
                             universe === "stock" ? "pr-10" : "pr-3",
                         )}
                     />
@@ -807,7 +811,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                         }}
                                         className="absolute right-0 mt-1 w-60 overflow-hidden rounded-md border border-main bg-main shadow-2xl"
                                     >
-                                        <div className="flex items-center justify-between border-b border-main px-2 py-1.5">
+                                        <div className="flex items-center justify-between border-b border-main px-3 py-1.5">
                                             <span className="text-[9px] font-semibold uppercase tracking-wider text-muted">
                                                 Filter Stocks
                                             </span>
@@ -830,7 +834,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                             </button>
                                         </div>
 
-                                        <div className="p-1.5 space-y-2">
+                                        <div className="p-2 space-y-2">
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div className="rounded border border-main bg-secondary/10 p-1.5">
                                                     <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
@@ -1111,26 +1115,19 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     return (
         <div className="relative flex h-full min-h-0 shrink-0">
             {embedded ? (
-                panelOpen && (
-                    <div style={panelStyle} className={panelShellClass}>
-                        {sidebarBody}
-                    </div>
-                )
+                <div style={panelStyle} className={panelShellClass}>
+                    {sidebarBody}
+                </div>
             ) : (
-                <AnimatePresence initial={false}>
-                    {isOpen && (
-                        <motion.div
-                            initial={{ width: 0, opacity: 0 }}
-                            animate={{ width, opacity: 1 }}
-                            exit={{ width: 0, opacity: 0 }}
-                            transition={{ duration: 0.25, ease: "easeInOut" }}
-                            style={panelStyle}
-                            className={panelShellClass}
-                        >
-                            {sidebarBody}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                <motion.div
+                    initial={false}
+                    animate={{ width, opacity: 1 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    style={panelStyle}
+                    className={panelShellClass}
+                >
+                    {sidebarBody}
+                </motion.div>
             )}
 
             {/* Resize handle */}
@@ -1141,24 +1138,6 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                 >
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-12 bg-main border border-main rounded-full group-hover:bg-accent/50 transition-colors" />
                 </div>
-            )}
-
-            {/* Collapse / expand toggle — chỉ trang chủ */}
-            {!embedded && (
-                <button
-                    onClick={() => setIsOpen((v) => !v)}
-                    className={cn(
-                        "absolute z-30 flex items-center justify-center w-5 h-10 bg-main border border-main rounded-r-md shadow-sm transition-all hover:bg-secondary top-1/2 -translate-y-1/2",
-                        isOpen ? "right-[-20px]" : "right-[-20px] left-0",
-                    )}
-                    title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-                >
-                    {isOpen ? (
-                        <ChevronLeft size={12} className="text-muted" />
-                    ) : (
-                        <ChevronRight size={12} className="text-muted" />
-                    )}
-                </button>
             )}
         </div>
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { cn } from "../lib/utils";
 import { useMarket } from "../context/MarketContext";
@@ -185,6 +185,13 @@ const topOfBookPriceFmt = (v: number): string => {
     });
 };
 
+function csvEscape(value: string): string {
+    if (/[",\n]/.test(value)) {
+        return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+}
+
 // ─── Single Order Row ─────────────────────────────────────────────────────────
 interface OrderRowProps {
     price: number;
@@ -259,6 +266,7 @@ export const OrderBook = () => {
     // Smart default grouping based on price
     const [grouping, setGrouping] = useState<Grouping>(1);
     const [isUserGrouping, setIsUserGrouping] = useState(false);
+    const [actionMessage, setActionMessage] = useState<string | null>(null);
 
     // Update default grouping when price changes
     useEffect(() => {
@@ -283,6 +291,108 @@ export const OrderBook = () => {
     } = useOrderBook(selectedSymbol, grouping, marketType);
 
     const asksReversed = data ? [...data.asks].reverse() : [];
+    const canExport = Boolean(data && !isLoading && !isStock);
+
+    useEffect(() => {
+        if (!actionMessage) return;
+        const id = window.setTimeout(() => setActionMessage(null), 2000);
+        return () => window.clearTimeout(id);
+    }, [actionMessage]);
+
+    const handleDownload = useCallback(() => {
+        if (!data) {
+            setActionMessage("No data to download");
+            return;
+        }
+        const nowIso = new Date().toISOString();
+        const rows: string[] = [
+            [
+                "side",
+                "price",
+                "quantity",
+                "total",
+                "depth",
+                "symbol",
+                "marketType",
+                "grouping",
+                "timestamp",
+            ].join(","),
+        ];
+
+        data.asks.forEach((row) => {
+            rows.push(
+                [
+                    "ask",
+                    row.price.toString(),
+                    row.quantity.toString(),
+                    row.total.toString(),
+                    row.depth.toString(),
+                    csvEscape(selectedSymbol),
+                    marketType,
+                    grouping.toString(),
+                    nowIso,
+                ].join(","),
+            );
+        });
+        data.bids.forEach((row) => {
+            rows.push(
+                [
+                    "bid",
+                    row.price.toString(),
+                    row.quantity.toString(),
+                    row.total.toString(),
+                    row.depth.toString(),
+                    csvEscape(selectedSymbol),
+                    marketType,
+                    grouping.toString(),
+                    nowIso,
+                ].join(","),
+            );
+        });
+
+        const csv = rows.join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const safeSymbol = selectedSymbol.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const safeGrouping = grouping.toString().replace(".", "_");
+        a.href = url;
+        a.download = `orderbook_${safeSymbol}_${marketType}_g${safeGrouping}_${Date.now()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setActionMessage("Downloaded");
+    }, [data, grouping, marketType, selectedSymbol]);
+
+    const copyTextToClipboard = useCallback(async (text: string) => {
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+    }, []);
+
+    const handleShare = useCallback(async () => {
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.set("symbol", selectedSymbol);
+            url.searchParams.set("marketType", marketType);
+            url.searchParams.set("grouping", grouping.toString());
+            await copyTextToClipboard(url.toString());
+            setActionMessage("Link copied");
+        } catch {
+            setActionMessage("Copy failed");
+        }
+    }, [copyTextToClipboard, grouping, marketType, selectedSymbol]);
 
     return (
         <div className="h-full flex flex-col border-t border-main">
@@ -305,7 +415,7 @@ export const OrderBook = () => {
                             </span>
                         </div>
                         <div className="flex items-center space-x-2">
-                            <div className="flex items-center space-x-0.5 bg-secondary border border-main rounded-md p-0.5">
+                            <div className="flex items-center space-x-0.5 rounded-md bg-secondary/20 p-0.5">
                                 {GROUPING_OPTIONS.map((g) => (
                                     <button
                                         key={g}
@@ -314,10 +424,10 @@ export const OrderBook = () => {
                                             setGrouping(g);
                                         }}
                                         className={cn(
-                                            "px-1.5 py-0.5 text-[9px] font-mono font-semibold rounded transition-all",
+                                            "h-5 rounded px-1.5 text-[9px] font-mono font-semibold tracking-wide transition-colors",
                                             grouping === g
-                                                ? "bg-main text-accent shadow-sm border border-main"
-                                                : "text-muted hover:text-main",
+                                                ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+                                                : "text-muted hover:text-main hover:bg-secondary",
                                         )}
                                     >
                                         {g}
@@ -325,12 +435,18 @@ export const OrderBook = () => {
                                 ))}
                             </div>
                             <button
-                                className="p-1 text-muted hover:text-main"
+                                onClick={handleDownload}
+                                disabled={!canExport}
+                                className={cn(
+                                    "p-1 text-muted hover:text-main",
+                                    !canExport && "opacity-50 cursor-not-allowed",
+                                )}
                                 title="Download"
                             >
                                 <Download size={11} />
                             </button>
                             <button
+                                onClick={() => void handleShare()}
                                 className="p-1 text-muted hover:text-main"
                                 title="Share"
                             >
@@ -339,6 +455,11 @@ export const OrderBook = () => {
                             <button className="p-1 text-muted hover:text-main">
                                 <MoreHorizontal size={11} />
                             </button>
+                            {actionMessage && (
+                                <span className="text-[9px] text-muted font-medium pl-1">
+                                    {actionMessage}
+                                </span>
+                            )}
                         </div>
                     </div>
                     <ColHeader baseSymbol={isStock ? "CP" : baseSymbol} />

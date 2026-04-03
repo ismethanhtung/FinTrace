@@ -1,4 +1,9 @@
 type JsonRecord = Record<string, unknown>;
+const VN_TZ = "Asia/Ho_Chi_Minh";
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+export const KB_SESSION_START_HOUR = 9;
+export const KB_SESSION_END_HOUR = 15;
 
 export const KB_UI_INDEX_SYMBOLS = [
     "VNINDEX",
@@ -13,6 +18,7 @@ export type KbUiIndexSymbol = (typeof KB_UI_INDEX_SYMBOLS)[number];
 export type KbIntradayPoint = {
     time: number;
     value: number;
+    volume: number;
     isoTime: string;
 };
 
@@ -35,6 +41,69 @@ export function toKbApiDateString(date: Date): string {
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
+}
+
+function toKbApiDateStringUtc(date: Date): string {
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const year = date.getUTCFullYear();
+    return `${day}-${month}-${year}`;
+}
+
+type VnDateTimeParts = {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    second: number;
+};
+
+function getVnDateTimeParts(date: Date): VnDateTimeParts {
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: VN_TZ,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    }).formatToParts(date);
+
+    const byType = (type: Intl.DateTimeFormatPartTypes): number => {
+        const part = parts.find((item) => item.type === type)?.value;
+        const parsed = Number.parseInt(part || "", 10);
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    return {
+        year: byType("year"),
+        month: byType("month"),
+        day: byType("day"),
+        hour: byType("hour"),
+        minute: byType("minute"),
+        second: byType("second"),
+    };
+}
+
+export function getKbNowHourDecimalInVn(date: Date = new Date()): number {
+    const { hour, minute, second } = getVnDateTimeParts(date);
+    return hour + minute / 60 + second / 3600;
+}
+
+export function getKbMiniChartMaxHourInVn(date: Date = new Date()): number {
+    const nowHour = getKbNowHourDecimalInVn(date);
+    if (nowHour < KB_SESSION_START_HOUR) return KB_SESSION_END_HOUR;
+    return Math.min(KB_SESSION_END_HOUR, Math.max(KB_SESSION_START_HOUR, nowHour));
+}
+
+export function resolveKbDefaultDateString(date: Date = new Date()): string {
+    const { year, month, day, hour } = getVnDateTimeParts(date);
+    const vnMidnightUtc = Date.UTC(year, month - 1, day);
+    const targetUtc =
+        hour < KB_SESSION_START_HOUR ? vnMidnightUtc - ONE_DAY_MS : vnMidnightUtc;
+    return toKbApiDateStringUtc(new Date(targetUtc));
 }
 
 function asRecord(value: unknown): JsonRecord | null {
@@ -94,12 +163,20 @@ export function mapKbIntradayRowsToPoints(rows: unknown): KbIntradayPoint[] {
         if (!record) continue;
         const timeRaw = readString(record.t);
         const close = readNumber(record.c);
+        const volume = readNumber(
+            record.v ??
+                record.volume ??
+                record.vol ??
+                record.totalVolume ??
+                record.total_volume,
+        );
         if (!timeRaw || close == null) continue;
         const parsed = parseKbTime(timeRaw);
         if (!parsed) continue;
         out.push({
             time: parsed.hourDecimal,
             value: close,
+            volume: Math.max(0, volume ?? 0),
             isoTime: parsed.isoTime,
         });
     }

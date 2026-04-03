@@ -71,6 +71,12 @@
     }
 }
 
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+    transition: none !important;
+}
+
 /* ─── Utility classes mapping to variables ──────────────────────────────────── */
 .bg-main {
     background-color: var(--bg-main);

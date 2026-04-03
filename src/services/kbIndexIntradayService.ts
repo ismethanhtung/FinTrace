@@ -17,9 +17,17 @@ type KbIntradayApiResponse = {
 export const kbIndexIntradayService = {
     async getSeries(
         uiSymbol: KbUiIndexSymbol,
-        date: Date = new Date(),
+        date?: Date,
     ): Promise<KbIntradaySeries> {
-        const dateParam = toKbApiDateString(date);
+        const now = new Date();
+        const sourceDate = date ?? now;
+        const hourDecimal =
+            now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+        const effectiveDate = new Date(sourceDate);
+        if (!date && hourDecimal < 9) {
+            effectiveDate.setDate(effectiveDate.getDate() - 1);
+        }
+        const dateParam = toKbApiDateString(effectiveDate);
         const qs = new URLSearchParams({ symbol: uiSymbol, date: dateParam });
         const res = await fetch(`/api/board/kb-index-intraday?${qs.toString()}`, {
             method: "GET",

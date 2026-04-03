@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
     KB_SOURCE_SYMBOL_CANDIDATES,
     KB_UI_INDEX_SYMBOLS,
-    toKbApiDateString,
+    resolveKbDefaultDateString,
     type KbUiIndexSymbol,
 } from "../../../../lib/kb/indexIntraday";
 
@@ -21,7 +21,7 @@ function isKbUiIndexSymbol(value: string): value is KbUiIndexSymbol {
 
 function normalizeDateInput(value: string | null): string {
     if (value && /^\d{2}-\d{2}-\d{4}$/.test(value)) return value;
-    return toKbApiDateString(new Date());
+    return resolveKbDefaultDateString(new Date());
 }
 
 async function fetchBySourceSymbol(
@@ -106,4 +106,3 @@ export async function GET(request: Request) {
         },
     );
 }
-
