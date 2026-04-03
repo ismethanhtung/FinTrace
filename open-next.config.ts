@@ -10,6 +10,8 @@ const config = {
             queue: "dummy",
         },
     },
+    // THÊM DÒNG NÀY:
+    buildOutputPath: ".open-next/assets",
     edgeExternals: ["node:crypto"],
     middleware: {
         external: true,
