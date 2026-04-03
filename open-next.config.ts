@@ -11,7 +11,6 @@ const config = {
         },
     },
     // THÊM DÒNG NÀY:
-    buildOutputPath: ".open-next/assets",
     edgeExternals: ["node:crypto"],
     middleware: {
         external: true,
