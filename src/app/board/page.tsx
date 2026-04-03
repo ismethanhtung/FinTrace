@@ -30,6 +30,7 @@ import {
     YAxis,
     CartesianGrid,
     Tooltip,
+    ReferenceLine,
 } from "recharts";
 import { AppTopBar } from "../../components/shell/AppTopBar";
 import { TickerBar } from "../../components/TickerBar";
@@ -41,6 +42,7 @@ import { useMarket } from "../../context/MarketContext";
 import { useDnseBoardStream } from "../../hooks/useDnseBoardStream";
 import { useVietcapBoardSnapshot } from "../../hooks/useVietcapBoardSnapshot";
 import { useVietcapMarketIndexes } from "../../hooks/useVietcapMarketIndexes";
+import { useKbIndexIntraday } from "../../hooks/useKbIndexIntraday";
 
 type BoardStockRow = {
     id: string;
@@ -192,6 +194,7 @@ type IndexData = {
     name: string;
     value: number;
     change: number;
+    refPrice: number;
     vol: string;
     valueT: string;
     ceiling: number;
@@ -213,7 +216,7 @@ type CellFlashState = {
     tone: CellFlashTone;
 };
 
-const INDEX_NAMES = ["VNINDEX", "VN30", "HNX30", "HNXINDEX", "UPCOM"];
+const INDEX_NAMES = ["VNINDEX", "VN30", "HNX30", "HNXINDEX", "UPCOM"] as const;
 const INITIAL_COL_WIDTHS = [
     70, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 64, 60, 60, 60, 60,
     70, 90, 64, 64, 82, 82, 94,
@@ -267,6 +270,7 @@ const EMPTY_INDEX_STATS: IndexData = {
     name: "",
     value: 0,
     change: 0,
+    refPrice: 0,
     vol: "0",
     valueT: "0",
     ceiling: 0,
@@ -275,12 +279,15 @@ const EMPTY_INDEX_STATS: IndexData = {
     down: 0,
 };
 
-const BOARD_CELL_FLASH_MS = 900;
+const BOARD_CELL_FLASH_MS = 600;
 const STOCK_LAMBDA_URL = process.env.NEXT_PUBLIC_STOCK_LAMBDA_URL?.trim() || "";
 const BOARD_RECENTS_KEY = "fintrace_board_recent_symbols";
 const BOARD_MAX_RECENTS = 8;
 const BOARD_PRICE_SCALE_FACTOR = 1000;
 const DNSE_SOCKET_VOLUME_MULTIPLIER = 10;
+const MINI_CHART_SESSION_START_HOUR = 9;
+const MINI_CHART_SESSION_END_HOUR = 15;
+const MINI_CHART_SESSION_TICKS = [9, 10, 11, 12, 13, 14, 15] as const;
 
 const FLASH_BG_CLASS_BY_TONE: Record<CellFlashTone, string> = {
     emerald: "bg-emerald-500 !text-white",
@@ -408,13 +415,6 @@ function toneToTextClass(tone: CellFlashTone): string {
     return "text-cyan-500";
 }
 
-function generateChartData(points: number, base: number) {
-    return Array.from({ length: points }, (_, i) => ({
-        time: `${9 + Math.floor(i / 12)}h${String((i % 12) * 5).padStart(2, "0")}`,
-        value: base,
-    }));
-}
-
 function ColorText({
     value,
     refVal,
@@ -451,7 +451,7 @@ function MiniChart({
     title,
     stats,
 }: {
-    data: { time: string; value: number }[];
+    data: { time: number; value: number }[];
     color: string;
     title: string;
     stats: IndexData;
@@ -478,15 +478,80 @@ function MiniChart({
     }, []);
 
     const isPositive = stats.change >= 0;
+    const referencePrice = Number.isFinite(stats.refPrice)
+        ? stats.refPrice
+        : NaN;
+    const hasReferencePrice = Number.isFinite(referencePrice);
     const changeText = `${isPositive ? "+" : ""}${stats.change.toFixed(2)}`;
     const rawPercent =
         stats.value - stats.change !== 0
             ? (stats.change / (stats.value - stats.change)) * 100
             : 0;
     const percentText = `${rawPercent >= 0 ? "+" : ""}${rawPercent.toFixed(2)}%`;
+    const chartSeries = useMemo(() => {
+        if (!hasReferencePrice) {
+            return data.map((point) => ({
+                ...point,
+                above: point.value,
+                below: null as number | null,
+            }));
+        }
+        const out: Array<{
+            time: number;
+            value: number;
+            above: number | null;
+            below: number | null;
+        }> = [];
+
+        for (let i = 0; i < data.length; i += 1) {
+            const point = data[i];
+            if (i > 0) {
+                const prev = data[i - 1];
+                const prevDiff = prev.value - referencePrice;
+                const currDiff = point.value - referencePrice;
+                if (prevDiff * currDiff < 0) {
+                    const denom = point.value - prev.value;
+                    if (Math.abs(denom) > 1e-9) {
+                        const ratio = (referencePrice - prev.value) / denom;
+                        const crossTime =
+                            prev.time + (point.time - prev.time) * ratio;
+                        out.push({
+                            time: crossTime,
+                            value: referencePrice,
+                            above: referencePrice,
+                            below: referencePrice,
+                        });
+                    }
+                }
+            }
+            const isAbove = point.value >= referencePrice;
+            out.push({
+                time: point.time,
+                value: point.value,
+                above: isAbove ? point.value : null,
+                below: isAbove ? null : point.value,
+            });
+        }
+        return out;
+    }, [data, hasReferencePrice, referencePrice]);
+    const yDomain = useMemo(
+        () =>
+            ([dataMin, dataMax]: [number, number]) => {
+                const safeMin = Number.isFinite(dataMin) ? dataMin : 0;
+                const safeMax = Number.isFinite(dataMax) ? dataMax : safeMin;
+                const minBase = hasReferencePrice
+                    ? Math.min(safeMin, referencePrice)
+                    : safeMin;
+                const maxBase = hasReferencePrice
+                    ? Math.max(safeMax, referencePrice)
+                    : safeMax;
+                return [minBase - 2, maxBase + 2] as [number, number];
+            },
+        [hasReferencePrice, referencePrice],
+    );
 
     return (
-        <div className="flex-1 min-w-[240px] min-h-[160px] min-w-0 border border-main bg-secondary rounded-sm p-2">
+        <div className="flex-1 min-w-[240px] min-h-[142px] min-w-0 border border-main bg-secondary rounded-sm p-2">
             <div className="mb-2 flex items-start justify-between gap-2">
                 <div>
                     <div className="flex items-center gap-1 text-[11px] font-semibold text-main">
@@ -521,13 +586,9 @@ function MiniChart({
                             {percentText}
                         </span>
                     </div>
-                    <div className="text-[10px] text-muted">
-                        {stats.vol} CP <span className="mx-1">|</span>{" "}
-                        {stats.valueT} Tỷ
-                    </div>
                 </div>
-                <div className="text-[10px]">
-                    <div className="flex gap-2">
+                <div className="text-[10px] text-right">
+                    <div className="flex justify-end gap-2">
                         <span className="text-fuchsia-500">
                             ▲ {stats.ceiling}
                         </span>
@@ -535,43 +596,57 @@ function MiniChart({
                         <span className="text-amber-500">■ {stats.ref}</span>
                         <span className="text-rose-500">▼ {stats.down}</span>
                     </div>
+                    <div className="mt-0.5 text-muted">
+                        <div className="whitespace-nowrap">{stats.vol} CP</div>
+                        <div className="whitespace-nowrap">
+                            {stats.valueT} Tỷ
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div ref={chartHostRef} className="h-24 w-full min-w-0">
+            <div ref={chartHostRef} className="h-20 w-full min-w-0">
                 {chartSize.width > 0 && chartSize.height > 0 ? (
                     <AreaChart
                         width={chartSize.width}
                         height={chartSize.height}
-                        data={data}
+                        data={chartSeries}
+                        margin={{ top: 2, right: 2, left: 2, bottom: 0 }}
                     >
-                        <defs>
-                            <linearGradient
-                                id={`grad-${title}`}
-                                x1="0"
-                                y1="0"
-                                x2="0"
-                                y2="1"
-                            >
-                                <stop
-                                    offset="5%"
-                                    stopColor={color}
-                                    stopOpacity={0.3}
-                                />
-                                <stop
-                                    offset="95%"
-                                    stopColor={color}
-                                    stopOpacity={0}
-                                />
-                            </linearGradient>
-                        </defs>
                         <CartesianGrid
                             strokeDasharray="3 3"
                             vertical={false}
                             stroke="var(--border-color)"
                         />
-                        <XAxis dataKey="time" hide />
-                        <YAxis hide domain={["dataMin - 5", "dataMax + 5"]} />
+                        <XAxis
+                            dataKey="time"
+                            type="number"
+                            domain={[
+                                MINI_CHART_SESSION_START_HOUR,
+                                MINI_CHART_SESSION_END_HOUR,
+                            ]}
+                            ticks={[...MINI_CHART_SESSION_TICKS]}
+                            interval={0}
+                            minTickGap={0}
+                            padding={{ left: 8, right: 8 }}
+                            height={16}
+                            tickMargin={2}
+                            tickFormatter={(value) => `${Math.round(value)}h`}
+                            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+                            axisLine={{ stroke: "var(--border-color)" }}
+                            tickLine={false}
+                        />
+                        <YAxis hide domain={yDomain} />
                         <Tooltip
+                            labelFormatter={(value) => {
+                                const n = Number(value);
+                                if (!Number.isFinite(n)) return "";
+                                const hour = Math.floor(n);
+                                const minute = Math.max(
+                                    0,
+                                    Math.min(59, Math.floor((n - hour) * 60)),
+                                );
+                                return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+                            }}
                             contentStyle={{
                                 backgroundColor: "var(--bg-secondary)",
                                 border: "1px solid var(--border-color)",
@@ -579,15 +654,42 @@ function MiniChart({
                                 color: "var(--text-main)",
                             }}
                         />
+                        {hasReferencePrice ? (
+                            <ReferenceLine
+                                y={referencePrice}
+                                stroke="#facc15"
+                                strokeDasharray="4 2"
+                                label={{
+                                    value: referencePrice.toFixed(2),
+                                    fill: "#facc15",
+                                    fontSize: 10,
+                                    position: "insideTopRight",
+                                }}
+                                ifOverflow="extendDomain"
+                            />
+                        ) : null}
                         <Area
                             type="monotone"
-                            dataKey="value"
-                            stroke={color}
-                            fillOpacity={1}
-                            fill={`url(#grad-${title})`}
-                            strokeWidth={2}
+                            dataKey="above"
+                            stroke={hasReferencePrice ? "#22c55e" : color}
+                            fill="none"
+                            fillOpacity={0}
+                            strokeWidth={1}
                             isAnimationActive={false}
+                            connectNulls={false}
                         />
+                        {hasReferencePrice ? (
+                            <Area
+                                type="monotone"
+                                dataKey="below"
+                                stroke="#ef4444"
+                                fill="none"
+                                fillOpacity={0}
+                                strokeWidth={1}
+                                isAnimationActive={false}
+                                connectNulls={false}
+                            />
+                        ) : null}
                     </AreaChart>
                 ) : null}
             </div>
@@ -687,18 +789,6 @@ export default function BoardPage() {
         document.addEventListener("mousedown", onPointerDown);
         return () => document.removeEventListener("mousedown", onPointerDown);
     }, []);
-
-    const chartData = useMemo(
-        () => ({
-            VNINDEX: generateChartData(50, 0),
-            VN30: generateChartData(50, 0),
-            HNX30: generateChartData(50, 0),
-            VNXALL: generateChartData(50, 0),
-            HNXINDEX: generateChartData(50, 0),
-            UPCOM: generateChartData(50, 0),
-        }),
-        [],
-    );
 
     const isLight = theme === "light";
     const getRowClassName = useCallback(
@@ -889,6 +979,11 @@ export default function BoardPage() {
         boards: streamBoards,
         resolution: "1",
     });
+    const { bySymbol: kbIntradayBySymbol, error: kbIntradayError } =
+        useKbIndexIntraday({
+            enabled: universe === "stock",
+            refreshIntervalMs: 30_000,
+        });
     const {
         bySymbol: vietcapMarketIndexBySymbol,
         count: vietcapMarketIndexCount,
@@ -909,6 +1004,9 @@ export default function BoardPage() {
                 const change = Number.isFinite(market?.change)
                     ? market!.change
                     : 0;
+                const refPrice = Number.isFinite(market?.refPrice)
+                    ? market!.refPrice
+                    : value - change;
                 const volRaw = Number.isFinite(market?.totalShares)
                     ? market!.totalShares
                     : 0;
@@ -919,6 +1017,7 @@ export default function BoardPage() {
                     name,
                     value,
                     change,
+                    refPrice,
                     vol: Math.round(volRaw).toLocaleString("en-US"),
                     valueT: valueTRaw.toLocaleString("en-US", {
                         minimumFractionDigits: 0,
@@ -943,6 +1042,36 @@ export default function BoardPage() {
     const indexByName = useMemo(
         () => Object.fromEntries(indexRows.map((row) => [row.name, row])),
         [indexRows],
+    );
+    const chartData = useMemo(
+        () =>
+            Object.fromEntries(
+                INDEX_NAMES.map((name) => {
+                    const source = kbIntradayBySymbol[name] ?? [];
+                    const now = new Date();
+                    const nowHour =
+                        now.getHours() +
+                        now.getMinutes() / 60 +
+                        now.getSeconds() / 3600;
+                    const maxHour = Math.min(
+                        MINI_CHART_SESSION_END_HOUR,
+                        Math.max(MINI_CHART_SESSION_START_HOUR, nowHour),
+                    );
+                    const points = source
+                        .filter(
+                            (point) =>
+                                point.time >= MINI_CHART_SESSION_START_HOUR &&
+                                point.time <= maxHour,
+                        )
+                        .sort((a, b) => a.time - b.time)
+                        .map((point) => ({
+                            time: point.time,
+                            value: point.value,
+                        }));
+                    return [name, points];
+                }),
+            ) as Record<string, { time: number; value: number }[]>,
+        [kbIntradayBySymbol],
     );
 
     const boardRows = useMemo<BoardStockRow[]>(
@@ -1411,10 +1540,10 @@ export default function BoardPage() {
     }, [rowCellSnapshots]);
 
     useEffect(() => {
-        if (!Object.keys(cellFlashes).length) return;
         const timer = window.setInterval(() => {
             const now = Date.now();
             setCellFlashes((prevFlashes) => {
+                if (!Object.keys(prevFlashes).length) return prevFlashes;
                 let changed = false;
                 const next: Record<string, CellFlashState> = {};
                 for (const [cellKey, flash] of Object.entries(prevFlashes)) {
@@ -1429,7 +1558,7 @@ export default function BoardPage() {
         }, 120);
 
         return () => window.clearInterval(timer);
-    }, [cellFlashes]);
+    }, []);
 
     const flashClass = useCallback(
         (cellKey: string) => {
@@ -1580,6 +1709,9 @@ export default function BoardPage() {
             : vietcapSnapshotError
               ? "border-rose-500/30 bg-rose-500/10 text-rose-500"
               : "border-sky-500/30 bg-sky-500/10 text-sky-500";
+    const kbIntradayStatusClass = kbIntradayError
+        ? "border-rose-500/30 bg-rose-500/10 text-rose-500"
+        : "border-indigo-500/30 bg-indigo-500/10 text-indigo-500";
 
     return (
         <div className="flex h-screen w-full flex-col overflow-hidden bg-main text-main">
@@ -1624,7 +1756,7 @@ export default function BoardPage() {
                 </div>
             ) : (
                 <>
-                    <div className="flex gap-2 overflow-x-auto border-b border-main bg-main px-2 py-2 thin-scrollbar">
+                    <div className="flex items-start gap-2 overflow-x-auto border-b border-main bg-main px-2 py-2 thin-scrollbar">
                         <MiniChart
                             data={chartData.VNINDEX}
                             color="#10b981"

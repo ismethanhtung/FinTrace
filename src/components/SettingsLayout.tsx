@@ -97,10 +97,10 @@ function SettingsSidebar({
                     </div>
                     <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-semibold truncate">
-                            Brian Frederin
+                            Nguyen Thanh Tung
                         </p>
                         <p className="text-[11px] text-muted truncate">
-                            brian@fintrace.io
+                            ismethanhtung@gmail.com
                         </p>
                     </div>
                     <ChevronRight size={13} className="text-muted shrink-0" />

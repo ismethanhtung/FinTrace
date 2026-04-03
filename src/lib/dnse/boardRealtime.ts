@@ -214,9 +214,18 @@ function toSymbolPatch(record: JsonRecord): DnseBoardSymbolState | null {
 
 function normalizeIndexName(value: unknown): string | null {
     if (typeof value !== "string") return null;
-    const normalized = value.trim().toUpperCase();
+    const normalized = value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
     if (!normalized) return null;
-    if (!/^[A-Z0-9_]{1,24}$/.test(normalized)) return null;
+    if (!/^[A-Z0-9_]{1,32}$/.test(normalized)) return null;
+    if (normalized === "HNX") return "HNXINDEX";
+    if (normalized === "HNXINDEX") return "HNXINDEX";
+    if (normalized === "UPCOM") return "UPCOM";
+    if (normalized === "UPCOMINDEX") return "UPCOM";
+    if (normalized === "HNXUPCOMINDEX") return "UPCOM";
+    if (normalized === "VNINDEX") return "VNINDEX";
+    if (normalized === "VN30") return "VN30";
+    if (normalized === "HNX30") return "HNX30";
+    if (normalized === "VNXALL") return "VNXALL";
     return normalized;
 }
 

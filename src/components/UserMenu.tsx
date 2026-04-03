@@ -105,10 +105,10 @@ export const UserMenu = () => {
                         >
                             <div className="p-3 border-b border-main">
                                 <div className="text-[13px] font-semibold">
-                                    John Doe
+                                    Nguyen Thanh Tung
                                 </div>
                                 <div className="text-[11px] text-muted">
-                                    john.doe@fintrace.io
+                                    ismethanhtung@gmail.com
                                 </div>
                             </div>
 

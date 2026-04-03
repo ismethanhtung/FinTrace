@@ -25,6 +25,7 @@
     "dependencies": {
         "@aws-sdk/client-secrets-manager": "^3.1015.0",
         "@google/genai": "^1.29.0",
+        "@opennextjs/cloudflare": "^1.18.0",
         "@tailwindcss/vite": "^4.1.14",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
