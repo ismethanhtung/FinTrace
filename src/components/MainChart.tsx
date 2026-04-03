@@ -67,8 +67,7 @@ function msToCountdown(ms: number): string {
 
 // ─── Coin Info Panel ──────────────────────────────────────────────────────────
 const CoinInfoPanel = () => {
-    const { assets, selectedSymbol, marketType, universe } =
-        useMarket();
+    const { assets, selectedSymbol, marketType, universe } = useMarket();
     const asset = assets.find((a) => a.id === selectedSymbol);
     const {
         data: premiumData,
@@ -247,8 +246,8 @@ const CoinInfoPanel = () => {
                         {universe === "stock"
                             ? "VN Stock Feed"
                             : isFutures
-                                ? "Binance Futures"
-                                : "Binance"}
+                              ? "Binance Futures"
+                              : "Binance"}
                     </div>
                 </div>
                 <div className="ml-auto shrink-0">
@@ -344,10 +343,10 @@ const CoinInfoPanel = () => {
                     {universe === "stock"
                         ? "giá và khối lượng từ stock feed."
                         : `giá và khối lượng thời gian thực từ ${
-                                isFutures
-                                    ? "Binance Futures REST API"
-                                    : "Binance REST API"
-                            }.`}
+                              isFutures
+                                  ? "Binance Futures REST API"
+                                  : "Binance REST API"
+                          }.`}
                 </p>
             </div>
         </div>
@@ -377,6 +376,13 @@ export const MainChart = () => {
     const currentAsset = assets.find((a) => a.id === selectedSymbol);
     const isPositive = (currentAsset?.changePercent ?? 0) >= 0;
     const lastPoint = data[data.length - 1];
+    const lastStablePointRef = useRef<typeof lastPoint>(undefined);
+    useEffect(() => {
+        if (lastPoint) {
+            lastStablePointRef.current = lastPoint;
+        }
+    }, [lastPoint]);
+    const displayedLastPoint = lastPoint ?? lastStablePointRef.current;
     const isFutures = marketType === "futures";
 
     const tabs = useMemo(
@@ -898,60 +904,70 @@ export const MainChart = () => {
 
                 {/* ── Stats Section ── */}
                 <div className="py-1.5 border-t border-dashed border-main/60 space-y-1">
-                    {lastPoint && (
-                        <div className="flex items-center space-x-3 text-[10px] flex-wrap gap-y-0.5">
-                            <span className="text-muted font-semibold uppercase tracking-wider mr-1">
-                                {interval}
-                            </span>
-                            {[
-                                {
-                                    label: "O",
-                                    value: priceFmt(lastPoint.open),
-                                    cls: "text-main",
-                                },
-                                {
-                                    label: "H",
-                                    value: priceFmt(lastPoint.high),
-                                    cls: "text-emerald-500",
-                                },
-                                {
-                                    label: "L",
-                                    value: priceFmt(lastPoint.low),
-                                    cls: "text-rose-500",
-                                },
-                                {
-                                    label: "C",
-                                    value: priceFmt(lastPoint.close),
-                                    cls:
-                                        lastPoint.close >= lastPoint.open
-                                            ? "text-emerald-500"
-                                            : "text-rose-500",
-                                },
-                                {
-                                    label: "Vol",
-                                    value: volFmt(lastPoint.volume),
-                                    cls: "text-accent",
-                                },
-                            ].map((item) => (
-                                <div
-                                    key={item.label}
-                                    className="flex items-center space-x-0.5"
+                    <div className="flex items-center space-x-3 text-[10px] flex-wrap gap-y-0.5">
+                        <span className="text-muted font-semibold uppercase tracking-wider mr-1">
+                            {interval}
+                        </span>
+                        {[
+                            {
+                                label: "O",
+                                value: displayedLastPoint
+                                    ? priceFmt(displayedLastPoint.open)
+                                    : "—",
+                                cls: "text-main",
+                            },
+                            {
+                                label: "H",
+                                value: displayedLastPoint
+                                    ? priceFmt(displayedLastPoint.high)
+                                    : "—",
+                                cls: "text-emerald-500",
+                            },
+                            {
+                                label: "L",
+                                value: displayedLastPoint
+                                    ? priceFmt(displayedLastPoint.low)
+                                    : "—",
+                                cls: "text-rose-500",
+                            },
+                            {
+                                label: "C",
+                                value: displayedLastPoint
+                                    ? priceFmt(displayedLastPoint.close)
+                                    : "—",
+                                cls: displayedLastPoint
+                                    ? displayedLastPoint.close >=
+                                      displayedLastPoint.open
+                                        ? "text-emerald-500"
+                                        : "text-rose-500"
+                                    : "text-main",
+                            },
+                            {
+                                label: "Vol",
+                                value: displayedLastPoint
+                                    ? volFmt(displayedLastPoint.volume)
+                                    : "—",
+                                cls: "text-accent",
+                            },
+                        ].map((item) => (
+                            <div
+                                key={item.label}
+                                className="flex items-center space-x-0.5"
+                            >
+                                <span className="text-muted">
+                                    {item.label}:
+                                </span>
+                                <span
+                                    className={cn(
+                                        "font-mono font-medium",
+                                        item.cls,
+                                    )}
                                 >
-                                    <span className="text-muted">
-                                        {item.label}:
-                                    </span>
-                                    <span
-                                        className={cn(
-                                            "font-mono font-medium",
-                                            item.cls,
-                                        )}
-                                    >
-                                        {item.value}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                    {item.value}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
 
                     {currentAsset && (
                         <div className="flex items-center space-x-3 text-[10px] flex-wrap gap-y-0.5">
@@ -1134,17 +1150,7 @@ export const MainChart = () => {
             ) : (
                 <div className="flex-1 min-h-[260px] relative">
                     {isLoading && data.length === 0 && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-main/60 z-10">
-                            <div className="flex flex-col items-center space-y-2">
-                                <Loader2
-                                    size={12}
-                                    className="text-muted animate-spin"
-                                />
-                                <span className="text-muted text-[11px]">
-                                    Loading
-                                </span>
-                            </div>
-                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-main/60 z-10"></div>
                     )}
 
                     {/* Floating OHLCV legend — updated by crosshair via DOM */}

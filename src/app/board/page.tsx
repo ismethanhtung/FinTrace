@@ -222,49 +222,7 @@ const INITIAL_COL_WIDTHS = [
     70, 90, 64, 64, 82, 82, 94,
 ];
 
-const EMPTY_BOARD_PLACEHOLDER: BoardStockRow = {
-    id: "EMPTY",
-    ticker: "0",
-    name: "0",
-    logoUrl: undefined,
-    exchange: undefined,
-    indexMembership: [],
-    ceiling: Number.NaN,
-    floor: Number.NaN,
-    tc: Number.NaN,
-    ref: Number.NaN,
-    buy: [
-        { price: Number.NaN, vol: "" },
-        { price: Number.NaN, vol: "" },
-        { price: Number.NaN, vol: "" },
-    ],
-    match: {
-        price: Number.NaN,
-        vol: "",
-        change: Number.NaN,
-        percent: Number.NaN,
-    },
-    sell: [
-        { price: Number.NaN, vol: "" },
-        { price: Number.NaN, vol: "" },
-        { price: Number.NaN, vol: "" },
-    ],
-    totalVol: "",
-    high: Number.NaN,
-    low: Number.NaN,
-    foreign: { buy: "", sell: "", room: "" },
-    priceScale: {
-        ceilingFromDnse: false,
-        floorFromDnse: false,
-        tcFromDnse: false,
-        buyFromDnse: [false, false, false],
-        matchPriceFromDnse: false,
-        matchChangeFromDnse: false,
-        sellFromDnse: [false, false, false],
-        highFromDnse: false,
-        lowFromDnse: false,
-    },
-};
+const BOARD_TABLE_COLSPAN = 26;
 
 const EMPTY_INDEX_STATS: IndexData = {
     name: "",
@@ -762,14 +720,6 @@ export default function BoardPage() {
     const highlightTimeoutRef = useRef<number | null>(null);
     const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
     const searchContainerRef = useRef<HTMLDivElement | null>(null);
-
-    useEffect(() => {
-        if (assets.length > 0) {
-            setIsLoading(false);
-        }
-        const timer = setTimeout(() => setIsLoading(false), 3000);
-        return () => clearTimeout(timer);
-    }, [assets.length]);
 
     useEffect(() => {
         setRecentSymbols(loadBoardRecentSymbols());
@@ -1276,7 +1226,7 @@ export default function BoardPage() {
     );
 
     const rowsForTable = useMemo(() => {
-        const base = boardRows.length ? boardRows : [EMPTY_BOARD_PLACEHOLDER];
+        const base = boardRows;
         if (!boardRows.length || !boardSort) return base;
         const order = new Map(base.map((r, i) => [r.id, i]));
         return [...base].sort((a, b) => {
@@ -1287,6 +1237,21 @@ export default function BoardPage() {
             return boardSort.dir === "asc" ? c : -c;
         });
     }, [boardRows, boardSort]);
+
+    useEffect(() => {
+        const hasRows = rowsForTable.length > 0;
+        const shouldLoading =
+            !hasRows &&
+            (isVietcapSnapshotLoading ||
+                (streamStatus === "connecting" &&
+                    tabFilteredSymbols.length > 0));
+        setIsLoading(shouldLoading);
+    }, [
+        isVietcapSnapshotLoading,
+        rowsForTable.length,
+        streamStatus,
+        tabFilteredSymbols.length,
+    ]);
 
     const rowCellSnapshots = useMemo(() => {
         const snapshots: Array<{
@@ -2730,669 +2695,672 @@ export default function BoardPage() {
                                 </tr>
                             </thead>
                             <tbody className="bg-main">
-                                {isLoading
-                                    ? Array.from({ length: 20 }).map((_, i) => (
-                                          <BoardRowSkeleton
-                                              key={i}
-                                              index={i}
-                                              isLight={isLight}
-                                          />
-                                      ))
-                                    : rowsForTable.map((stock, index) => {
-                                          const rowKey = stock.id;
-                                          const tickerTone = getPriceTone(
-                                              stock.match.price,
-                                              normalizeToneComparator(
-                                                  stock.priceScale
-                                                      .matchPriceFromDnse,
-                                                  stock.ref,
-                                                  stock.priceScale.tcFromDnse,
-                                              ),
-                                              normalizeToneComparator(
-                                                  stock.priceScale
-                                                      .matchPriceFromDnse,
-                                                  stock.ceiling,
-                                                  stock.priceScale
-                                                      .ceilingFromDnse,
-                                              ),
-                                              normalizeToneComparator(
-                                                  stock.priceScale
-                                                      .matchPriceFromDnse,
-                                                  stock.floor,
-                                                  stock.priceScale
-                                                      .floorFromDnse,
-                                              ),
-                                          );
-                                          const tickerToneClass =
-                                              Number.isFinite(stock.match.price)
-                                                  ? toneToTextClass(tickerTone)
-                                                  : "text-muted";
-                                          return (
-                                              <tr
-                                                  key={stock.id}
-                                                  ref={(el) => {
-                                                      rowRefs.current[
-                                                          stock.ticker
-                                                      ] = el;
-                                                  }}
-                                                  className={cn(
-                                                      getRowClassName(index),
-                                                      highlightedSymbol ===
-                                                          stock.ticker &&
-                                                          "!bg-amber-500/25 ring-1 ring-inset ring-amber-400/80",
-                                                  )}
-                                              >
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main px-2 font-semibold",
-                                                          stock.id !==
-                                                              "EMPTY" &&
-                                                              "cursor-pointer hover:bg-accent/15",
-                                                      )}
-                                                      onClick={() =>
-                                                          goToHomeWithStock(
-                                                              stock.id,
-                                                          )
-                                                      }
-                                                      title={
-                                                          stock.id === "EMPTY"
-                                                              ? undefined
-                                                              : `Mở ${stock.ticker} trên trang chủ`
-                                                      }
-                                                  >
-                                                      <div className="flex items-center gap-1.5 min-w-0">
-                                                          <TokenAvatar
-                                                              symbol={
-                                                                  stock.ticker
-                                                              }
-                                                              logoUrl={
-                                                                  stock.logoUrl
-                                                              }
-                                                              size={18}
-                                                          />
-                                                          <div className="min-w-0">
-                                                              <div
-                                                                  className={cn(
-                                                                      "truncate",
-                                                                      tickerToneClass,
-                                                                  )}
-                                                              >
-                                                                  {stock.ticker}
-                                                              </div>
-                                                          </div>
-                                                      </div>
-                                                  </td>
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main p-2 text-right text-fuchsia-500 bg-slate-500/10",
-                                                          flashClass(
-                                                              `${rowKey}:ceiling`,
-                                                          ),
-                                                      )}
-                                                  >
-                                                      {formatBoardPriceDisplay(
-                                                          stock.ceiling,
-                                                          stock.priceScale
-                                                              .ceilingFromDnse,
-                                                      )}
-                                                  </td>
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main p-2 text-right text-cyan-500 bg-slate-500/10",
-                                                          flashClass(
-                                                              `${rowKey}:floor`,
-                                                          ),
-                                                      )}
-                                                  >
-                                                      {formatBoardPriceDisplay(
-                                                          stock.floor,
-                                                          stock.priceScale
-                                                              .floorFromDnse,
-                                                      )}
-                                                  </td>
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main p-2 text-right text-amber-500 bg-slate-500/10",
-                                                          flashClass(
-                                                              `${rowKey}:ref`,
-                                                          ),
-                                                      )}
-                                                  >
-                                                      {formatBoardPriceDisplay(
-                                                          stock.tc,
-                                                          stock.priceScale
-                                                              .tcFromDnse,
-                                                      )}
-                                                  </td>
+                                {isLoading ? (
+                                    Array.from({ length: 30 }).map((_, i) => (
+                                        <BoardRowSkeleton
+                                            key={i}
+                                            index={i}
+                                            isLight={isLight}
+                                        />
+                                    ))
+                                ) : rowsForTable.length === 0 ? (
+                                    <tr>
+                                        <td
+                                            colSpan={BOARD_TABLE_COLSPAN}
+                                            className="p-6 text-center text-[12px] text-muted"
+                                        >
+                                            Không có dữ liệu cho nhóm{" "}
+                                            <span className="font-semibold text-main">
+                                                {activeTab}
+                                            </span>{" "}
+                                            lúc này.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    rowsForTable.map((stock, index) => {
+                                        const rowKey = stock.id;
+                                        const tickerTone = getPriceTone(
+                                            stock.match.price,
+                                            normalizeToneComparator(
+                                                stock.priceScale
+                                                    .matchPriceFromDnse,
+                                                stock.ref,
+                                                stock.priceScale.tcFromDnse,
+                                            ),
+                                            normalizeToneComparator(
+                                                stock.priceScale
+                                                    .matchPriceFromDnse,
+                                                stock.ceiling,
+                                                stock.priceScale
+                                                    .ceilingFromDnse,
+                                            ),
+                                            normalizeToneComparator(
+                                                stock.priceScale
+                                                    .matchPriceFromDnse,
+                                                stock.floor,
+                                                stock.priceScale.floorFromDnse,
+                                            ),
+                                        );
+                                        const tickerToneClass = Number.isFinite(
+                                            stock.match.price,
+                                        )
+                                            ? toneToTextClass(tickerTone)
+                                            : "text-muted";
+                                        return (
+                                            <tr
+                                                key={stock.id}
+                                                ref={(el) => {
+                                                    rowRefs.current[
+                                                        stock.ticker
+                                                    ] = el;
+                                                }}
+                                                className={cn(
+                                                    getRowClassName(index),
+                                                    highlightedSymbol ===
+                                                        stock.ticker &&
+                                                        "!bg-amber-500/25 ring-1 ring-inset ring-amber-400/80",
+                                                )}
+                                            >
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main px-2 font-semibold cursor-pointer hover:bg-accent/15",
+                                                    )}
+                                                    onClick={() =>
+                                                        goToHomeWithStock(
+                                                            stock.id,
+                                                        )
+                                                    }
+                                                    title={`Mở ${stock.ticker} trên trang chủ`}
+                                                >
+                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                        <TokenAvatar
+                                                            symbol={
+                                                                stock.ticker
+                                                            }
+                                                            logoUrl={
+                                                                stock.logoUrl
+                                                            }
+                                                            size={18}
+                                                        />
+                                                        <div className="min-w-0">
+                                                            <div
+                                                                className={cn(
+                                                                    "truncate",
+                                                                    tickerToneClass,
+                                                                )}
+                                                            >
+                                                                {stock.ticker}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main p-2 text-right text-fuchsia-500 bg-slate-500/10",
+                                                        flashClass(
+                                                            `${rowKey}:ceiling`,
+                                                        ),
+                                                    )}
+                                                >
+                                                    {formatBoardPriceDisplay(
+                                                        stock.ceiling,
+                                                        stock.priceScale
+                                                            .ceilingFromDnse,
+                                                    )}
+                                                </td>
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main p-2 text-right text-cyan-500 bg-slate-500/10",
+                                                        flashClass(
+                                                            `${rowKey}:floor`,
+                                                        ),
+                                                    )}
+                                                >
+                                                    {formatBoardPriceDisplay(
+                                                        stock.floor,
+                                                        stock.priceScale
+                                                            .floorFromDnse,
+                                                    )}
+                                                </td>
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main p-2 text-right text-amber-500 bg-slate-500/10",
+                                                        flashClass(
+                                                            `${rowKey}:ref`,
+                                                        ),
+                                                    )}
+                                                >
+                                                    {formatBoardPriceDisplay(
+                                                        stock.tc,
+                                                        stock.priceScale
+                                                            .tcFromDnse,
+                                                    )}
+                                                </td>
 
-                                                  {stock.buy.map((b, i) => {
-                                                      const priceKey = `${rowKey}:buy${i}Price`;
-                                                      const volKey = `${rowKey}:buy${i}Vol`;
-                                                      return (
-                                                          <React.Fragment
-                                                              key={`${stock.ticker}-buy-${i}`}
-                                                          >
-                                                              <td
-                                                                  className={cn(
-                                                                      "border-r border-main p-1 text-right",
-                                                                      flashClass(
-                                                                          priceKey,
-                                                                      ),
-                                                                  )}
-                                                              >
-                                                                  <ColorText
-                                                                      value={
-                                                                          b.price
-                                                                      }
-                                                                      refVal={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .buyFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.ref,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .tcFromDnse,
-                                                                      )}
-                                                                      ceiling={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .buyFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.ceiling,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .ceilingFromDnse,
-                                                                      )}
-                                                                      floor={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .buyFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.floor,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .floorFromDnse,
-                                                                      )}
-                                                                      className={
-                                                                          isFlashing(
-                                                                              priceKey,
-                                                                          )
-                                                                              ? "!text-white"
-                                                                              : undefined
-                                                                      }
-                                                                  >
-                                                                      {formatBoardPriceDisplay(
-                                                                          b.price,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .buyFromDnse[
-                                                                              i
-                                                                          ],
-                                                                      )}
-                                                                  </ColorText>
-                                                              </td>
-                                                              <td
-                                                                  className={cn(
-                                                                      "border-r border-main p-1 text-right",
-                                                                      flashClass(
-                                                                          volKey,
-                                                                      ),
-                                                                  )}
-                                                              >
-                                                                  <ColorText
-                                                                      value={
-                                                                          b.price
-                                                                      }
-                                                                      refVal={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .buyFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.ref,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .tcFromDnse,
-                                                                      )}
-                                                                      ceiling={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .buyFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.ceiling,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .ceilingFromDnse,
-                                                                      )}
-                                                                      floor={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .buyFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.floor,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .floorFromDnse,
-                                                                      )}
-                                                                      className={cn(
-                                                                          "font-semibold",
-                                                                          isFlashing(
-                                                                              volKey,
-                                                                          ) &&
-                                                                              "!text-white",
-                                                                      )}
-                                                                  >
-                                                                      {formatBoardStringDisplay(
-                                                                          b.vol,
-                                                                      )}
-                                                                  </ColorText>
-                                                              </td>
-                                                          </React.Fragment>
-                                                      );
-                                                  })}
+                                                {stock.buy.map((b, i) => {
+                                                    const priceKey = `${rowKey}:buy${i}Price`;
+                                                    const volKey = `${rowKey}:buy${i}Vol`;
+                                                    return (
+                                                        <React.Fragment
+                                                            key={`${stock.ticker}-buy-${i}`}
+                                                        >
+                                                            <td
+                                                                className={cn(
+                                                                    "border-r border-main p-1 text-right",
+                                                                    flashClass(
+                                                                        priceKey,
+                                                                    ),
+                                                                )}
+                                                            >
+                                                                <ColorText
+                                                                    value={
+                                                                        b.price
+                                                                    }
+                                                                    refVal={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .buyFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.ref,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .tcFromDnse,
+                                                                    )}
+                                                                    ceiling={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .buyFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.ceiling,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .ceilingFromDnse,
+                                                                    )}
+                                                                    floor={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .buyFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.floor,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .floorFromDnse,
+                                                                    )}
+                                                                    className={
+                                                                        isFlashing(
+                                                                            priceKey,
+                                                                        )
+                                                                            ? "!text-white"
+                                                                            : undefined
+                                                                    }
+                                                                >
+                                                                    {formatBoardPriceDisplay(
+                                                                        b.price,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .buyFromDnse[
+                                                                            i
+                                                                        ],
+                                                                    )}
+                                                                </ColorText>
+                                                            </td>
+                                                            <td
+                                                                className={cn(
+                                                                    "border-r border-main p-1 text-right",
+                                                                    flashClass(
+                                                                        volKey,
+                                                                    ),
+                                                                )}
+                                                            >
+                                                                <ColorText
+                                                                    value={
+                                                                        b.price
+                                                                    }
+                                                                    refVal={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .buyFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.ref,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .tcFromDnse,
+                                                                    )}
+                                                                    ceiling={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .buyFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.ceiling,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .ceilingFromDnse,
+                                                                    )}
+                                                                    floor={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .buyFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.floor,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .floorFromDnse,
+                                                                    )}
+                                                                    className={cn(
+                                                                        "font-semibold",
+                                                                        isFlashing(
+                                                                            volKey,
+                                                                        ) &&
+                                                                            "!text-white",
+                                                                    )}
+                                                                >
+                                                                    {formatBoardStringDisplay(
+                                                                        b.vol,
+                                                                    )}
+                                                                </ColorText>
+                                                            </td>
+                                                        </React.Fragment>
+                                                    );
+                                                })}
 
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main p-1 text-right bg-slate-500/10",
-                                                          flashClass(
-                                                              `${rowKey}:matchPrice`,
-                                                          ),
-                                                      )}
-                                                  >
-                                                      <ColorText
-                                                          value={
-                                                              stock.match.price
-                                                          }
-                                                          refVal={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .matchPriceFromDnse,
-                                                              stock.ref,
-                                                              stock.priceScale
-                                                                  .tcFromDnse,
-                                                          )}
-                                                          ceiling={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .matchPriceFromDnse,
-                                                              stock.ceiling,
-                                                              stock.priceScale
-                                                                  .ceilingFromDnse,
-                                                          )}
-                                                          floor={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .matchPriceFromDnse,
-                                                              stock.floor,
-                                                              stock.priceScale
-                                                                  .floorFromDnse,
-                                                          )}
-                                                          className={cn(
-                                                              "font-semibold",
-                                                              isFlashing(
-                                                                  `${rowKey}:matchPrice`,
-                                                              ) &&
-                                                                  "!text-white",
-                                                          )}
-                                                      >
-                                                          {formatBoardPriceDisplay(
-                                                              stock.match.price,
-                                                              stock.priceScale
-                                                                  .matchPriceFromDnse,
-                                                          )}
-                                                      </ColorText>
-                                                  </td>
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main p-1 text-right bg-slate-500/10",
-                                                          flashClass(
-                                                              `${rowKey}:matchVol`,
-                                                          ),
-                                                      )}
-                                                  >
-                                                      <ColorText
-                                                          value={
-                                                              stock.match.price
-                                                          }
-                                                          refVal={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .matchPriceFromDnse,
-                                                              stock.ref,
-                                                              stock.priceScale
-                                                                  .tcFromDnse,
-                                                          )}
-                                                          ceiling={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .matchPriceFromDnse,
-                                                              stock.ceiling,
-                                                              stock.priceScale
-                                                                  .ceilingFromDnse,
-                                                          )}
-                                                          floor={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .matchPriceFromDnse,
-                                                              stock.floor,
-                                                              stock.priceScale
-                                                                  .floorFromDnse,
-                                                          )}
-                                                          className={cn(
-                                                              "font-semibold",
-                                                              isFlashing(
-                                                                  `${rowKey}:matchVol`,
-                                                              ) &&
-                                                                  "!text-white",
-                                                          )}
-                                                      >
-                                                          {formatBoardStringDisplay(
-                                                              stock.match.vol,
-                                                          )}
-                                                      </ColorText>
-                                                  </td>
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main p-1 text-right bg-slate-500/10",
-                                                          !Number.isFinite(
-                                                              stock.match
-                                                                  .change,
-                                                          )
-                                                              ? "text-muted"
-                                                              : stock.match
-                                                                      .change >=
-                                                                  0
-                                                                ? "text-emerald-500"
-                                                                : "text-rose-500",
-                                                          flashClass(
-                                                              `${rowKey}:matchChange`,
-                                                          ),
-                                                      )}
-                                                  >
-                                                      {formatBoardSignedPriceDisplay(
-                                                          stock.match.change,
-                                                          stock.priceScale
-                                                              .matchChangeFromDnse,
-                                                      )}
-                                                  </td>
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main p-1 text-right bg-slate-500/10",
-                                                          !Number.isFinite(
-                                                              stock.match
-                                                                  .percent,
-                                                          )
-                                                              ? "text-muted"
-                                                              : stock.match
-                                                                      .percent >=
-                                                                  0
-                                                                ? "text-emerald-500"
-                                                                : "text-rose-500",
-                                                          flashClass(
-                                                              `${rowKey}:matchPercent`,
-                                                          ),
-                                                      )}
-                                                  >
-                                                      {formatBoardPercentDisplay(
-                                                          stock.match.percent,
-                                                      )}
-                                                  </td>
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main p-1 text-right bg-slate-500/10",
+                                                        flashClass(
+                                                            `${rowKey}:matchPrice`,
+                                                        ),
+                                                    )}
+                                                >
+                                                    <ColorText
+                                                        value={
+                                                            stock.match.price
+                                                        }
+                                                        refVal={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .matchPriceFromDnse,
+                                                            stock.ref,
+                                                            stock.priceScale
+                                                                .tcFromDnse,
+                                                        )}
+                                                        ceiling={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .matchPriceFromDnse,
+                                                            stock.ceiling,
+                                                            stock.priceScale
+                                                                .ceilingFromDnse,
+                                                        )}
+                                                        floor={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .matchPriceFromDnse,
+                                                            stock.floor,
+                                                            stock.priceScale
+                                                                .floorFromDnse,
+                                                        )}
+                                                        className={cn(
+                                                            "font-semibold",
+                                                            isFlashing(
+                                                                `${rowKey}:matchPrice`,
+                                                            ) && "!text-white",
+                                                        )}
+                                                    >
+                                                        {formatBoardPriceDisplay(
+                                                            stock.match.price,
+                                                            stock.priceScale
+                                                                .matchPriceFromDnse,
+                                                        )}
+                                                    </ColorText>
+                                                </td>
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main p-1 text-right bg-slate-500/10",
+                                                        flashClass(
+                                                            `${rowKey}:matchVol`,
+                                                        ),
+                                                    )}
+                                                >
+                                                    <ColorText
+                                                        value={
+                                                            stock.match.price
+                                                        }
+                                                        refVal={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .matchPriceFromDnse,
+                                                            stock.ref,
+                                                            stock.priceScale
+                                                                .tcFromDnse,
+                                                        )}
+                                                        ceiling={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .matchPriceFromDnse,
+                                                            stock.ceiling,
+                                                            stock.priceScale
+                                                                .ceilingFromDnse,
+                                                        )}
+                                                        floor={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .matchPriceFromDnse,
+                                                            stock.floor,
+                                                            stock.priceScale
+                                                                .floorFromDnse,
+                                                        )}
+                                                        className={cn(
+                                                            "font-semibold",
+                                                            isFlashing(
+                                                                `${rowKey}:matchVol`,
+                                                            ) && "!text-white",
+                                                        )}
+                                                    >
+                                                        {formatBoardStringDisplay(
+                                                            stock.match.vol,
+                                                        )}
+                                                    </ColorText>
+                                                </td>
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main p-1 text-right bg-slate-500/10",
+                                                        !Number.isFinite(
+                                                            stock.match.change,
+                                                        )
+                                                            ? "text-muted"
+                                                            : stock.match
+                                                                    .change >= 0
+                                                              ? "text-emerald-500"
+                                                              : "text-rose-500",
+                                                        flashClass(
+                                                            `${rowKey}:matchChange`,
+                                                        ),
+                                                    )}
+                                                >
+                                                    {formatBoardSignedPriceDisplay(
+                                                        stock.match.change,
+                                                        stock.priceScale
+                                                            .matchChangeFromDnse,
+                                                    )}
+                                                </td>
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main p-1 text-right bg-slate-500/10",
+                                                        !Number.isFinite(
+                                                            stock.match.percent,
+                                                        )
+                                                            ? "text-muted"
+                                                            : stock.match
+                                                                    .percent >=
+                                                                0
+                                                              ? "text-emerald-500"
+                                                              : "text-rose-500",
+                                                        flashClass(
+                                                            `${rowKey}:matchPercent`,
+                                                        ),
+                                                    )}
+                                                >
+                                                    {formatBoardPercentDisplay(
+                                                        stock.match.percent,
+                                                    )}
+                                                </td>
 
-                                                  {stock.sell.map((s, i) => {
-                                                      const priceKey = `${rowKey}:sell${i}Price`;
-                                                      const volKey = `${rowKey}:sell${i}Vol`;
-                                                      return (
-                                                          <React.Fragment
-                                                              key={`${stock.ticker}-sell-${i}`}
-                                                          >
-                                                              <td
-                                                                  className={cn(
-                                                                      "border-r border-main p-1 text-right",
-                                                                      flashClass(
-                                                                          priceKey,
-                                                                      ),
-                                                                  )}
-                                                              >
-                                                                  <ColorText
-                                                                      value={
-                                                                          s.price
-                                                                      }
-                                                                      refVal={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .sellFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.ref,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .tcFromDnse,
-                                                                      )}
-                                                                      ceiling={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .sellFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.ceiling,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .ceilingFromDnse,
-                                                                      )}
-                                                                      floor={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .sellFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.floor,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .floorFromDnse,
-                                                                      )}
-                                                                      className={
-                                                                          isFlashing(
-                                                                              priceKey,
-                                                                          )
-                                                                              ? "!text-white"
-                                                                              : undefined
-                                                                      }
-                                                                  >
-                                                                      {formatBoardPriceDisplay(
-                                                                          s.price,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .sellFromDnse[
-                                                                              i
-                                                                          ],
-                                                                      )}
-                                                                  </ColorText>
-                                                              </td>
-                                                              <td
-                                                                  className={cn(
-                                                                      "border-r border-main p-1 text-right",
-                                                                      flashClass(
-                                                                          volKey,
-                                                                      ),
-                                                                  )}
-                                                              >
-                                                                  <ColorText
-                                                                      value={
-                                                                          s.price
-                                                                      }
-                                                                      refVal={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .sellFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.ref,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .tcFromDnse,
-                                                                      )}
-                                                                      ceiling={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .sellFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.ceiling,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .ceilingFromDnse,
-                                                                      )}
-                                                                      floor={normalizeToneComparator(
-                                                                          stock
-                                                                              .priceScale
-                                                                              .sellFromDnse[
-                                                                              i
-                                                                          ],
-                                                                          stock.floor,
-                                                                          stock
-                                                                              .priceScale
-                                                                              .floorFromDnse,
-                                                                      )}
-                                                                      className={cn(
-                                                                          "font-semibold",
-                                                                          isFlashing(
-                                                                              volKey,
-                                                                          ) &&
-                                                                              "!text-white",
-                                                                      )}
-                                                                  >
-                                                                      {formatBoardStringDisplay(
-                                                                          s.vol,
-                                                                      )}
-                                                                  </ColorText>
-                                                              </td>
-                                                          </React.Fragment>
-                                                      );
-                                                  })}
+                                                {stock.sell.map((s, i) => {
+                                                    const priceKey = `${rowKey}:sell${i}Price`;
+                                                    const volKey = `${rowKey}:sell${i}Vol`;
+                                                    return (
+                                                        <React.Fragment
+                                                            key={`${stock.ticker}-sell-${i}`}
+                                                        >
+                                                            <td
+                                                                className={cn(
+                                                                    "border-r border-main p-1 text-right",
+                                                                    flashClass(
+                                                                        priceKey,
+                                                                    ),
+                                                                )}
+                                                            >
+                                                                <ColorText
+                                                                    value={
+                                                                        s.price
+                                                                    }
+                                                                    refVal={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .sellFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.ref,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .tcFromDnse,
+                                                                    )}
+                                                                    ceiling={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .sellFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.ceiling,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .ceilingFromDnse,
+                                                                    )}
+                                                                    floor={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .sellFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.floor,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .floorFromDnse,
+                                                                    )}
+                                                                    className={
+                                                                        isFlashing(
+                                                                            priceKey,
+                                                                        )
+                                                                            ? "!text-white"
+                                                                            : undefined
+                                                                    }
+                                                                >
+                                                                    {formatBoardPriceDisplay(
+                                                                        s.price,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .sellFromDnse[
+                                                                            i
+                                                                        ],
+                                                                    )}
+                                                                </ColorText>
+                                                            </td>
+                                                            <td
+                                                                className={cn(
+                                                                    "border-r border-main p-1 text-right",
+                                                                    flashClass(
+                                                                        volKey,
+                                                                    ),
+                                                                )}
+                                                            >
+                                                                <ColorText
+                                                                    value={
+                                                                        s.price
+                                                                    }
+                                                                    refVal={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .sellFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.ref,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .tcFromDnse,
+                                                                    )}
+                                                                    ceiling={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .sellFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.ceiling,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .ceilingFromDnse,
+                                                                    )}
+                                                                    floor={normalizeToneComparator(
+                                                                        stock
+                                                                            .priceScale
+                                                                            .sellFromDnse[
+                                                                            i
+                                                                        ],
+                                                                        stock.floor,
+                                                                        stock
+                                                                            .priceScale
+                                                                            .floorFromDnse,
+                                                                    )}
+                                                                    className={cn(
+                                                                        "font-semibold",
+                                                                        isFlashing(
+                                                                            volKey,
+                                                                        ) &&
+                                                                            "!text-white",
+                                                                    )}
+                                                                >
+                                                                    {formatBoardStringDisplay(
+                                                                        s.vol,
+                                                                    )}
+                                                                </ColorText>
+                                                            </td>
+                                                        </React.Fragment>
+                                                    );
+                                                })}
 
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main p-2 text-right bg-slate-500/10",
-                                                          flashClass(
-                                                              `${rowKey}:totalVol`,
-                                                          ),
-                                                      )}
-                                                  >
-                                                      {formatBoardStringDisplay(
-                                                          stock.totalVol,
-                                                      )}
-                                                  </td>
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main p-2 text-right bg-slate-500/10",
-                                                          flashClass(
-                                                              `${rowKey}:high`,
-                                                          ),
-                                                      )}
-                                                  >
-                                                      <ColorText
-                                                          value={stock.high}
-                                                          refVal={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .highFromDnse,
-                                                              stock.ref,
-                                                              stock.priceScale
-                                                                  .tcFromDnse,
-                                                          )}
-                                                          ceiling={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .highFromDnse,
-                                                              stock.ceiling,
-                                                              stock.priceScale
-                                                                  .ceilingFromDnse,
-                                                          )}
-                                                          floor={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .highFromDnse,
-                                                              stock.floor,
-                                                              stock.priceScale
-                                                                  .floorFromDnse,
-                                                          )}
-                                                          className={
-                                                              isFlashing(
-                                                                  `${rowKey}:high`,
-                                                              )
-                                                                  ? "!text-white"
-                                                                  : undefined
-                                                          }
-                                                      >
-                                                          {formatBoardPriceDisplay(
-                                                              stock.high,
-                                                              stock.priceScale
-                                                                  .highFromDnse,
-                                                          )}
-                                                      </ColorText>
-                                                  </td>
-                                                  <td
-                                                      className={cn(
-                                                          "border-r border-main p-2 text-right bg-slate-500/10",
-                                                          flashClass(
-                                                              `${rowKey}:low`,
-                                                          ),
-                                                      )}
-                                                  >
-                                                      <ColorText
-                                                          value={stock.low}
-                                                          refVal={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .lowFromDnse,
-                                                              stock.ref,
-                                                              stock.priceScale
-                                                                  .tcFromDnse,
-                                                          )}
-                                                          ceiling={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .lowFromDnse,
-                                                              stock.ceiling,
-                                                              stock.priceScale
-                                                                  .ceilingFromDnse,
-                                                          )}
-                                                          floor={normalizeToneComparator(
-                                                              stock.priceScale
-                                                                  .lowFromDnse,
-                                                              stock.floor,
-                                                              stock.priceScale
-                                                                  .floorFromDnse,
-                                                          )}
-                                                          className={
-                                                              isFlashing(
-                                                                  `${rowKey}:low`,
-                                                              )
-                                                                  ? "!text-white"
-                                                                  : undefined
-                                                          }
-                                                      >
-                                                          {formatBoardPriceDisplay(
-                                                              stock.low,
-                                                              stock.priceScale
-                                                                  .lowFromDnse,
-                                                          )}
-                                                      </ColorText>
-                                                  </td>
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main p-2 text-right bg-slate-500/10",
+                                                        flashClass(
+                                                            `${rowKey}:totalVol`,
+                                                        ),
+                                                    )}
+                                                >
+                                                    {formatBoardStringDisplay(
+                                                        stock.totalVol,
+                                                    )}
+                                                </td>
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main p-2 text-right bg-slate-500/10",
+                                                        flashClass(
+                                                            `${rowKey}:high`,
+                                                        ),
+                                                    )}
+                                                >
+                                                    <ColorText
+                                                        value={stock.high}
+                                                        refVal={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .highFromDnse,
+                                                            stock.ref,
+                                                            stock.priceScale
+                                                                .tcFromDnse,
+                                                        )}
+                                                        ceiling={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .highFromDnse,
+                                                            stock.ceiling,
+                                                            stock.priceScale
+                                                                .ceilingFromDnse,
+                                                        )}
+                                                        floor={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .highFromDnse,
+                                                            stock.floor,
+                                                            stock.priceScale
+                                                                .floorFromDnse,
+                                                        )}
+                                                        className={
+                                                            isFlashing(
+                                                                `${rowKey}:high`,
+                                                            )
+                                                                ? "!text-white"
+                                                                : undefined
+                                                        }
+                                                    >
+                                                        {formatBoardPriceDisplay(
+                                                            stock.high,
+                                                            stock.priceScale
+                                                                .highFromDnse,
+                                                        )}
+                                                    </ColorText>
+                                                </td>
+                                                <td
+                                                    className={cn(
+                                                        "border-r border-main p-2 text-right bg-slate-500/10",
+                                                        flashClass(
+                                                            `${rowKey}:low`,
+                                                        ),
+                                                    )}
+                                                >
+                                                    <ColorText
+                                                        value={stock.low}
+                                                        refVal={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .lowFromDnse,
+                                                            stock.ref,
+                                                            stock.priceScale
+                                                                .tcFromDnse,
+                                                        )}
+                                                        ceiling={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .lowFromDnse,
+                                                            stock.ceiling,
+                                                            stock.priceScale
+                                                                .ceilingFromDnse,
+                                                        )}
+                                                        floor={normalizeToneComparator(
+                                                            stock.priceScale
+                                                                .lowFromDnse,
+                                                            stock.floor,
+                                                            stock.priceScale
+                                                                .floorFromDnse,
+                                                        )}
+                                                        className={
+                                                            isFlashing(
+                                                                `${rowKey}:low`,
+                                                            )
+                                                                ? "!text-white"
+                                                                : undefined
+                                                        }
+                                                    >
+                                                        {formatBoardPriceDisplay(
+                                                            stock.low,
+                                                            stock.priceScale
+                                                                .lowFromDnse,
+                                                        )}
+                                                    </ColorText>
+                                                </td>
 
-                                                  <td className="border-r border-main p-1 text-right">
-                                                      {formatBoardStringDisplay(
-                                                          stock.foreign.buy,
-                                                      )}
-                                                  </td>
-                                                  <td className="border-r border-main p-1 text-right">
-                                                      {formatBoardStringDisplay(
-                                                          stock.foreign.sell,
-                                                      )}
-                                                  </td>
-                                                  <td className="p-1 text-right">
-                                                      {formatBoardStringDisplay(
-                                                          stock.foreign.room,
-                                                      ) || "--"}
-                                                  </td>
-                                              </tr>
-                                          );
-                                      })}
+                                                <td className="border-r border-main p-1 text-right">
+                                                    {formatBoardStringDisplay(
+                                                        stock.foreign.buy,
+                                                    )}
+                                                </td>
+                                                <td className="border-r border-main p-1 text-right">
+                                                    {formatBoardStringDisplay(
+                                                        stock.foreign.sell,
+                                                    )}
+                                                </td>
+                                                <td className="p-1 text-right">
+                                                    {formatBoardStringDisplay(
+                                                        stock.foreign.room,
+                                                    ) || "--"}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
                             </tbody>
                         </table>
                         <div className="border-b border-main bg-main/70 px-2 py-1 text-center">
