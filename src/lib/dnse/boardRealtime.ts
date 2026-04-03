@@ -170,12 +170,15 @@ function toSymbolPatch(record: JsonRecord): DnseBoardSymbolState | null {
         readNumber(record.match_qtty) ??
         readNumber(record.qtty) ??
         readNumber(record.qty);
+    const eventType =
+        typeof record.T === "string" ? record.T.trim().toLowerCase() : "";
+    const isOhlcEvent = eventType === "b";
     const totalVolumeTraded =
         readNumber(record.totalVolumeTraded) ??
         readNumber(record.totalVolume) ??
         readNumber(record.totalMatchVolume) ??
         readNumber(record.total_volume_traded) ??
-        readNumber(record.volume);
+        (isOhlcEvent ? readNumber(record.volume) : undefined);
     const highestPrice =
         readNumber(record.highestPrice) ??
         readNumber(record.highest_price) ??

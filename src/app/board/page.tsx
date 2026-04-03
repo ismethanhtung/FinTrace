@@ -60,6 +60,17 @@ type BoardStockRow = {
     high: number;
     low: number;
     foreign: { buy: string; sell: string; room: string };
+    priceScale: {
+        ceilingFromDnse: boolean;
+        floorFromDnse: boolean;
+        tcFromDnse: boolean;
+        buyFromDnse: [boolean, boolean, boolean];
+        matchPriceFromDnse: boolean;
+        matchChangeFromDnse: boolean;
+        sellFromDnse: [boolean, boolean, boolean];
+        highFromDnse: boolean;
+        lowFromDnse: boolean;
+    };
 };
 
 type BoardSortKey =
@@ -239,6 +250,17 @@ const EMPTY_BOARD_PLACEHOLDER: BoardStockRow = {
     high: Number.NaN,
     low: Number.NaN,
     foreign: { buy: "", sell: "", room: "" },
+    priceScale: {
+        ceilingFromDnse: false,
+        floorFromDnse: false,
+        tcFromDnse: false,
+        buyFromDnse: [false, false, false],
+        matchPriceFromDnse: false,
+        matchChangeFromDnse: false,
+        sellFromDnse: [false, false, false],
+        highFromDnse: false,
+        lowFromDnse: false,
+    },
 };
 
 const EMPTY_INDEX_STATS: IndexData = {
@@ -257,6 +279,8 @@ const BOARD_CELL_FLASH_MS = 900;
 const STOCK_LAMBDA_URL = process.env.NEXT_PUBLIC_STOCK_LAMBDA_URL?.trim() || "";
 const BOARD_RECENTS_KEY = "fintrace_board_recent_symbols";
 const BOARD_MAX_RECENTS = 8;
+const BOARD_PRICE_SCALE_FACTOR = 1000;
+const DNSE_SOCKET_VOLUME_MULTIPLIER = 10;
 
 const FLASH_BG_CLASS_BY_TONE: Record<CellFlashTone, string> = {
     emerald: "bg-emerald-500 !text-white",
@@ -273,8 +297,10 @@ function formatBoardVolume(value: number | undefined): string {
     return Math.round(safe).toLocaleString("en-US");
 }
 
-function formatBoardPriceDisplay(value: number): string {
-    return Number.isFinite(value) ? (value / 1000).toFixed(2) : "";
+function formatBoardPriceDisplay(value: number, fromDnse = false): string {
+    if (!Number.isFinite(value)) return "";
+    const displayValue = fromDnse ? value : value / 1000;
+    return displayValue.toFixed(2);
 }
 
 function resolveBoardStockLogoUrl(symbol: string): string {
@@ -320,9 +346,12 @@ function saveBoardRecentSymbols(symbols: string[]) {
     }
 }
 
-function formatBoardSignedPriceDisplay(value: number): string {
+function formatBoardSignedPriceDisplay(
+    value: number,
+    fromDnse = false,
+): string {
     if (!Number.isFinite(value)) return "";
-    const scaled = value / 1000;
+    const scaled = fromDnse ? value : value / 1000;
     return `${scaled >= 0 ? "+" : ""}${scaled.toFixed(2)}`;
 }
 
@@ -332,7 +361,9 @@ function formatIndexSignedDisplay(value: number): string {
 }
 
 function formatBoardPercentDisplay(value: number): string {
-    return Number.isFinite(value) ? `${value.toFixed(2)}%` : "";
+    return Number.isFinite(value)
+        ? `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`
+        : "";
 }
 
 function formatBoardStringDisplay(value: string): string {
@@ -345,11 +376,36 @@ function getPriceTone(
     ceiling: number,
     floor: number,
 ): CellFlashTone {
-    if (value === ceiling) return "fuchsia";
-    if (value === floor) return "cyan";
-    if (value > refVal) return "emerald";
-    if (value < refVal) return "rose";
+    const EPS = 1e-6;
+    if (Number.isFinite(ceiling) && Math.abs(value - ceiling) <= EPS) {
+        return "fuchsia";
+    }
+    if (Number.isFinite(floor) && Math.abs(value - floor) <= EPS) {
+        return "cyan";
+    }
+    if (Number.isFinite(refVal) && value > refVal + EPS) return "emerald";
+    if (Number.isFinite(refVal) && value < refVal - EPS) return "rose";
     return "amber";
+}
+
+function normalizeToneComparator(
+    valueFromDnse: boolean,
+    comparator: number,
+    comparatorFromDnse: boolean,
+): number {
+    if (!Number.isFinite(comparator)) return Number.NaN;
+    if (valueFromDnse === comparatorFromDnse) return comparator;
+    return valueFromDnse
+        ? comparator / BOARD_PRICE_SCALE_FACTOR
+        : comparator * BOARD_PRICE_SCALE_FACTOR;
+}
+
+function toneToTextClass(tone: CellFlashTone): string {
+    if (tone === "fuchsia") return "text-[#c05af2]";
+    if (tone === "emerald") return "text-[#32d74b]";
+    if (tone === "rose") return "text-[#ff2727]";
+    if (tone === "amber") return "text-[#ffbe0c]";
+    return "text-cyan-500";
 }
 
 function generateChartData(points: number, base: number) {
@@ -901,44 +957,117 @@ export default function BoardPage() {
                 const change = Number.isFinite(asset?.change)
                     ? asset!.change
                     : Number.NaN;
-                const ref =
-                    stream?.ref ??
-                    snapshot?.ref ??
-                    (Number.isFinite(price) && Number.isFinite(change)
+                const streamPrice = Number.isFinite(stream?.price)
+                    ? stream!.price
+                    : Number.NaN;
+                const streamRef = Number.isFinite(stream?.ref)
+                    ? stream!.ref
+                    : Number.NaN;
+                const snapshotPrice = Number.isFinite(snapshot?.price)
+                    ? snapshot!.price
+                    : Number.NaN;
+                const snapshotRef = Number.isFinite(snapshot?.ref)
+                    ? snapshot!.ref
+                    : Number.NaN;
+                const fallbackRef =
+                    Number.isFinite(price) && Number.isFinite(change)
                         ? Math.max(0, price - change)
-                        : Number.NaN);
+                        : Number.NaN;
+                const ref = Number.isFinite(streamRef)
+                    ? streamRef
+                    : Number.isFinite(snapshotRef)
+                      ? snapshotRef
+                      : fallbackRef;
                 const tc = ref;
                 const mkQty = Number.isFinite(asset?.baseVolume)
                     ? asset!.baseVolume
                     : undefined;
-                const matchPrice = stream?.price ?? snapshot?.price ?? price;
+                const matchFromDnse = Number.isFinite(streamPrice);
+                const matchPrice = matchFromDnse
+                    ? streamPrice
+                    : Number.isFinite(snapshotPrice)
+                      ? snapshotPrice
+                      : price;
+                const matchRef = matchFromDnse
+                    ? Number.isFinite(streamRef)
+                        ? streamRef
+                        : Number.isFinite(snapshotRef)
+                          ? snapshotRef / 1000
+                          : Number.isFinite(fallbackRef)
+                            ? fallbackRef / 1000
+                            : Number.NaN
+                    : Number.isFinite(snapshotPrice)
+                      ? snapshotRef
+                      : fallbackRef;
                 const matchChange =
-                    Number.isFinite(ref) && Number.isFinite(matchPrice)
-                        ? matchPrice - ref
+                    Number.isFinite(matchRef) && Number.isFinite(matchPrice)
+                        ? matchPrice - matchRef
                         : Number.NaN;
                 const matchPercent =
-                    Number.isFinite(ref) &&
-                    ref > 0 &&
+                    Number.isFinite(matchRef) &&
+                    matchRef > 0 &&
                     Number.isFinite(matchChange)
-                        ? (matchChange / ref) * 100
+                        ? (matchChange / matchRef) * 100
                         : Number.NaN;
 
                 const buy = Array.from({ length: 3 }, (_, idx) => {
-                    const level =
-                        stream?.bid?.[2 - idx] ?? snapshot?.bid?.[2 - idx];
+                    const streamLevel = stream?.bid?.[2 - idx];
+                    const snapshotLevel = snapshot?.bid?.[2 - idx];
                     return {
-                        price: level?.price ?? Number.NaN,
-                        vol: formatBoardVolume(level?.quantity),
+                        price:
+                            (Number.isFinite(streamLevel?.price)
+                                ? streamLevel!.price
+                                : snapshotLevel?.price) ?? Number.NaN,
+                        vol: formatBoardVolume(
+                            Number.isFinite(streamLevel?.quantity)
+                                ? streamLevel!.quantity *
+                                      DNSE_SOCKET_VOLUME_MULTIPLIER
+                                : snapshotLevel?.quantity,
+                        ),
                     };
                 });
                 const sell = Array.from({ length: 3 }, (_, idx) => {
-                    const level =
-                        stream?.offer?.[idx] ?? snapshot?.offer?.[idx];
+                    const streamLevel = stream?.offer?.[idx];
+                    const snapshotLevel = snapshot?.offer?.[idx];
                     return {
-                        price: level?.price ?? Number.NaN,
-                        vol: formatBoardVolume(level?.quantity),
+                        price:
+                            (Number.isFinite(streamLevel?.price)
+                                ? streamLevel!.price
+                                : snapshotLevel?.price) ?? Number.NaN,
+                        vol: formatBoardVolume(
+                            Number.isFinite(streamLevel?.quantity)
+                                ? streamLevel!.quantity *
+                                      DNSE_SOCKET_VOLUME_MULTIPLIER
+                                : snapshotLevel?.quantity,
+                        ),
                     };
                 });
+                const snapshotHigh = Number.isFinite(snapshot?.highestPrice)
+                    ? snapshot!.highestPrice
+                    : Number.NaN;
+                const streamHigh = Number.isFinite(stream?.highestPrice)
+                    ? stream!.highestPrice
+                    : Number.NaN;
+                const snapshotLow = Number.isFinite(snapshot?.lowestPrice)
+                    ? snapshot!.lowestPrice
+                    : Number.NaN;
+                const streamLow = Number.isFinite(stream?.lowestPrice)
+                    ? stream!.lowestPrice
+                    : Number.NaN;
+                const high = Number.isFinite(snapshotHigh)
+                    ? snapshotHigh
+                    : Number.isFinite(streamHigh)
+                      ? streamHigh
+                      : Number.isFinite(asset?.high24h)
+                        ? asset!.high24h
+                        : Number.NaN;
+                const low = Number.isFinite(snapshotLow)
+                    ? snapshotLow
+                    : Number.isFinite(streamLow)
+                      ? streamLow
+                      : Number.isFinite(asset?.low24h)
+                        ? asset!.low24h
+                        : Number.NaN;
                 return {
                     id: asset?.id || symbol,
                     ticker: symbol,
@@ -958,7 +1087,10 @@ export default function BoardPage() {
                     match: {
                         price: matchPrice,
                         vol: formatBoardVolume(
-                            stream?.quantity ?? snapshot?.quantity ?? mkQty,
+                            Number.isFinite(stream?.quantity)
+                                ? stream!.quantity *
+                                      DNSE_SOCKET_VOLUME_MULTIPLIER
+                                : (snapshot?.quantity ?? mkQty),
                         ),
                         change: Number.isFinite(matchChange)
                             ? matchChange
@@ -973,22 +1105,35 @@ export default function BoardPage() {
                             snapshot?.totalVolumeTraded ??
                             mkQty,
                     ),
-                    high:
-                        stream?.highestPrice ??
-                        snapshot?.highestPrice ??
-                        (Number.isFinite(asset?.high24h)
-                            ? asset!.high24h
-                            : Number.NaN),
-                    low:
-                        stream?.lowestPrice ??
-                        snapshot?.lowestPrice ??
-                        (Number.isFinite(asset?.low24h)
-                            ? asset!.low24h
-                            : Number.NaN),
+                    high,
+                    low,
                     foreign: {
                         buy: formatBoardVolume(snapshot?.foreignBuy),
                         sell: formatBoardVolume(snapshot?.foreignSell),
                         room: formatBoardVolume(snapshot?.foreignRoom),
+                    },
+                    priceScale: {
+                        ceilingFromDnse: Number.isFinite(stream?.ceiling),
+                        floorFromDnse: Number.isFinite(stream?.floor),
+                        tcFromDnse: Number.isFinite(stream?.ref),
+                        buyFromDnse: [
+                            Number.isFinite(stream?.bid?.[2]?.price),
+                            Number.isFinite(stream?.bid?.[1]?.price),
+                            Number.isFinite(stream?.bid?.[0]?.price),
+                        ],
+                        matchPriceFromDnse: Number.isFinite(stream?.price),
+                        matchChangeFromDnse: matchFromDnse,
+                        sellFromDnse: [
+                            Number.isFinite(stream?.offer?.[0]?.price),
+                            Number.isFinite(stream?.offer?.[1]?.price),
+                            Number.isFinite(stream?.offer?.[2]?.price),
+                        ],
+                        highFromDnse:
+                            !Number.isFinite(snapshotHigh) &&
+                            Number.isFinite(streamHigh),
+                        lowFromDnse:
+                            !Number.isFinite(snapshotLow) &&
+                            Number.isFinite(streamLow),
                     },
                 };
             }),
@@ -1039,9 +1184,21 @@ export default function BoardPage() {
                     value: row.match.price,
                     tone: getPriceTone(
                         row.match.price,
-                        row.ref,
-                        row.ceiling,
-                        row.floor,
+                        normalizeToneComparator(
+                            row.priceScale.matchPriceFromDnse,
+                            row.ref,
+                            row.priceScale.tcFromDnse,
+                        ),
+                        normalizeToneComparator(
+                            row.priceScale.matchPriceFromDnse,
+                            row.ceiling,
+                            row.priceScale.ceilingFromDnse,
+                        ),
+                        normalizeToneComparator(
+                            row.priceScale.matchPriceFromDnse,
+                            row.floor,
+                            row.priceScale.floorFromDnse,
+                        ),
                     ),
                 },
                 {
@@ -1049,9 +1206,21 @@ export default function BoardPage() {
                     value: row.match.vol,
                     tone: getPriceTone(
                         row.match.price,
-                        row.ref,
-                        row.ceiling,
-                        row.floor,
+                        normalizeToneComparator(
+                            row.priceScale.matchPriceFromDnse,
+                            row.ref,
+                            row.priceScale.tcFromDnse,
+                        ),
+                        normalizeToneComparator(
+                            row.priceScale.matchPriceFromDnse,
+                            row.ceiling,
+                            row.priceScale.ceilingFromDnse,
+                        ),
+                        normalizeToneComparator(
+                            row.priceScale.matchPriceFromDnse,
+                            row.floor,
+                            row.priceScale.floorFromDnse,
+                        ),
                     ),
                 },
                 {
@@ -1072,9 +1241,47 @@ export default function BoardPage() {
                 {
                     key: `${row.id}:high`,
                     value: row.high,
-                    tone: "emerald",
+                    tone: getPriceTone(
+                        row.high,
+                        normalizeToneComparator(
+                            row.priceScale.highFromDnse,
+                            row.ref,
+                            row.priceScale.tcFromDnse,
+                        ),
+                        normalizeToneComparator(
+                            row.priceScale.highFromDnse,
+                            row.ceiling,
+                            row.priceScale.ceilingFromDnse,
+                        ),
+                        normalizeToneComparator(
+                            row.priceScale.highFromDnse,
+                            row.floor,
+                            row.priceScale.floorFromDnse,
+                        ),
+                    ),
                 },
-                { key: `${row.id}:low`, value: row.low, tone: "amber" },
+                {
+                    key: `${row.id}:low`,
+                    value: row.low,
+                    tone: getPriceTone(
+                        row.low,
+                        normalizeToneComparator(
+                            row.priceScale.lowFromDnse,
+                            row.ref,
+                            row.priceScale.tcFromDnse,
+                        ),
+                        normalizeToneComparator(
+                            row.priceScale.lowFromDnse,
+                            row.ceiling,
+                            row.priceScale.ceilingFromDnse,
+                        ),
+                        normalizeToneComparator(
+                            row.priceScale.lowFromDnse,
+                            row.floor,
+                            row.priceScale.floorFromDnse,
+                        ),
+                    ),
+                },
             );
             for (let i = 0; i < 3; i += 1) {
                 const buy = row.buy[i];
@@ -1085,9 +1292,21 @@ export default function BoardPage() {
                         value: buy?.price ?? 0,
                         tone: getPriceTone(
                             buy?.price ?? 0,
-                            row.ref,
-                            row.ceiling,
-                            row.floor,
+                            normalizeToneComparator(
+                                row.priceScale.buyFromDnse[i],
+                                row.ref,
+                                row.priceScale.tcFromDnse,
+                            ),
+                            normalizeToneComparator(
+                                row.priceScale.buyFromDnse[i],
+                                row.ceiling,
+                                row.priceScale.ceilingFromDnse,
+                            ),
+                            normalizeToneComparator(
+                                row.priceScale.buyFromDnse[i],
+                                row.floor,
+                                row.priceScale.floorFromDnse,
+                            ),
                         ),
                     },
                     {
@@ -1095,9 +1314,21 @@ export default function BoardPage() {
                         value: buy?.vol ?? "0",
                         tone: getPriceTone(
                             buy?.price ?? 0,
-                            row.ref,
-                            row.ceiling,
-                            row.floor,
+                            normalizeToneComparator(
+                                row.priceScale.buyFromDnse[i],
+                                row.ref,
+                                row.priceScale.tcFromDnse,
+                            ),
+                            normalizeToneComparator(
+                                row.priceScale.buyFromDnse[i],
+                                row.ceiling,
+                                row.priceScale.ceilingFromDnse,
+                            ),
+                            normalizeToneComparator(
+                                row.priceScale.buyFromDnse[i],
+                                row.floor,
+                                row.priceScale.floorFromDnse,
+                            ),
                         ),
                     },
                     {
@@ -1105,9 +1336,21 @@ export default function BoardPage() {
                         value: sell?.price ?? 0,
                         tone: getPriceTone(
                             sell?.price ?? 0,
-                            row.ref,
-                            row.ceiling,
-                            row.floor,
+                            normalizeToneComparator(
+                                row.priceScale.sellFromDnse[i],
+                                row.ref,
+                                row.priceScale.tcFromDnse,
+                            ),
+                            normalizeToneComparator(
+                                row.priceScale.sellFromDnse[i],
+                                row.ceiling,
+                                row.priceScale.ceilingFromDnse,
+                            ),
+                            normalizeToneComparator(
+                                row.priceScale.sellFromDnse[i],
+                                row.floor,
+                                row.priceScale.floorFromDnse,
+                            ),
                         ),
                     },
                     {
@@ -1115,9 +1358,21 @@ export default function BoardPage() {
                         value: sell?.vol ?? "0",
                         tone: getPriceTone(
                             sell?.price ?? 0,
-                            row.ref,
-                            row.ceiling,
-                            row.floor,
+                            normalizeToneComparator(
+                                row.priceScale.sellFromDnse[i],
+                                row.ref,
+                                row.priceScale.tcFromDnse,
+                            ),
+                            normalizeToneComparator(
+                                row.priceScale.sellFromDnse[i],
+                                row.ceiling,
+                                row.priceScale.ceilingFromDnse,
+                            ),
+                            normalizeToneComparator(
+                                row.priceScale.sellFromDnse[i],
+                                row.floor,
+                                row.priceScale.floorFromDnse,
+                            ),
                         ),
                     },
                 );
@@ -2353,6 +2608,33 @@ export default function BoardPage() {
                                       ))
                                     : rowsForTable.map((stock, index) => {
                                           const rowKey = stock.id;
+                                          const tickerTone = getPriceTone(
+                                              stock.match.price,
+                                              normalizeToneComparator(
+                                                  stock.priceScale
+                                                      .matchPriceFromDnse,
+                                                  stock.ref,
+                                                  stock.priceScale.tcFromDnse,
+                                              ),
+                                              normalizeToneComparator(
+                                                  stock.priceScale
+                                                      .matchPriceFromDnse,
+                                                  stock.ceiling,
+                                                  stock.priceScale
+                                                      .ceilingFromDnse,
+                                              ),
+                                              normalizeToneComparator(
+                                                  stock.priceScale
+                                                      .matchPriceFromDnse,
+                                                  stock.floor,
+                                                  stock.priceScale
+                                                      .floorFromDnse,
+                                              ),
+                                          );
+                                          const tickerToneClass =
+                                              Number.isFinite(stock.match.price)
+                                                  ? toneToTextClass(tickerTone)
+                                                  : "text-muted";
                                           return (
                                               <tr
                                                   key={stock.id}
@@ -2370,7 +2652,7 @@ export default function BoardPage() {
                                               >
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-2 font-semibold",
+                                                          "border-r border-main px-2 font-semibold",
                                                           stock.id !==
                                                               "EMPTY" &&
                                                               "cursor-pointer hover:bg-accent/15",
@@ -2397,7 +2679,12 @@ export default function BoardPage() {
                                                               size={18}
                                                           />
                                                           <div className="min-w-0">
-                                                              <div className="truncate">
+                                                              <div
+                                                                  className={cn(
+                                                                      "truncate",
+                                                                      tickerToneClass,
+                                                                  )}
+                                                              >
                                                                   {stock.ticker}
                                                               </div>
                                                           </div>
@@ -2413,6 +2700,8 @@ export default function BoardPage() {
                                                   >
                                                       {formatBoardPriceDisplay(
                                                           stock.ceiling,
+                                                          stock.priceScale
+                                                              .ceilingFromDnse,
                                                       )}
                                                   </td>
                                                   <td
@@ -2425,6 +2714,8 @@ export default function BoardPage() {
                                                   >
                                                       {formatBoardPriceDisplay(
                                                           stock.floor,
+                                                          stock.priceScale
+                                                              .floorFromDnse,
                                                       )}
                                                   </td>
                                                   <td
@@ -2437,6 +2728,8 @@ export default function BoardPage() {
                                                   >
                                                       {formatBoardPriceDisplay(
                                                           stock.tc,
+                                                          stock.priceScale
+                                                              .tcFromDnse,
                                                       )}
                                                   </td>
 
@@ -2459,15 +2752,39 @@ export default function BoardPage() {
                                                                       value={
                                                                           b.price
                                                                       }
-                                                                      refVal={
-                                                                          stock.ref
-                                                                      }
-                                                                      ceiling={
-                                                                          stock.ceiling
-                                                                      }
-                                                                      floor={
-                                                                          stock.floor
-                                                                      }
+                                                                      refVal={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .buyFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.ref,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .tcFromDnse,
+                                                                      )}
+                                                                      ceiling={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .buyFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.ceiling,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .ceilingFromDnse,
+                                                                      )}
+                                                                      floor={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .buyFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.floor,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .floorFromDnse,
+                                                                      )}
                                                                       className={
                                                                           isFlashing(
                                                                               priceKey,
@@ -2478,6 +2795,11 @@ export default function BoardPage() {
                                                                   >
                                                                       {formatBoardPriceDisplay(
                                                                           b.price,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .buyFromDnse[
+                                                                              i
+                                                                          ],
                                                                       )}
                                                                   </ColorText>
                                                               </td>
@@ -2493,15 +2815,39 @@ export default function BoardPage() {
                                                                       value={
                                                                           b.price
                                                                       }
-                                                                      refVal={
-                                                                          stock.ref
-                                                                      }
-                                                                      ceiling={
-                                                                          stock.ceiling
-                                                                      }
-                                                                      floor={
-                                                                          stock.floor
-                                                                      }
+                                                                      refVal={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .buyFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.ref,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .tcFromDnse,
+                                                                      )}
+                                                                      ceiling={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .buyFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.ceiling,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .ceilingFromDnse,
+                                                                      )}
+                                                                      floor={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .buyFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.floor,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .floorFromDnse,
+                                                                      )}
                                                                       className={cn(
                                                                           "font-semibold",
                                                                           isFlashing(
@@ -2531,11 +2877,27 @@ export default function BoardPage() {
                                                           value={
                                                               stock.match.price
                                                           }
-                                                          refVal={stock.ref}
-                                                          ceiling={
-                                                              stock.ceiling
-                                                          }
-                                                          floor={stock.floor}
+                                                          refVal={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .matchPriceFromDnse,
+                                                              stock.ref,
+                                                              stock.priceScale
+                                                                  .tcFromDnse,
+                                                          )}
+                                                          ceiling={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .matchPriceFromDnse,
+                                                              stock.ceiling,
+                                                              stock.priceScale
+                                                                  .ceilingFromDnse,
+                                                          )}
+                                                          floor={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .matchPriceFromDnse,
+                                                              stock.floor,
+                                                              stock.priceScale
+                                                                  .floorFromDnse,
+                                                          )}
                                                           className={cn(
                                                               "font-semibold",
                                                               isFlashing(
@@ -2546,6 +2908,8 @@ export default function BoardPage() {
                                                       >
                                                           {formatBoardPriceDisplay(
                                                               stock.match.price,
+                                                              stock.priceScale
+                                                                  .matchPriceFromDnse,
                                                           )}
                                                       </ColorText>
                                                   </td>
@@ -2561,11 +2925,27 @@ export default function BoardPage() {
                                                           value={
                                                               stock.match.price
                                                           }
-                                                          refVal={stock.ref}
-                                                          ceiling={
-                                                              stock.ceiling
-                                                          }
-                                                          floor={stock.floor}
+                                                          refVal={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .matchPriceFromDnse,
+                                                              stock.ref,
+                                                              stock.priceScale
+                                                                  .tcFromDnse,
+                                                          )}
+                                                          ceiling={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .matchPriceFromDnse,
+                                                              stock.ceiling,
+                                                              stock.priceScale
+                                                                  .ceilingFromDnse,
+                                                          )}
+                                                          floor={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .matchPriceFromDnse,
+                                                              stock.floor,
+                                                              stock.priceScale
+                                                                  .floorFromDnse,
+                                                          )}
                                                           className={cn(
                                                               "font-semibold",
                                                               isFlashing(
@@ -2597,8 +2977,10 @@ export default function BoardPage() {
                                                           ),
                                                       )}
                                                   >
-                                                      {formatBoardPriceDisplay(
+                                                      {formatBoardSignedPriceDisplay(
                                                           stock.match.change,
+                                                          stock.priceScale
+                                                              .matchChangeFromDnse,
                                                       )}
                                                   </td>
                                                   <td
@@ -2643,15 +3025,39 @@ export default function BoardPage() {
                                                                       value={
                                                                           s.price
                                                                       }
-                                                                      refVal={
-                                                                          stock.ref
-                                                                      }
-                                                                      ceiling={
-                                                                          stock.ceiling
-                                                                      }
-                                                                      floor={
-                                                                          stock.floor
-                                                                      }
+                                                                      refVal={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .sellFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.ref,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .tcFromDnse,
+                                                                      )}
+                                                                      ceiling={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .sellFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.ceiling,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .ceilingFromDnse,
+                                                                      )}
+                                                                      floor={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .sellFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.floor,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .floorFromDnse,
+                                                                      )}
                                                                       className={
                                                                           isFlashing(
                                                                               priceKey,
@@ -2662,6 +3068,11 @@ export default function BoardPage() {
                                                                   >
                                                                       {formatBoardPriceDisplay(
                                                                           s.price,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .sellFromDnse[
+                                                                              i
+                                                                          ],
                                                                       )}
                                                                   </ColorText>
                                                               </td>
@@ -2677,15 +3088,39 @@ export default function BoardPage() {
                                                                       value={
                                                                           s.price
                                                                       }
-                                                                      refVal={
-                                                                          stock.ref
-                                                                      }
-                                                                      ceiling={
-                                                                          stock.ceiling
-                                                                      }
-                                                                      floor={
-                                                                          stock.floor
-                                                                      }
+                                                                      refVal={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .sellFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.ref,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .tcFromDnse,
+                                                                      )}
+                                                                      ceiling={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .sellFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.ceiling,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .ceilingFromDnse,
+                                                                      )}
+                                                                      floor={normalizeToneComparator(
+                                                                          stock
+                                                                              .priceScale
+                                                                              .sellFromDnse[
+                                                                              i
+                                                                          ],
+                                                                          stock.floor,
+                                                                          stock
+                                                                              .priceScale
+                                                                              .floorFromDnse,
+                                                                      )}
                                                                       className={cn(
                                                                           "font-semibold",
                                                                           isFlashing(
@@ -2717,27 +3152,95 @@ export default function BoardPage() {
                                                   </td>
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-2 text-right text-emerald-500 bg-slate-500/10",
+                                                          "border-r border-main p-2 text-right bg-slate-500/10",
                                                           flashClass(
                                                               `${rowKey}:high`,
                                                           ),
                                                       )}
                                                   >
-                                                      {formatBoardPriceDisplay(
-                                                          stock.high,
-                                                      )}
+                                                      <ColorText
+                                                          value={stock.high}
+                                                          refVal={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .highFromDnse,
+                                                              stock.ref,
+                                                              stock.priceScale
+                                                                  .tcFromDnse,
+                                                          )}
+                                                          ceiling={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .highFromDnse,
+                                                              stock.ceiling,
+                                                              stock.priceScale
+                                                                  .ceilingFromDnse,
+                                                          )}
+                                                          floor={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .highFromDnse,
+                                                              stock.floor,
+                                                              stock.priceScale
+                                                                  .floorFromDnse,
+                                                          )}
+                                                          className={
+                                                              isFlashing(
+                                                                  `${rowKey}:high`,
+                                                              )
+                                                                  ? "!text-white"
+                                                                  : undefined
+                                                          }
+                                                      >
+                                                          {formatBoardPriceDisplay(
+                                                              stock.high,
+                                                              stock.priceScale
+                                                                  .highFromDnse,
+                                                          )}
+                                                      </ColorText>
                                                   </td>
                                                   <td
                                                       className={cn(
-                                                          "border-r border-main p-2 text-right text-amber-500 bg-slate-500/10",
+                                                          "border-r border-main p-2 text-right bg-slate-500/10",
                                                           flashClass(
                                                               `${rowKey}:low`,
                                                           ),
                                                       )}
                                                   >
-                                                      {formatBoardPriceDisplay(
-                                                          stock.low,
-                                                      )}
+                                                      <ColorText
+                                                          value={stock.low}
+                                                          refVal={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .lowFromDnse,
+                                                              stock.ref,
+                                                              stock.priceScale
+                                                                  .tcFromDnse,
+                                                          )}
+                                                          ceiling={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .lowFromDnse,
+                                                              stock.ceiling,
+                                                              stock.priceScale
+                                                                  .ceilingFromDnse,
+                                                          )}
+                                                          floor={normalizeToneComparator(
+                                                              stock.priceScale
+                                                                  .lowFromDnse,
+                                                              stock.floor,
+                                                              stock.priceScale
+                                                                  .floorFromDnse,
+                                                          )}
+                                                          className={
+                                                              isFlashing(
+                                                                  `${rowKey}:low`,
+                                                              )
+                                                                  ? "!text-white"
+                                                                  : undefined
+                                                          }
+                                                      >
+                                                          {formatBoardPriceDisplay(
+                                                              stock.low,
+                                                              stock.priceScale
+                                                                  .lowFromDnse,
+                                                          )}
+                                                      </ColorText>
                                                   </td>
 
                                                   <td className="border-r border-main p-1 text-right">

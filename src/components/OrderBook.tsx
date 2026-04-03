@@ -95,7 +95,7 @@ const RecentTrades = ({
                     </div>
                 ) : error ? (
                     <div className="h-full flex items-center justify-center text-[11px] text-rose-500 px-3 text-center">
-                        Lỗi tải trades: {error}
+                        <Loader2 size={12} className="animate-spin" />
                     </div>
                 ) : trades.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-[11px] text-muted">

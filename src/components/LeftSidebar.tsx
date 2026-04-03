@@ -12,6 +12,7 @@ import { cn } from "../lib/utils";
 import { useMarket } from "../context/MarketContext";
 import { Asset } from "../services/binanceService";
 import { TokenAvatar } from "./TokenAvatar";
+import { useDnseBoardStream } from "../hooks/useDnseBoardStream";
 import {
     Search,
     ChevronLeft,
@@ -25,6 +26,40 @@ import {
     X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+
+const STOCK_DNSE_PRICE_SCALE = 1000;
+const TONE_EPS = 1e-6;
+
+type StockTone = "fuchsia" | "emerald" | "rose" | "amber" | "cyan";
+
+function toneClassForStock(tone: StockTone): string {
+    if (tone === "fuchsia") return "text-[#c05af2]";
+    if (tone === "emerald") return "text-[#32d74b]";
+    if (tone === "rose") return "text-[#ff2727]";
+    if (tone === "cyan") return "text-cyan-500";
+    return "text-[#ffbe0c]";
+}
+
+function resolveStockTone(
+    price: number,
+    ref: number,
+    ceiling: number,
+    floor: number,
+    fallbackChangePercent: number,
+): StockTone {
+    if (Number.isFinite(price) && Number.isFinite(ceiling)) {
+        if (Math.abs(price - ceiling) <= TONE_EPS) return "fuchsia";
+    }
+    if (Number.isFinite(price) && Number.isFinite(floor)) {
+        if (Math.abs(price - floor) <= TONE_EPS) return "cyan";
+    }
+    if (Number.isFinite(price) && Number.isFinite(ref)) {
+        if (price > ref + TONE_EPS) return "emerald";
+        if (price < ref - TONE_EPS) return "rose";
+        return "amber";
+    }
+    return fallbackChangePercent >= 0 ? "emerald" : "rose";
+}
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const priceFmt = (v: number) =>
@@ -181,10 +216,12 @@ const CoinRow = ({
     asset,
     isSelected,
     onClick,
+    stockToneClass,
 }: {
     asset: Asset;
     isSelected: boolean;
     onClick: () => void;
+    stockToneClass?: string;
 }) => {
     const isFutures = asset.marketType === "futures";
     const fundingRate = asset.fundingRate;
@@ -210,7 +247,7 @@ const CoinRow = ({
                         <span
                             className={cn(
                                 "text-[11px] font-semibold truncate",
-                                isSelected && "text-accent",
+                                stockToneClass,
                             )}
                         >
                             {asset.symbol}
@@ -413,7 +450,7 @@ export type LeftSidebarProps = {
 
 export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     const {
-        assets,
+        assets: baseAssets,
         selectedSymbol,
         setSelectedSymbol,
         universe,
@@ -422,6 +459,66 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         isLoading,
         isFuturesLoading,
     } = useMarket();
+    const streamSymbols = useMemo(
+        () =>
+            universe === "stock"
+                ? baseAssets.map((asset) => asset.symbol.trim().toUpperCase())
+                : [],
+        [baseAssets, universe],
+    );
+    const { dataBySymbol: dnseBySymbol } = useDnseBoardStream(streamSymbols, {
+        board: "G1",
+        boards: ["G1", "G2", "G3"],
+        resolution: "1",
+    });
+    const assets = useMemo<Asset[]>(
+        () =>
+            baseAssets.map((asset) => {
+                if (universe !== "stock") return asset;
+                const stream = dnseBySymbol[asset.symbol.trim().toUpperCase()];
+                if (!Number.isFinite(stream?.price)) return asset;
+                const livePrice = stream!.price * STOCK_DNSE_PRICE_SCALE;
+                const liveRef = Number.isFinite(stream?.ref)
+                    ? stream!.ref * STOCK_DNSE_PRICE_SCALE
+                    : Number.NaN;
+                const liveChange =
+                    Number.isFinite(liveRef) && Number.isFinite(livePrice)
+                        ? livePrice - liveRef
+                        : Number.isFinite(asset.change)
+                          ? asset.change
+                          : 0;
+                const liveChangePercent =
+                    Number.isFinite(liveRef) && liveRef > 0
+                        ? (liveChange / liveRef) * 100
+                        : asset.changePercent;
+                return {
+                    ...asset,
+                    price: livePrice,
+                    change: Number.isFinite(liveChange) ? liveChange : 0,
+                    changePercent: Number.isFinite(liveChangePercent)
+                        ? liveChangePercent
+                        : asset.changePercent,
+                };
+            }),
+        [baseAssets, dnseBySymbol, universe],
+    );
+    const stockToneClassBySymbol = useMemo(() => {
+        if (universe !== "stock") return {};
+        const out: Record<string, string> = {};
+        for (const asset of assets) {
+            const symbol = asset.symbol.trim().toUpperCase();
+            const stream = dnseBySymbol[symbol];
+            const tone = resolveStockTone(
+                Number.isFinite(stream?.price) ? stream!.price : Number.NaN,
+                Number.isFinite(stream?.ref) ? stream!.ref : Number.NaN,
+                Number.isFinite(stream?.ceiling) ? stream!.ceiling : Number.NaN,
+                Number.isFinite(stream?.floor) ? stream!.floor : Number.NaN,
+                asset.changePercent,
+            );
+            out[symbol] = toneClassForStock(tone);
+        }
+        return out;
+    }, [assets, dnseBySymbol, universe]);
     const [isOpen, setIsOpen] = useState(true);
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [search, setSearch] = useState("");
@@ -534,7 +631,8 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         if (universe !== "stock") return;
         setStockVisibleCount((prev) => {
             if (displayAssets.length <= 0) return 0;
-            if (prev <= 0) return Math.min(STOCK_PAGE_SIZE, displayAssets.length);
+            if (prev <= 0)
+                return Math.min(STOCK_PAGE_SIZE, displayAssets.length);
             return Math.min(prev, displayAssets.length);
         });
     }, [displayAssets.length, universe]);
@@ -570,7 +668,9 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     const firstPageStockSymbols = useMemo(
         () =>
             universe === "stock"
-                ? visibleAssets.slice(0, STOCK_PAGE_SIZE).map((asset) => asset.id)
+                ? visibleAssets
+                      .slice(0, STOCK_PAGE_SIZE)
+                      .map((asset) => asset.id)
                 : [],
         [universe, visibleAssets],
     );
@@ -985,6 +1085,13 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                             asset={asset}
                             isSelected={selectedSymbol === asset.id}
                             onClick={() => setSelectedSymbol(asset.id)}
+                            stockToneClass={
+                                universe === "stock"
+                                    ? stockToneClassBySymbol[
+                                          asset.symbol.trim().toUpperCase()
+                                      ]
+                                    : undefined
+                            }
                         />
                     ))
                 )}

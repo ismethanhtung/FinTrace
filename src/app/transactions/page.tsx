@@ -215,7 +215,9 @@ export default function TransactionsPage() {
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-main">
-                                    {isStock ? "Matched Trades" : "Market Trades"}
+                                    {isStock
+                                        ? "Matched Trades"
+                                        : "Market Trades"}
                                 </span>
                                 <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                             </div>
@@ -274,7 +276,11 @@ export default function TransactionsPage() {
                                         size={14}
                                         className="shrink-0"
                                     />
-                                    <span>Lỗi tải trades: {tradeError}</span>
+
+                                    <Loader2
+                                        size={12}
+                                        className="animate-spin"
+                                    />
                                 </div>
                             ) : showFullLoading ? (
                                 <div className="h-full flex items-center justify-center text-[11px] text-muted">
@@ -327,9 +333,12 @@ export default function TransactionsPage() {
                                         </span>
                                         <span className="text-right text-[10px] font-mono tabular-nums text-muted">
                                             {isStock
-                                                ? t.qty.toLocaleString("en-US", {
-                                                      maximumFractionDigits: 0,
-                                                  })
+                                                ? t.qty.toLocaleString(
+                                                      "en-US",
+                                                      {
+                                                          maximumFractionDigits: 0,
+                                                      },
+                                                  )
                                                 : t.qty.toFixed(4)}
                                         </span>
                                         <span className="text-right text-[10px] font-mono font-semibold tabular-nums text-main">
@@ -352,7 +361,8 @@ export default function TransactionsPage() {
                             Tóm tắt tape (All / Buy / Sell)
                         </div>
                         <div className="text-[10px] text-muted mt-1">
-                            Khai thác trực tiếp từ luồng {selectedSymbol} realtime
+                            Khai thác trực tiếp từ luồng {selectedSymbol}{" "}
+                            realtime
                         </div>
                     </div>
 
@@ -551,9 +561,10 @@ export default function TransactionsPage() {
                                             </span>
                                             <span className="font-mono">
                                                 {bucket.count} ·{" "}
-                                                {(isStock ? "" : "$") + compactUsdFmt.format(
-                                                    bucket.notional,
-                                                )}
+                                                {(isStock ? "" : "$") +
+                                                    compactUsdFmt.format(
+                                                        bucket.notional,
+                                                    )}
                                             </span>
                                         </div>
                                         <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
