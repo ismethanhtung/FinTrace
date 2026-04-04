@@ -32,6 +32,7 @@ export type MarketTableRow = {
     low: number;
     baseVolume: number;
     indexMembership: string[];
+    tags: string[];
 };
 
 type MarketStats = {
@@ -194,6 +195,7 @@ export function useMarketPageData() {
                 low: asset.low24h || 0,
                 baseVolume: asset.baseVolume || 0,
                 indexMembership: asset.stockProfile?.indexMembership || [],
+                tags: asset.tags || [],
             }));
 
             // Render ngay dữ liệu lõi (price/24h/volume) để bảng lên cực nhanh.

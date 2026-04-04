@@ -31,6 +31,7 @@ function row(
         low: 0,
         baseVolume: 0,
         indexMembership: [],
+        tags: [],
     };
 }
 

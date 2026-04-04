@@ -8,6 +8,7 @@ import React, {
     useMemo,
 } from "react";
 import type { IChartApi, UTCTimestamp, LogicalRange } from "lightweight-charts";
+import { useRouter } from "next/navigation";
 import { useMarket } from "../context/MarketContext";
 import {
     useChartData,
@@ -61,6 +62,30 @@ const compactNumberFmt = (v: number) => {
     if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
     if (v >= 1_000) return `${(v / 1_000).toFixed(2)}K`;
     return v.toFixed(2);
+};
+
+const plainNumberFmt = (v: number | null | undefined) => {
+    if (!Number.isFinite(v as number)) return "—";
+    return Number(v).toLocaleString("en-US", {
+        maximumFractionDigits: 8,
+    });
+};
+
+const timestampFmt = (ms: number | null | undefined) => {
+    if (!Number.isFinite(ms as number) || Number(ms) <= 0) return "—";
+    return new Date(Number(ms)).toLocaleString("vi-VN");
+};
+
+const yesNoFmt = (v: boolean | null | undefined) => {
+    if (v == null) return "—";
+    return v ? "Yes" : "No";
+};
+
+const textValueFmt = (v: string | null | undefined) => {
+    if (v == null) return "—";
+    const trimmed = v.trim();
+    if (!trimmed) return "(empty)";
+    return trimmed;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -215,6 +240,202 @@ const CoinInfoPanel = () => {
         : universe === "stock"
           ? stockRows
           : spotRows;
+    const assetInfo = asset.binanceAssetInfo;
+    const tagList = asset.tags?.length ? asset.tags : [];
+    const coinInfoSections =
+        universe !== "coin" || !assetInfo
+            ? []
+            : [
+                  {
+                      title: "Identity",
+                      rows: [
+                          {
+                              label: "Asset Code",
+                              value:
+                                  textValueFmt(assetInfo.assetCode) ===
+                                  "(empty)"
+                                      ? asset.symbol
+                                      : textValueFmt(assetInfo.assetCode),
+                          },
+                          {
+                              label: "Asset Name",
+                              value:
+                                  textValueFmt(assetInfo.assetName) ===
+                                  "(empty)"
+                                      ? asset.name
+                                      : textValueFmt(assetInfo.assetName),
+                          },
+
+                          {
+                              label: "Create Time",
+                              value: timestampFmt(assetInfo.createTime),
+                          },
+                          {
+                              label: "Seq Num",
+                              value: textValueFmt(assetInfo.seqNum),
+                          },
+                      ],
+                  },
+                  {
+                      title: "Classification",
+                      rows: [
+                          {
+                              label: "Plate Type",
+                              value: textValueFmt(assetInfo.plateType),
+                          },
+                          { label: "Tags", value: tagList.join(", ") || "—" },
+                          { label: "ETF", value: yesNoFmt(assetInfo.etf) },
+                          {
+                              label: "Support Market",
+                              value: assetInfo.supportMarket?.join(", ") || "—",
+                          },
+                      ],
+                  },
+                  {
+                      title: "Status",
+                      rows: [
+                          {
+                              label: "Trading",
+                              value: yesNoFmt(assetInfo.trading),
+                          },
+                          {
+                              label: "Delisted",
+                              value: yesNoFmt(assetInfo.delisted),
+                          },
+                          {
+                              label: "Pre Delist",
+                              value: yesNoFmt(assetInfo.preDelist),
+                          },
+                          {
+                              label: "Testnet",
+                              value: yesNoFmt(assetInfo.test === 1),
+                          },
+                          {
+                              label: "Ledger Only",
+                              value: yesNoFmt(assetInfo.isLedgerOnly),
+                          },
+                          {
+                              label: "Legal Money",
+                              value: yesNoFmt(assetInfo.isLegalMoney),
+                          },
+                      ],
+                  },
+                  {
+                      title: "Technical",
+                      rows: [
+                          {
+                              label: "Asset Digit",
+                              value: plainNumberFmt(assetInfo.assetDigit),
+                          },
+                          {
+                              label: "Fee Digit",
+                              value: plainNumberFmt(assetInfo.feeDigit),
+                          },
+                          {
+                              label: "Tag Bits",
+                              value: textValueFmt(assetInfo.tagBits),
+                          },
+                          {
+                              label: "Fee Ref Asset",
+                              value: textValueFmt(assetInfo.feeReferenceAsset),
+                          },
+                          {
+                              label: "Fee Rate",
+                              value: plainNumberFmt(assetInfo.feeRate),
+                          },
+                          {
+                              label: "Unit",
+                              value: textValueFmt(assetInfo.unit),
+                          },
+                      ],
+                  },
+                  {
+                      title: "Financial",
+                      rows: [
+                          {
+                              label: "Commission Rate",
+                              value: plainNumberFmt(assetInfo.commissionRate),
+                          },
+                          {
+                              label: "Gas",
+                              value: plainNumberFmt(assetInfo.gas),
+                          },
+                          {
+                              label: "Free Audit Withdraw Amt",
+                              value: plainNumberFmt(
+                                  assetInfo.freeAuditWithdrawAmt,
+                              ),
+                          },
+                          {
+                              label: "Free User Charge Amount",
+                              value: plainNumberFmt(
+                                  assetInfo.freeUserChargeAmount,
+                              ),
+                          },
+                          {
+                              label: "Reconciliation Amount",
+                              value: plainNumberFmt(
+                                  assetInfo.reconciliationAmount,
+                              ),
+                          },
+                      ],
+                  },
+                  {
+                      title: "Delist Info",
+                      rows: [
+                          {
+                              label: "Trade Deadline",
+                              value: timestampFmt(assetInfo.pdTradeDeadline),
+                          },
+                          {
+                              label: "Deposit Deadline",
+                              value: timestampFmt(assetInfo.pdDepositDeadline),
+                          },
+                          {
+                              label: "Announce URL",
+                              value: textValueFmt(assetInfo.pdAnnounceUrl),
+                              href: assetInfo.pdAnnounceUrl || undefined,
+                          },
+                      ],
+                  },
+                  {
+                      title: "Swap / Migration",
+                      rows: [
+                          {
+                              label: "Old Asset Code",
+                              value: textValueFmt(assetInfo.oldAssetCode),
+                          },
+                          {
+                              label: "New Asset Code",
+                              value: textValueFmt(assetInfo.newAssetCode),
+                          },
+                          {
+                              label: "Swap Tag",
+                              value: textValueFmt(assetInfo.swapTag),
+                          },
+                          {
+                              label: "Swap Announce URL",
+                              value: textValueFmt(assetInfo.swapAnnounceUrl),
+                              href: assetInfo.swapAnnounceUrl || undefined,
+                          },
+                      ],
+                  },
+                  {
+                      title: "Reference",
+                      rows: [
+                          {
+                              label: "CN Link",
+                              value: textValueFmt(assetInfo.cnLink),
+                              href: assetInfo.cnLink || undefined,
+                          },
+                          {
+                              label: "EN Link",
+                              value: textValueFmt(assetInfo.enLink),
+                              href: assetInfo.enLink || undefined,
+                          },
+                      ],
+                  },
+              ];
 
     const marketBadge = isFutures
         ? {
@@ -258,44 +479,7 @@ const CoinInfoPanel = () => {
                               : "Binance"}
                     </div>
                 </div>
-                <div className="ml-auto shrink-0">
-                    {asset.changePercent >= 0 ? (
-                        <TrendingUp size={20} className="text-emerald-500" />
-                    ) : (
-                        <TrendingDown size={20} className="text-rose-500" />
-                    )}
-                </div>
             </div>
-
-            <div className="rounded-lg border border-main overflow-hidden">
-                {rows.map((row, i) => (
-                    <div
-                        key={i}
-                        className={cn(
-                            "flex items-center justify-between px-4 py-3",
-                            i % 2 === 0 ? "bg-secondary/40" : "",
-                        )}
-                    >
-                        <span className="text-[11px] text-muted flex items-center gap-1">
-                            {row.label}
-                            {"tooltip" in row && row.tooltip && (
-                                <span title={row.tooltip as string}>
-                                    <Info size={10} className="text-muted/50" />
-                                </span>
-                            )}
-                        </span>
-                        <span
-                            className={cn(
-                                "text-[12px] font-medium text-right max-w-[62%] break-words",
-                                row.color ?? "",
-                            )}
-                        >
-                            {row.value}
-                        </span>
-                    </div>
-                ))}
-            </div>
-
             {/* Futures funding rate visual bar */}
             {isFutures && premiumData && (
                 <div className="space-y-1.5">
@@ -338,6 +522,81 @@ const CoinInfoPanel = () => {
                 </div>
             )}
 
+            <div className="rounded-lg border border-main overflow-hidden">
+                {rows.map((row, i) => (
+                    <div
+                        key={i}
+                        className={cn(
+                            "flex items-center justify-between px-4 py-3",
+                            i % 2 === 0 ? "bg-secondary/40" : "",
+                        )}
+                    >
+                        <span className="text-[11px] text-muted flex items-center gap-1">
+                            {row.label}
+                            {"tooltip" in row && row.tooltip && (
+                                <span title={row.tooltip as string}>
+                                    <Info size={10} className="text-muted/50" />
+                                </span>
+                            )}
+                        </span>
+                        <span
+                            className={cn(
+                                "text-[12px] font-medium text-right max-w-[62%] break-words",
+                                row.color ?? "",
+                            )}
+                        >
+                            {row.value}
+                        </span>
+                    </div>
+                ))}
+            </div>
+
+            {coinInfoSections.length > 0 && (
+                <div className="space-y-2">
+                    <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">
+                        Binance Asset Metadata
+                    </div>
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+                        {coinInfoSections.map((section) => (
+                            <div
+                                key={section.title}
+                                className="rounded-lg border border-main overflow-hidden bg-secondary/20"
+                            >
+                                <div className="px-3 py-2 border-b border-main text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                                    {section.title}
+                                </div>
+                                <div className="">
+                                    {section.rows.map((row) => (
+                                        <div
+                                            key={`${section.title}-${row.label}`}
+                                            className="grid grid-cols-[130px_1fr] gap-2 px-3 py-2 text-[11px]"
+                                        >
+                                            <div className="text-muted">
+                                                {row.label}
+                                            </div>
+                                            <div className="text-main break-all">
+                                                {row.href ? (
+                                                    <a
+                                                        href={row.href}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="text-sky-400 hover:text-sky-300 underline underline-offset-2 border-none border-main rounded-md px-1 py-0.5"
+                                                    >
+                                                        {row.value}
+                                                    </a>
+                                                ) : (
+                                                    row.value
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="space-y-1">
                 <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">
                     About {asset.symbol}
@@ -363,6 +622,7 @@ const CoinInfoPanel = () => {
 
 // ─── Main Chart ───────────────────────────────────────────────────────────────
 export const MainChart = () => {
+    const router = useRouter();
     const { selectedSymbol, assets, marketType, universe } = useMarket();
     const {
         data,
@@ -377,7 +637,7 @@ export const MainChart = () => {
         fetchHistory,
     } = useChartData(selectedSymbol, marketType);
 
-    type ChartTab = "chart" | "info" | "flow" | "liquidation";
+    type ChartTab = "chart" | "flow" | "info" | "liquidation";
     const [activeTab, setActiveTab] = useState<ChartTab>("chart");
     const [isPanned, setIsPanned] = useState(false);
 
@@ -396,8 +656,8 @@ export const MainChart = () => {
     const tabs = useMemo(
         () =>
             (isFutures
-                ? (["chart", "info", "flow", "liquidation"] as const)
-                : (["chart", "info", "flow"] as const)) as readonly ChartTab[],
+                ? (["chart", "flow", "info", "liquidation"] as const)
+                : (["chart", "flow", "info"] as const)) as readonly ChartTab[],
         [isFutures],
     );
     const tabMeta: Record<
@@ -951,6 +1211,30 @@ export const MainChart = () => {
               },
           ]
         : [];
+    const currentTags = useMemo(() => {
+        if (universe !== "coin") return [];
+        const tags = currentAsset?.tags;
+        if (!tags?.length) return [];
+        const out: string[] = [];
+        const seen = new Set<string>();
+        for (const rawTag of tags) {
+            const value = String(rawTag ?? "").trim();
+            if (!value) continue;
+            const key = value.toUpperCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(value);
+        }
+        return out.slice(0, 12);
+    }, [currentAsset?.tags, universe]);
+    const navigateToMarketTag = useCallback(
+        (tag: string) => {
+            const clean = String(tag ?? "").trim();
+            if (!clean) return;
+            router.push(`/market?tag=${encodeURIComponent(clean)}`);
+        },
+        [router],
+    );
 
     return (
         <div className="h-full flex flex-col">
@@ -996,11 +1280,84 @@ export const MainChart = () => {
                         </div>
                     </div>
 
-                    <div className="shrink-0" />
+                    <div className="hidden xl:flex shrink-0 flex-col gap-1.5 min-w-[560px] rounded-md bg-secondary/35 px-3 py-2">
+                        <div className="flex items-center gap-3 whitespace-nowrap text-[10px]">
+                            <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
+                                {interval}
+                            </span>
+                            {sessionStats.map((item) => (
+                                <span
+                                    key={item.key}
+                                    className="inline-flex items-center gap-1"
+                                >
+                                    <span className="text-muted">
+                                        {item.label}:
+                                    </span>
+                                    <span
+                                        className={cn(
+                                            "font-mono font-semibold",
+                                            item.valueClass,
+                                        )}
+                                    >
+                                        {item.value}
+                                    </span>
+                                </span>
+                            ))}
+                        </div>
+
+                        {marketStats.length > 0 && (
+                            <div className="flex items-center gap-3 whitespace-nowrap text-[10px]">
+                                <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
+                                    24h
+                                </span>
+                                {marketStats.map((item) => (
+                                    <span
+                                        key={item.key}
+                                        className="inline-flex items-center gap-1"
+                                    >
+                                        <span className="text-muted">
+                                            {item.label}:
+                                        </span>
+                                        <span
+                                            className={cn(
+                                                "font-mono font-semibold",
+                                                item.valueClass,
+                                            )}
+                                        >
+                                            {item.value}
+                                        </span>
+                                        {item.sub ? (
+                                            <span className="font-mono text-muted">
+                                                {item.sub}
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        {currentTags.length > 0 && (
+                            <div className="flex items-center gap-2 whitespace-nowrap text-[10px] overflow-x-auto thin-scrollbar">
+                                <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
+                                    Tags
+                                </span>
+                                {currentTags.map((tag) => (
+                                    <button
+                                        key={tag}
+                                        type="button"
+                                        onClick={() => navigateToMarketTag(tag)}
+                                        className="inline-flex items-center py-0.5 text-[10px] font-semibold text-blue-500 hover:text-blue-400"
+                                    >
+                                        {tag}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* ── Stats Section ── */}
-                <div className="space-y-1.5 pt-1.5">
+                <div className="space-y-1.5 pt-1.5 xl:hidden">
                     <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap thin-scrollbar text-[10px]">
                         <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
                             {interval}
@@ -1055,6 +1412,24 @@ export const MainChart = () => {
                             ))}
                         </div>
                     )}
+
+                    {currentTags.length > 0 && (
+                        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap thin-scrollbar text-[10px] pb-0.5">
+                            <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
+                                Tags
+                            </span>
+                            {currentTags.map((tag) => (
+                                <button
+                                    key={tag}
+                                    type="button"
+                                    onClick={() => navigateToMarketTag(tag)}
+                                    className="inline-flex items-center rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-sky-300 hover:bg-sky-500/20"
+                                >
+                                    {tag}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Controls row */}
@@ -1101,7 +1476,9 @@ export const MainChart = () => {
 
                                 <div className="flex items-center bg-secondary border border-main rounded">
                                     <button
-                                        onClick={() => setChartType("candlestick")}
+                                        onClick={() =>
+                                            setChartType("candlestick")
+                                        }
                                         title="Candlestick"
                                         className={cn(
                                             "p-1 rounded transition-all",
@@ -1133,7 +1510,10 @@ export const MainChart = () => {
                                             onClick={() => toggleIndicator(key)}
                                             style={
                                                 activeIndicators.has(key)
-                                                    ? { borderColor: color, color }
+                                                    ? {
+                                                          borderColor: color,
+                                                          color,
+                                                      }
                                                     : {}
                                             }
                                             className={cn(

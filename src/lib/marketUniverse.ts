@@ -18,7 +18,13 @@ export function normalizeUniverse(value: unknown): AssetUniverse {
     return value === "stock" ? "stock" : "coin";
 }
 
-export function resolveUniverseSwitchPath(pathname: string): string {
+export function resolveUniverseSwitchPath(
+    pathname: string,
+    nextUniverse: AssetUniverse,
+): string {
+    if (pathname === "/market" || pathname === "/board") {
+        return nextUniverse === "stock" ? "/board" : "/market";
+    }
     if (SUPPORTED_UNIVERSE_ROUTES.has(pathname)) return pathname;
-    return "/market";
+    return nextUniverse === "stock" ? "/board" : "/market";
 }

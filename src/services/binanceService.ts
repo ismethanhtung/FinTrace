@@ -70,6 +70,48 @@ export type Asset = {
   /** Raw quote-asset (USDT) volume */
   quoteVolumeRaw: number;
   sparkline: number[];
+  /** Binance asset tags used for filtering and chart badges (coin universe). */
+  tags?: string[];
+  /** Rich asset metadata from Binance asset catalog (coin universe). */
+  binanceAssetInfo?: {
+    assetId?: string;
+    assetCode?: string;
+    assetName?: string;
+    unit?: string;
+    commissionRate?: number;
+    freeAuditWithdrawAmt?: number;
+    freeUserChargeAmount?: number;
+    createTime?: number;
+    test?: number;
+    gas?: number;
+    isLegalMoney?: boolean;
+    reconciliationAmount?: number;
+    seqNum?: string;
+    chineseName?: string;
+    cnLink?: string;
+    enLink?: string;
+    supportMarket?: string[] | null;
+    feeReferenceAsset?: string;
+    feeRate?: number | null;
+    feeDigit?: number;
+    assetDigit?: number;
+    trading?: boolean;
+    plateType?: string;
+    etf?: boolean;
+    isLedgerOnly?: boolean;
+    delisted?: boolean;
+    preDelist?: boolean;
+    tagBits?: string;
+    logoUrl?: string;
+    fullLogoUrl?: string;
+    pdTradeDeadline?: number | null;
+    pdDepositDeadline?: number | null;
+    pdAnnounceUrl?: string | null;
+    oldAssetCode?: string | null;
+    newAssetCode?: string | null;
+    swapTag?: string;
+    swapAnnounceUrl?: string | null;
+  };
   /** Logo URL resolved from Binance marketing metadata, optional */
   logoUrl?: string;
   /** Which market this asset belongs to */
@@ -265,6 +307,7 @@ export const binanceService = {
       marketCap: '-',
       volume24h: `$${(quoteVolumeRaw / 1_000_000).toFixed(1)}M`,
       sparkline: [],
+      tags: [],
       marketType: 'spot',
     };
   },
@@ -288,6 +331,7 @@ export const binanceService = {
       marketCap: '-',
       volume24h: `$${(quoteVolumeRaw / 1_000_000).toFixed(1)}M`,
       sparkline: [],
+      tags: [],
       marketType: 'futures',
     };
   },

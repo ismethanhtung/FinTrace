@@ -20,12 +20,12 @@ import { cn } from "../lib/utils";
 import { RefreshCw, Info, AlertCircle } from "lucide-react";
 
 const PERIOD_LABELS: Record<FlowPeriod, string> = {
-    "15m": "15ph",
-    "30m": "30ph",
-    "1h": "1h",
-    "2h": "2h",
-    "4h": "4h",
-    "1d": "1ngày",
+    "15m": "15m",
+    "30m": "30m",
+    "1h": "1H",
+    "2h": "2H",
+    "4h": "4H",
+    "1d": "1D",
 };
 
 const numFmt = (n: number, decimals = 2) => {
@@ -162,12 +162,36 @@ export const FlowPanel = () => {
         () =>
             buckets
                 ? [
-              { name: "Mua Lớn", value: buckets.large.buy, fill: "#10b981" },
-              { name: "Mua TB", value: buckets.medium.buy, fill: "#34d399" },
-              { name: "Mua Nhỏ", value: buckets.small.buy, fill: "#6ee7b7" },
-              { name: "Bán Nhỏ", value: buckets.small.sell, fill: "#fca5a5" },
-              { name: "Bán TB", value: buckets.medium.sell, fill: "#fb7185" },
-              { name: "Bán Lớn", value: buckets.large.sell, fill: "#f43f5e" },
+                      {
+                          name: "Mua Lớn",
+                          value: buckets.large.buy,
+                          fill: "#10b981",
+                      },
+                      {
+                          name: "Mua TB",
+                          value: buckets.medium.buy,
+                          fill: "#34d399",
+                      },
+                      {
+                          name: "Mua Nhỏ",
+                          value: buckets.small.buy,
+                          fill: "#6ee7b7",
+                      },
+                      {
+                          name: "Bán Nhỏ",
+                          value: buckets.small.sell,
+                          fill: "#fca5a5",
+                      },
+                      {
+                          name: "Bán TB",
+                          value: buckets.medium.sell,
+                          fill: "#fb7185",
+                      },
+                      {
+                          name: "Bán Lớn",
+                          value: buckets.large.sell,
+                          fill: "#f43f5e",
+                      },
                   ]
                 : [],
         [buckets],
@@ -252,8 +276,8 @@ export const FlowPanel = () => {
                             className={cn(
                                 "px-2 py-0.5 text-[10px] font-medium rounded transition-colors",
                                 period === p
-                                    ? "bg-accent text-white"
-                                    : "text-muted hover:text-main hover:bg-secondary",
+                                    ? "bg-accent/20 text-accent border border-accent/20"
+                                    : "text-muted hover:text-main",
                             )}
                         >
                             {PERIOD_LABELS[p]}

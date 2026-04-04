@@ -36,6 +36,9 @@ const stockQtyFmt = (v: number): string => {
     return v.toFixed(0);
 };
 
+const PANEL_HEADER_CLASS =
+    "h-9 px-3 border-b border-main bg-secondary/10 shrink-0 flex items-center";
+
 // ─── Recent Trades Panel ──────────────────────────────────────────────────────
 const RecentTrades = ({
     symbol,
@@ -55,8 +58,8 @@ const RecentTrades = ({
     return (
         <div className="h-full flex flex-col min-h-0 overflow-hidden">
             {/* Header */}
-            <div className="px-3 py-1.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-main">
+            <div className={`${PANEL_HEADER_CLASS} justify-between`}>
+                <span className="text-[10px] font-bold uppercase tracking-widest leading-none text-main">
                     {isStock ? "Matched Trades" : "Market Trades"}
                 </span>
                 <div className="flex items-center gap-2 shrink-0">
@@ -240,7 +243,7 @@ const OrderRow = ({
 
 // ─── Column Header ────────────────────────────────────────────────────────────
 const ColHeader = ({ baseSymbol }: { baseSymbol: string }) => (
-    <div className="flex items-center px-3 py-1 text-muted bg-secondary/20">
+    <div className="flex items-center px-3 py-1 text-muted bg-secondary/20 border-b border-main">
         <span className="flex-1 text-[9px] font-bold uppercase tracking-wider">
             Price
         </span>
@@ -408,9 +411,9 @@ export const OrderBook = () => {
 
                 <div className="flex-1 border-r border-main flex flex-col min-h-0 bg-main">
                     {/* Header */}
-                    <div className="px-3 py-1.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-between">
+                    <div className={`${PANEL_HEADER_CLASS} justify-between`}>
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-main">
+                            <span className="text-[10px] font-bold uppercase tracking-widest leading-none text-main">
                                 {isStock ? "Stock Order Book" : "Order Book"}
                             </span>
                         </div>
@@ -439,7 +442,8 @@ export const OrderBook = () => {
                                 disabled={!canExport}
                                 className={cn(
                                     "p-1 text-muted hover:text-main",
-                                    !canExport && "opacity-50 cursor-not-allowed",
+                                    !canExport &&
+                                        "opacity-50 cursor-not-allowed",
                                 )}
                                 title="Download"
                             >
@@ -566,8 +570,8 @@ export const OrderBook = () => {
 
                 <div className="w-[20%] min-w-[200px] max-w-[280px] flex flex-col bg-secondary/10 shrink-0">
                     {/* Header */}
-                    <div className="px-3 py-2.5 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-center">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-main">
+                    <div className={`${PANEL_HEADER_CLASS} justify-center`}>
+                        <span className="text-[10px] font-bold uppercase tracking-widest leading-none text-main">
                             {isStock
                                 ? `${baseSymbol} VN Depth`
                                 : `${baseSymbol} Depth`}

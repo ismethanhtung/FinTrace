@@ -17,6 +17,7 @@ import { LineChart, Line, YAxis } from "recharts";
 import { useMarket } from "../../context/MarketContext";
 import { useMarketPageData } from "../../hooks/useMarketPageData";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { cn } from "../../lib/utils";
 import { AppTopBar } from "../../components/shell/AppTopBar";
 import {
@@ -344,7 +345,7 @@ function PaginationNumbers({
 function PctCell({ v }: { v: number | null }) {
     if (v === null || Number.isNaN(v)) {
         return (
-            <td className="px-4 py-4 text-[13px] font-medium text-right text-muted">
+            <td className="px-4 py-4 text-[13px] font-medium text-right text-muted tabular-nums whitespace-nowrap">
                 --
             </td>
         );
@@ -353,7 +354,7 @@ function PctCell({ v }: { v: number | null }) {
     return (
         <td
             className={cn(
-                "px-4 py-4 text-[13px] font-medium text-right",
+                "px-4 py-4 text-[13px] font-medium text-right tabular-nums whitespace-nowrap",
                 pos ? "text-emerald-500" : "text-rose-500",
             )}
         >
@@ -476,10 +477,17 @@ function CoinAvatar({ symbol, logoUrl }: { symbol: string; logoUrl?: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function MarketPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { universe, marketType, setMarketType, setSelectedSymbol } =
         useMarket();
     const { rows, stats, isLoading, refetch } = useMarketPageData();
     const isStock = universe === "stock";
+
+    useEffect(() => {
+        if (isStock) {
+            router.replace("/board");
+        }
+    }, [isStock, router]);
 
     const handleRowClick = (symbol: string) => {
         setSelectedSymbol(symbol);
@@ -497,11 +505,14 @@ export default function MarketPage() {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+    const [showTagFilterMenu, setShowTagFilterMenu] = useState(false);
     const [networkMap, setNetworkMap] = useState<NetworkMapPayload>({
         updatedAt: 0,
         bySymbol: {},
         bySymbolPrimary: {},
     });
+    const queryTag = (searchParams.get("tag") ?? "").trim();
 
     useEffect(() => {
         setActiveMarket(marketType === "futures" ? "Futures" : "Spot");
@@ -509,10 +520,23 @@ export default function MarketPage() {
 
     useEffect(() => {
         setPage(1);
-    }, [search, activeMarket, activeFilter, activeSubTab, moreSort]);
+    }, [
+        search,
+        activeMarket,
+        activeFilter,
+        activeSubTab,
+        moreSort,
+        selectedTagFilters,
+    ]);
 
     useEffect(() => {
         setActiveFilter(isStock ? "All Exchange" : "All Network");
+    }, [isStock]);
+    useEffect(() => {
+        if (isStock) {
+            setSelectedTagFilters([]);
+            setShowTagFilterMenu(false);
+        }
     }, [isStock]);
 
     useEffect(() => {
@@ -534,6 +558,42 @@ export default function MarketPage() {
             alive = false;
         };
     }, [isStock]);
+
+    const coinTagOptions = useMemo(() => {
+        if (isStock) return [];
+        const out = new Set<string>();
+        for (const row of rows) {
+            for (const rawTag of row.tags || []) {
+                const tag = String(rawTag ?? "").trim();
+                if (!tag) continue;
+                out.add(tag);
+            }
+        }
+        return Array.from(out).sort((a, b) => a.localeCompare(b));
+    }, [isStock, rows]);
+
+    useEffect(() => {
+        if (isStock) return;
+        if (!queryTag) return;
+        const normalized = queryTag.toLowerCase();
+        const matched = coinTagOptions.find(
+            (tag) => tag.toLowerCase() === normalized,
+        );
+        if (!matched) return;
+        setSelectedTagFilters([matched]);
+        setActiveFilter("All Network");
+    }, [coinTagOptions, isStock, queryTag]);
+
+    useEffect(() => {
+        if (!showTagFilterMenu) return;
+        const onMouseDown = (event: MouseEvent) => {
+            const target = event.target as HTMLElement | null;
+            if (target?.closest("[data-market-tag-filter-menu]")) return;
+            setShowTagFilterMenu(false);
+        };
+        document.addEventListener("mousedown", onMouseDown);
+        return () => document.removeEventListener("mousedown", onMouseDown);
+    }, [showTagFilterMenu]);
 
     const filteredData = useMemo(() => {
         const q = search.toLowerCase().trim();
@@ -561,11 +621,25 @@ export default function MarketPage() {
             ) {
                 return false;
             }
+            if (!isStock && selectedTagFilters.length > 0) {
+                const rowTagSet = new Set(
+                    (c.tags || []).map((tag) =>
+                        String(tag ?? "")
+                            .trim()
+                            .toLowerCase(),
+                    ),
+                );
+                const matched = selectedTagFilters.some((tag) =>
+                    rowTagSet.has(tag.toLowerCase()),
+                );
+                if (!matched) return false;
+            }
             if (!q) return true;
             return (
                 c.name.toLowerCase().includes(q) ||
                 c.symbol.toLowerCase().includes(q) ||
-                c.sector.toLowerCase().includes(q)
+                c.sector.toLowerCase().includes(q) ||
+                c.tags.some((tag) => tag.toLowerCase().includes(q))
             );
         });
     }, [
@@ -575,6 +649,7 @@ export default function MarketPage() {
         isStock,
         networkMap.bySymbol,
         networkMap.bySymbolPrimary,
+        selectedTagFilters,
     ]);
 
     const statCards = useMemo(
@@ -644,6 +719,10 @@ export default function MarketPage() {
         setTimeout(() => setIsRefreshing(false), 800);
     }
 
+    if (isStock) {
+        return <div className="min-h-screen bg-main" />;
+    }
+
     return (
         <div className="min-h-screen bg-main text-main flex flex-col">
             <AppTopBar
@@ -687,7 +766,7 @@ export default function MarketPage() {
                                     className={cn(
                                         "px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap transition-colors flex items-center gap-1",
                                         activeSubTab === tab
-                                            ? "bg-secondary text-main border border-main"
+                                            ? "text-main font-bold"
                                             : "text-muted hover:text-main hover:bg-secondary/60",
                                     )}
                                 >
@@ -746,36 +825,59 @@ export default function MarketPage() {
 
                 {/* ── Network Filter row ───────────────────────────────────── */}
                 <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                        {(isStock
-                            ? [
-                                  "All Exchange",
-                                  "HOSE",
-                                  "HNX",
-                                  "UPCOM",
-                                  "VN30",
-                                  "Financials",
-                                  "Real Estate",
-                              ]
-                            : FILTER_CHIPS
-                        ).map((chip) => (
-                            <button
-                                key={chip}
-                                onClick={() => setActiveFilter(chip)}
-                                className={cn(
-                                    "px-3.5 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all flex items-center gap-1",
-                                    activeFilter === chip
-                                        ? "bg-accent text-white"
-                                        : "bg-secondary border border-main text-muted hover:border-accent/40 hover:text-main",
-                                )}
-                            >
-                                {chip}
-                                {chip === "More" && <ChevronDown size={11} />}
-                            </button>
-                        ))}
+                    <div
+                        className="relative"
+                        data-market-tag-filter-menu="true"
+                    >
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                            {(isStock
+                                ? [
+                                      "All Exchange",
+                                      "HOSE",
+                                      "HNX",
+                                      "UPCOM",
+                                      "VN30",
+                                      "Financials",
+                                      "Real Estate",
+                                  ]
+                                : FILTER_CHIPS
+                            ).map((chip) => (
+                                <div key={chip} className="relative">
+                                    <button
+                                        onClick={() => {
+                                            if (chip === "More" && !isStock) {
+                                                setShowTagFilterMenu(
+                                                    (prev) => !prev,
+                                                );
+                                                return;
+                                            }
+                                            setActiveFilter(chip);
+                                            setShowTagFilterMenu(false);
+                                        }}
+                                        className={cn(
+                                            "px-3.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all flex items-center gap-1",
+                                            activeFilter === chip
+                                                ? "bg-accent text-white"
+                                                : "bg-secondary border border-main text-muted hover:border-accent/40 hover:text-main",
+                                        )}
+                                    >
+                                        {chip}
+                                        {chip === "More" && (
+                                            <ChevronDown size={11} />
+                                        )}
+                                        {chip === "More" &&
+                                            selectedTagFilters.length > 0 && (
+                                                <span className="ml-0.5 rounded bg-sky-500/25 px-1 text-[9px] text-sky-300">
+                                                    {selectedTagFilters.length}
+                                                </span>
+                                            )}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center rounded-md border border-main overflow-hidden">
+                        <div className="flex items-center rounded-lg border border-main overflow-hidden">
                             {MARKET_TABS.map((tab) => (
                                 <button
                                     key={tab}
@@ -788,7 +890,7 @@ export default function MarketPage() {
                                         );
                                     }}
                                     className={cn(
-                                        "px-3 py-1.5 text-[12px] font-medium transition-colors border-r border-main last:border-0",
+                                        "px-3 py-1.5 text-[11px] font-medium transition-colors border-r border-main last:border-0",
                                         activeMarket === tab
                                             ? "bg-accent/10 text-accent"
                                             : "text-muted hover:text-main hover:bg-secondary",
@@ -808,7 +910,21 @@ export default function MarketPage() {
                 {/* ── Main Table ───────────────────────────────────────────── */}
                 <div className="bg-secondary border border-main rounded-xl overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left min-w-[1100px]">
+                        <table className="w-full text-left min-w-[1240px] table-fixed">
+                            {!isStock && (
+                                <colgroup>
+                                    <col className="w-[72px]" />
+                                    <col className="w-[260px]" />
+                                    <col className="w-[140px]" />
+                                    <col className="w-[100px]" />
+                                    <col className="w-[100px]" />
+                                    <col className="w-[100px]" />
+                                    <col className="w-[150px]" />
+                                    <col className="w-[150px]" />
+                                    <col className="w-[120px]" />
+                                    <col className="w-[148px]" />
+                                </colgroup>
+                            )}
                             <thead>
                                 <tr className="border-b border-main text-[10px] text-muted uppercase tracking-[0.12em]">
                                     <th className="px-5 py-3.5 font-semibold w-12">
@@ -920,14 +1036,11 @@ export default function MarketPage() {
                                                                     }
                                                                 </div>
                                                             </div>
-                                                            <button className="ml-1 bg-accent/10 text-accent text-[10px] px-2.5 py-0.5 rounded font-bold opacity-0 group-hover:opacity-100 transition-opacity border border-accent/20">
-                                                                Buy
-                                                            </button>
                                                         </div>
                                                     </td>
 
                                                     {/* Price */}
-                                                    <td className="px-5 py-4 text-right text-[13px] font-mono font-semibold">
+                                                    <td className="px-5 py-4 text-right text-[13px] font-mono font-semibold tabular-nums whitespace-nowrap">
                                                         ${priceFmt(coin.price)}
                                                     </td>
 
@@ -974,12 +1087,12 @@ export default function MarketPage() {
                                                             />
 
                                                             {/* Market Cap */}
-                                                            <td className="px-5 py-4 text-right text-[13px] text-muted">
+                                                            <td className="px-5 py-4 text-right text-[13px] text-muted tabular-nums whitespace-nowrap">
                                                                 {coin.marketCap}
                                                             </td>
 
                                                             {/* Volume */}
-                                                            <td className="px-5 py-4 text-right text-[13px] text-muted">
+                                                            <td className="px-5 py-4 text-right text-[13px] text-muted tabular-nums whitespace-nowrap">
                                                                 {coin.volume}
                                                             </td>
 

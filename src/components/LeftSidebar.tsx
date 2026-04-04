@@ -139,7 +139,39 @@ function stockTooltipText(asset: Asset): string {
     return lines.join("\n");
 }
 
-const StockInfoTooltip = ({ text }: { text: string }) => {
+function coinTooltipText(asset: Asset): string {
+    const info = asset.binanceAssetInfo;
+    if (!info) return "";
+    const lines = [
+        info.assetName || asset.name || asset.symbol,
+        info.assetCode ? `Code: ${info.assetCode}` : "",
+        info.assetId ? `ID: ${info.assetId}` : "",
+        asset.tags?.length ? `Tags: ${asset.tags.join(", ")}` : "",
+        info.plateType ? `Plate: ${info.plateType}` : "",
+        typeof info.trading === "boolean"
+            ? `Trading: ${info.trading ? "ON" : "OFF"}`
+            : "",
+        typeof info.delisted === "boolean"
+            ? `Delisted: ${info.delisted ? "YES" : "NO"}`
+            : "",
+        typeof info.preDelist === "boolean"
+            ? `Pre-Delist: ${info.preDelist ? "YES" : "NO"}`
+            : "",
+        typeof info.assetDigit === "number"
+            ? `Asset Digit: ${info.assetDigit}`
+            : "",
+        typeof info.feeDigit === "number" ? `Fee Digit: ${info.feeDigit}` : "",
+    ].filter(Boolean);
+    return lines.join("\n");
+}
+
+const AssetInfoTooltip = ({
+    text,
+    ariaLabel,
+}: {
+    text: string;
+    ariaLabel: string;
+}) => {
     const [open, setOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
@@ -182,7 +214,7 @@ const StockInfoTooltip = ({ text }: { text: string }) => {
             <button
                 ref={triggerRef}
                 type="button"
-                aria-label="Stock info"
+                aria-label={ariaLabel}
                 onMouseEnter={() => setOpen(true)}
                 onMouseLeave={() => setOpen(false)}
                 onFocus={() => setOpen(true)}
@@ -223,7 +255,9 @@ const CoinRow = ({
 }) => {
     const isFutures = asset.marketType === "futures";
     const fundingRate = asset.fundingRate;
-    const stockHint = stockTooltipText(asset);
+    const infoHint = asset.stockProfile
+        ? stockTooltipText(asset)
+        : coinTooltipText(asset);
     const hasValidPrice = Number.isFinite(asset.price) && asset.price > 0;
     const hasValidChange =
         Number.isFinite(asset.changePercent) &&
@@ -254,7 +288,12 @@ const CoinRow = ({
                         >
                             {asset.symbol}
                         </span>
-                        {stockHint && <StockInfoTooltip text={stockHint} />}
+                        {infoHint && (
+                            <AssetInfoTooltip
+                                text={infoHint}
+                                ariaLabel="Asset info"
+                            />
+                        )}
                         {isFutures && (
                             <span className="text-[7px] font-bold px-1 py-px rounded bg-amber-400/15 text-amber-400 border border-amber-400/20 shrink-0">
                                 PERP
@@ -346,6 +385,8 @@ const MarketBar = () => {
     const isFutures = marketType === "futures";
     const loading = isFutures ? isFuturesLoading : isLoading;
     const streamStatus = isFutures ? futuresStreamStatus : spotStreamStatus;
+    const primaryButtonLabel = universe === "stock" ? "Primary" : "Spot";
+    const secondaryButtonLabel = universe === "stock" ? "Derivatives" : "Futures";
 
     const label =
         universe === "stock"
@@ -353,8 +394,8 @@ const MarketBar = () => {
                 ? "Derivatives · Stock Feed"
                 : "Primary Market · Stock Feed"
             : isFutures
-              ? "Derivatives · Binance Futures"
-              : "Primary Market · Binance";
+              ? "Futures · Binance Futures"
+              : "Spot · Binance";
 
     return (
         <div className="px-2 py-1.5 border-b border-main bg-secondary/10 shrink-0 space-y-1.5">
@@ -399,10 +440,10 @@ const MarketBar = () => {
                     title={
                         universe === "stock"
                             ? "Hiển thị dữ liệu thị trường cơ sở"
-                            : "Hiển thị dữ liệu Primary market"
+                            : "Hiển thị dữ liệu Spot"
                     }
                 >
-                    Primary
+                    {primaryButtonLabel}
                 </button>
 
                 <span className="flex items-center justify-center text-muted">
@@ -420,10 +461,10 @@ const MarketBar = () => {
                     title={
                         universe === "stock"
                             ? "Hiển thị dữ liệu phái sinh"
-                            : "Hiển thị dữ liệu Derivatives"
+                            : "Hiển thị dữ liệu Futures"
                     }
                 >
-                    Derivatives
+                    {secondaryButtonLabel}
                 </button>
             </div>
         </div>
@@ -529,10 +570,13 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     const [sortMode, setSortMode] = useState<SortMode>("volume");
     const [selectedExchanges, setSelectedExchanges] = useState<string[]>([]);
     const [selectedIndexes, setSelectedIndexes] = useState<string[]>([]);
+    const [selectedCoinTags, setSelectedCoinTags] = useState<string[]>([]);
     const [stockFilterOpen, setStockFilterOpen] = useState(false);
+    const [coinFilterOpen, setCoinFilterOpen] = useState(false);
     const [stockVisibleCount, setStockVisibleCount] = useState(STOCK_PAGE_SIZE);
     const listRef = useRef<HTMLDivElement | null>(null);
     const stockFilterRef = useRef<HTMLDivElement | null>(null);
+    const coinFilterRef = useRef<HTMLDivElement | null>(null);
 
     const isDragging = useRef(false);
     const startX = useRef(0);
@@ -569,6 +613,21 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         () => new Set(selectedIndexes.map((item) => item.trim())),
         [selectedIndexes],
     );
+    const coinFilterOptions = useMemo(() => {
+        if (universe !== "coin") return [];
+        const tags = new Set<string>();
+        for (const asset of assets) {
+            for (const tag of normalizeFilterList(asset.tags)) {
+                const normalized = tag.trim();
+                if (normalized) tags.add(normalized);
+            }
+        }
+        return Array.from(tags).sort((a, b) => a.localeCompare(b));
+    }, [assets, universe]);
+    const selectedCoinTagSet = useMemo(
+        () => new Set(selectedCoinTags.map((item) => item.trim())),
+        [selectedCoinTags],
+    );
 
     const q = search.trim().toLowerCase();
     const displayAssets = useMemo(
@@ -581,21 +640,20 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                     const membershipValues = normalizeFilterList(
                         a.stockProfile?.indexMembership,
                     );
-                    const symbolMatch = a.symbol.toLowerCase().includes(q);
-                    const idMatch = a.id.toLowerCase().includes(q);
-                    const exchangeMatch =
-                        universe === "stock" &&
-                        exchangeValue.toLowerCase().includes(q);
-                    const indexMatch =
-                        universe === "stock" &&
-                        membershipValues.some((idx) =>
-                            idx.toLowerCase().includes(q),
-                        );
-                    const searchMatched = q
-                        ? symbolMatch || idMatch || exchangeMatch || indexMatch
-                        : true;
+                    const tagValues = normalizeFilterList(a.tags);
+                    const nameMatch = (a.name ?? "")
+                        .toLowerCase()
+                        .includes(q);
+                    const searchMatched = q ? nameMatch : true;
 
                     if (!searchMatched) return false;
+                    if (universe === "coin") {
+                        return selectedCoinTagSet.size === 0
+                            ? true
+                            : tagValues.some((tag) =>
+                                  selectedCoinTagSet.has(tag),
+                              );
+                    }
                     if (universe !== "stock") return true;
 
                     const matchExchange =
@@ -612,11 +670,21 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                 }),
                 sortMode,
             ),
-        [assets, q, selectedExchangeSet, selectedIndexSet, sortMode, universe],
+        [
+            assets,
+            q,
+            selectedCoinTagSet,
+            selectedExchangeSet,
+            selectedIndexSet,
+            sortMode,
+            universe,
+        ],
     );
     const hasActiveStockFilter =
         universe === "stock" &&
         (selectedExchanges.length > 0 || selectedIndexes.length > 0);
+    const hasActiveCoinFilter =
+        universe === "coin" && selectedCoinTags.length > 0;
     const visibleAssets =
         universe === "stock"
             ? displayAssets.slice(0, stockVisibleCount)
@@ -657,17 +725,30 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         setSelectedIndexes([]);
         setStockFilterOpen(false);
     }, [universe]);
+    useEffect(() => {
+        if (universe === "coin") return;
+        setSelectedCoinTags([]);
+        setCoinFilterOpen(false);
+    }, [universe]);
+    useEffect(() => {
+        if (universe !== "coin") return;
+        setSelectedCoinTags((prev) =>
+            keepOnlyValidSelections(prev, coinFilterOptions),
+        );
+    }, [coinFilterOptions, universe]);
 
     useEffect(() => {
-        if (!stockFilterOpen) return;
+        if (!stockFilterOpen && !coinFilterOpen) return;
         const onMouseDown = (event: MouseEvent) => {
             const target = event.target as Node;
             if (stockFilterRef.current?.contains(target)) return;
+            if (coinFilterRef.current?.contains(target)) return;
             setStockFilterOpen(false);
+            setCoinFilterOpen(false);
         };
         document.addEventListener("mousedown", onMouseDown);
         return () => document.removeEventListener("mousedown", onMouseDown);
-    }, [stockFilterOpen]);
+    }, [coinFilterOpen, stockFilterOpen]);
 
     const firstPageStockSymbols = useMemo(
         () =>
@@ -762,15 +843,15 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                     <input
                         type="text"
                         placeholder={
-                            universe === "stock"
-                                ? "Search assets, exchange, index..."
-                                : "Search assets..."
+                            "Search token name..."
                         }
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className={cn(
                             "w-full bg-secondary border border-main rounded py-1.5 pl-7 text-[11px] focus:outline-none focus:ring-1 focus:ring-accent/30",
-                            universe === "stock" ? "pr-10" : "pr-3",
+                            universe === "stock" || universe === "coin"
+                                ? "pr-10"
+                                : "pr-3",
                         )}
                     />
                     {universe === "stock" && (
@@ -1033,6 +1114,174 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                                     title={`Remove index ${indexName}`}
                                                                 >
                                                                     {indexName}
+                                                                    <X
+                                                                        size={9}
+                                                                    />
+                                                                </button>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    )}
+                    {universe === "coin" && (
+                        <div
+                            ref={coinFilterRef}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 z-20"
+                        >
+                            <button
+                                type="button"
+                                onClick={() => setCoinFilterOpen((prev) => !prev)}
+                                className={cn(
+                                    "inline-flex h-6 w-6 items-center justify-center rounded border transition-colors focus:outline-none focus:ring-1",
+                                    hasActiveCoinFilter
+                                        ? "border-sky-500/40 bg-sky-500/15 text-sky-400 focus:ring-sky-500/40"
+                                        : "border-main bg-main text-muted hover:text-main focus:ring-accent/30",
+                                )}
+                                title="Filter tags"
+                                aria-label="Open coin tag filter"
+                            >
+                                <Funnel size={11} />
+                            </button>
+
+                            <AnimatePresence>
+                                {coinFilterOpen && (
+                                    <motion.div
+                                        initial={{
+                                            opacity: 0,
+                                            y: 6,
+                                            scale: 0.98,
+                                        }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                                        transition={{
+                                            duration: 0.12,
+                                            ease: "easeOut",
+                                        }}
+                                        className="absolute right-0 mt-1 w-60 overflow-hidden rounded-md border border-main bg-main shadow-2xl"
+                                    >
+                                        <div className="flex items-center justify-between border-b border-main px-3 py-1.5">
+                                            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted">
+                                                Filter Tags
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setSelectedCoinTags([])
+                                                }
+                                                className={cn(
+                                                    "inline-flex items-center gap-1 rounded px-1.5 py-1 text-[9px] font-semibold transition-colors",
+                                                    hasActiveCoinFilter
+                                                        ? "text-sky-400 hover:bg-sky-500/10"
+                                                        : "text-muted hover:bg-secondary",
+                                                )}
+                                                title="Clear tags"
+                                            >
+                                                <X size={10} />
+                                                Clear
+                                            </button>
+                                        </div>
+
+                                        <div className="p-2 space-y-2">
+                                            <div className="rounded border border-main bg-secondary/10 p-1.5">
+                                                <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
+                                                    Tags
+                                                </div>
+                                                <div className="max-h-48 overflow-y-auto thin-scrollbar space-y-1 pr-0.5">
+                                                    {coinFilterOptions.length ===
+                                                    0 ? (
+                                                        <div className="px-1 py-1 text-[9px] text-muted">
+                                                            Không có tags
+                                                        </div>
+                                                    ) : (
+                                                        coinFilterOptions.map(
+                                                            (tag) => {
+                                                                const selected =
+                                                                    selectedCoinTags.includes(
+                                                                        tag,
+                                                                    );
+                                                                return (
+                                                                    <label
+                                                                        key={`coin-tag-${tag}`}
+                                                                        className={cn(
+                                                                            "flex cursor-pointer items-center gap-1.5 rounded px-1 py-1 text-[10px] transition-colors",
+                                                                            selected
+                                                                                ? "bg-sky-500/10 text-sky-300"
+                                                                                : "text-main hover:bg-secondary",
+                                                                        )}
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={
+                                                                                selected
+                                                                            }
+                                                                            onChange={() =>
+                                                                                setSelectedCoinTags(
+                                                                                    (
+                                                                                        prev,
+                                                                                    ) =>
+                                                                                        prev.includes(
+                                                                                            tag,
+                                                                                        )
+                                                                                            ? prev.filter(
+                                                                                                  (
+                                                                                                      value,
+                                                                                                  ) =>
+                                                                                                      value !==
+                                                                                                      tag,
+                                                                                              )
+                                                                                            : [
+                                                                                                  ...prev,
+                                                                                                  tag,
+                                                                                              ],
+                                                                                )
+                                                                            }
+                                                                            className="h-3 w-3 rounded border-main bg-secondary text-sky-400 focus:ring-sky-500/40"
+                                                                        />
+                                                                        <span className="truncate">
+                                                                            {tag}
+                                                                        </span>
+                                                                    </label>
+                                                                );
+                                                            },
+                                                        )
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {selectedCoinTags.length > 0 && (
+                                                <div className="rounded border border-main bg-secondary/10 p-1.5">
+                                                    <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
+                                                        Selected
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {selectedCoinTags.map(
+                                                            (tag) => (
+                                                                <button
+                                                                    key={`chip-coin-tag-${tag}`}
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setSelectedCoinTags(
+                                                                            (
+                                                                                prev,
+                                                                            ) =>
+                                                                                prev.filter(
+                                                                                    (
+                                                                                        value,
+                                                                                    ) =>
+                                                                                        value !==
+                                                                                        tag,
+                                                                                ),
+                                                                        )
+                                                                    }
+                                                                    className="inline-flex items-center gap-1 rounded border border-sky-500/35 bg-sky-500/10 px-1.5 py-1 text-[9px] font-semibold text-sky-400"
+                                                                    title={`Remove tag ${tag}`}
+                                                                >
+                                                                    {tag}
                                                                     <X
                                                                         size={9}
                                                                     />

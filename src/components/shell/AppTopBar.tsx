@@ -9,6 +9,7 @@ import { QuickSearchDropdown } from "../AssetList";
 import { UserMenu } from "../UserMenu";
 import { WorldSwitch } from "./WorldSwitch";
 import { useAppSettings, type AppTheme } from "../../context/AppSettingsContext";
+import { useUniverse } from "../../context/UniverseContext";
 import { cn } from "../../lib/utils";
 
 type NavItem = {
@@ -18,7 +19,7 @@ type NavItem = {
 
 const DEFAULT_NAV_ITEMS: NavItem[] = [
     { href: "/", label: "Chart" },
-    { href: "/market", label: "Markets" },
+    { href: "/market", label: "Market" },
     { href: "/board", label: "Board" },
     { href: "/heatmap", label: "Heatmap" },
     { href: "/data-stream", label: "Data Streams" },
@@ -53,8 +54,24 @@ export function AppTopBar({
     headerClassName?: string;
 }) {
     const pathname = usePathname();
+    const { universe } = useUniverse();
     const { theme, toggleTheme } = useAppSettings();
     const meta = THEME_META[theme];
+    const sharedNavItem =
+        universe === "stock"
+            ? ({ href: "/board", label: "Board" } as const)
+            : ({ href: "/market", label: "Market" } as const);
+    const resolvedNavItems: NavItem[] = [];
+    let sharedInserted = false;
+    for (const item of navItems) {
+        if (item.href === "/market" || item.href === "/board") {
+            if (sharedInserted) continue;
+            resolvedNavItems.push(sharedNavItem);
+            sharedInserted = true;
+            continue;
+        }
+        resolvedNavItems.push(item);
+    }
 
     return (
         <header
@@ -80,8 +97,12 @@ export function AppTopBar({
                 </Link>
 
                 <nav className="flex items-center space-x-2">
-                    {navItems.map((item) => {
-                        const active = pathname === item.href;
+                    {resolvedNavItems.map((item) => {
+                        const isSharedSlot =
+                            item.href === "/market" || item.href === "/board";
+                        const active = isSharedSlot
+                            ? pathname === "/market" || pathname === "/board"
+                            : pathname === item.href;
                         return (
                             <Link
                                 key={item.href}

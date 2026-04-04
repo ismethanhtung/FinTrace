@@ -684,7 +684,7 @@ const MiniChart = React.memo(function MiniChart({
                                     value: referencePrice.toFixed(2),
                                     fill: "#facc15",
                                     fontSize: 10,
-                                    position: "insideTopRight",
+                                    position: "insideBottomRight",
                                 }}
                                 ifOverflow="extendDomain"
                             />
@@ -796,6 +796,12 @@ export default function BoardPage() {
     const highlightTimeoutRef = useRef<number | null>(null);
     const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
     const searchContainerRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (universe !== "stock") {
+            router.replace("/market");
+        }
+    }, [router, universe]);
 
     useEffect(() => {
         setRecentSymbols(loadBoardRecentSymbols());
@@ -963,12 +969,7 @@ export default function BoardPage() {
             })
             .slice(0, 12)
             .map((meta) => ({ ...meta }));
-    }, [
-        isSearchOpen,
-        q,
-        searchMetaBySymbol,
-        tabFilteredSymbols,
-    ]);
+    }, [isSearchOpen, q, searchMetaBySymbol, tabFilteredSymbols]);
     const recentSearchResults = useMemo(
         () =>
             recentSymbols
@@ -984,10 +985,7 @@ export default function BoardPage() {
                 })
                 .filter(Boolean)
                 .slice(0, BOARD_MAX_RECENTS),
-        [
-            recentSymbols,
-            searchMetaBySymbol,
-        ],
+        [recentSymbols, searchMetaBySymbol],
     );
     const findFirstSearchCandidate = useCallback(
         (rawQuery: string): string | null => {
@@ -1775,6 +1773,10 @@ export default function BoardPage() {
     const kbIntradayStatusClass = kbIntradayError
         ? "border-rose-500/30 bg-rose-500/10 text-rose-500"
         : "border-indigo-500/30 bg-indigo-500/10 text-indigo-500";
+
+    if (universe !== "stock") {
+        return <div className="h-screen w-full bg-main" />;
+    }
 
     return (
         <div className="flex h-screen w-full flex-col overflow-hidden bg-main text-main">

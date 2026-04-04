@@ -4,9 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { useMarket } from "../context/MarketContext";
 import { cn } from "../lib/utils";
-import {
-    normalizeBinanceFuturesForceOrderEvent,
-} from "../services/dataStream/normalizeBinanceEvent";
+import { normalizeBinanceFuturesForceOrderEvent } from "../services/dataStream/normalizeBinanceEvent";
 
 type LiquidationRecord = {
     id: string;
@@ -148,7 +146,8 @@ const usdFmt = (n: number) => {
 
 const numFmt = (n: number) => {
     if (!Number.isFinite(n)) return "—";
-    if (n >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    if (n >= 1000)
+        return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
     if (n >= 1) return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
     return n.toLocaleString("en-US", { maximumFractionDigits: 8 });
 };
@@ -367,25 +366,44 @@ export const FuturesLiquidationPanel = () => {
                                 LIQUIDATION_GRID,
                             )}
                         >
-                            <span className="text-muted tabular-nums">{r.timeLabel}</span>
+                            <span className="text-muted tabular-nums">
+                                {r.timeLabel}
+                            </span>
                             <span className="min-w-0">
-                                <span className="block truncate text-main font-semibold">{r.symbol}</span>
-                                <span className="block truncate text-[9px] text-muted">{r.name}</span>
+                                <span className="block truncate text-main font-semibold">
+                                    {r.symbol}
+                                </span>
+                                {/* <span className="block truncate text-[9px] text-muted">{r.name}</span> */}
                             </span>
                             <span
                                 className={cn(
                                     "font-semibold tabular-nums",
-                                    r.side === "buy" ? "text-emerald-500" : "text-rose-500",
+                                    r.side === "buy"
+                                        ? "text-emerald-500"
+                                        : "text-rose-500",
                                 )}
                             >
                                 {r.side.toUpperCase()}
                             </span>
-                            <span className="text-right text-main tabular-nums">{r.priceText}</span>
-                            <span className="text-right text-main tabular-nums">{r.avgPriceText}</span>
-                            <span className="text-right text-main tabular-nums">{r.qtyText}</span>
-                            <span className="text-right text-main tabular-nums">{r.filledText}</span>
-                            <span className="text-right font-semibold tabular-nums text-main">{r.usdText}</span>
-                            <span className="text-muted truncate" title={`${r.type} · ${r.tif} · ${r.status}`}>
+                            <span className="text-right text-main tabular-nums">
+                                {r.priceText}
+                            </span>
+                            <span className="text-right text-main tabular-nums">
+                                {r.avgPriceText}
+                            </span>
+                            <span className="text-right text-main tabular-nums">
+                                {r.qtyText}
+                            </span>
+                            <span className="text-right text-main tabular-nums">
+                                {r.filledText}
+                            </span>
+                            <span className="text-right font-semibold tabular-nums text-main">
+                                {r.usdText}
+                            </span>
+                            <span
+                                className="text-muted truncate"
+                                title={`${r.type} · ${r.tif} · ${r.status}`}
+                            >
                                 {r.type} · {r.tif} · {r.status}
                             </span>
                         </div>

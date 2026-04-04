@@ -75,7 +75,7 @@ export const UniverseProvider = ({
     const routeSwitch = useCallback(
         (next: AssetUniverse) => {
             setUniverse(next);
-            const target = resolveUniverseSwitchPath(pathname || "/");
+            const target = resolveUniverseSwitchPath(pathname || "/", next);
             if (target !== (pathname || "/")) {
                 router.push(target);
             }

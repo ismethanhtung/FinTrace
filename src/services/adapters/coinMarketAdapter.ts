@@ -1,5 +1,6 @@
 import { binanceService, type Asset, type BinanceTicker, type MarketType } from "../binanceService";
 import { enrichAssetsWithLogos } from "../tokenLogoService";
+import { enrichAssetsWithBinanceAssetMetadata } from "../binanceAssetMetadataService";
 import { isLeveragedToken } from "../../lib/tokenFilters";
 import type { MarketDataAdapter } from "../marketDataAdapter";
 
@@ -15,9 +16,10 @@ async function fetchCoinAssetsByMarketType(marketType: MarketType): Promise<Asse
             )
             .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume));
 
-        return enrichAssetsWithLogos(
+        const withLogos = await enrichAssetsWithLogos(
             allUSDT.map(binanceService.transformFuturesTicker),
         );
+        return enrichAssetsWithBinanceAssetMetadata(withLogos);
     }
 
     const tickers: BinanceTicker[] = await binanceService.getTickers();
@@ -29,7 +31,10 @@ async function fetchCoinAssetsByMarketType(marketType: MarketType): Promise<Asse
         )
         .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume));
 
-    return enrichAssetsWithLogos(allUSDT.map(binanceService.transformTicker));
+    const withLogos = await enrichAssetsWithLogos(
+        allUSDT.map(binanceService.transformTicker),
+    );
+    return enrichAssetsWithBinanceAssetMetadata(withLogos);
 }
 
 export const coinMarketAdapter: MarketDataAdapter = {

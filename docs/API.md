@@ -101,6 +101,40 @@ Returns current order book for a symbol.
 
 ---
 
+### 1.4 GET /bapi/asset/v2/public/asset/asset/get-all-asset
+
+Returns Binance asset catalog metadata (identity, tags/classification, status, precision, delist flags).
+
+**Usage in FinTrace:** `/api/binance/assets` route + `binanceAssetMetadataService`
+
+**Response shape (single item):**
+```json
+{
+  "id": "473",
+  "assetCode": "AVAX",
+  "assetName": "Avalanche",
+  "tags": ["Layer1_Layer2", "pos", "RWA"],
+  "plateType": "MAINWEB",
+  "trading": true,
+  "delisted": false,
+  "preDelist": false,
+  "assetDigit": 8,
+  "feeDigit": 8,
+  "tagBits": "0"
+}
+```
+
+**FinTrace processing:**
+- Route handler: server-side fetch + cache/revalidate (6h)
+- Client service: memory + localStorage cache (6h)
+- Enrichment target: coin assets (`spot` and `futures`) with `tags` and `binanceAssetInfo`
+- UI usage:
+  - Left sidebar info tooltip (`i`) for coin rows
+  - Left sidebar tag filter in search area
+  - Chart header row #3 (`Tags`) right below `1H` and `24h`
+
+---
+
 ## 2. Google Gemini AI API
 
 **Library:** `@google/genai`  

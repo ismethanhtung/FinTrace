@@ -12,12 +12,9 @@ import { getFallbackModelsForProvider } from "../../lib/aiModelDefaults";
 import {
     Send,
     Bot,
-    User,
     Trash2,
     Plus,
-    MessageSquare,
     History,
-    XCircle,
     ExternalLink,
     ChevronDown,
     Cpu,
@@ -25,7 +22,6 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import ReactMarkdown from "react-markdown";
-import { motion, AnimatePresence } from "motion/react";
 
 // ─── Provider/Model Selector ──────────────────────────────────────────────────
 
@@ -104,58 +100,50 @@ const ModelSelector = ({
                     </span>
                     <ChevronDown size={8} className="text-muted" />
                 </button>
-                <AnimatePresence>
-                    {showProviderMenu && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 4, scale: 0.97 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 4, scale: 0.97 }}
-                            transition={{ duration: 0.1 }}
-                            className="absolute bottom-full left-0 mb-1.5 z-50 min-w-[150px] bg-main border border-main rounded-xl shadow-xl overflow-hidden"
-                        >
-                            <div className="py-1">
-                                {providers.map((p) => (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => {
-                                            if (p.disabled) return;
-                                            onProviderChange(p.id);
-                                            setShowProviderMenu(false);
-                                        }}
-                                        className={cn(
-                                            "w-full flex items-center justify-between px-3 py-2 text-[11px] transition-colors",
-                                            p.id === providerId
-                                                ? "bg-accent/10 text-accent"
-                                                : p.disabled
-                                                  ? "text-muted/60"
-                                                  : "text-main hover:bg-secondary",
-                                        )}
-                                        disabled={p.disabled}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <Zap
-                                                size={10}
-                                                className={
-                                                    p.id === providerId
-                                                        ? "text-accent"
-                                                        : "text-muted"
-                                                }
-                                            />
-                                            <span className="font-medium">
-                                                {p.name}
-                                            </span>
-                                        </div>
-                                        {!p.hasKey && (
-                                            <span className="text-[9px] text-amber-500 font-mono">
-                                                no key
-                                            </span>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {showProviderMenu && (
+                    <div className="absolute bottom-full left-0 mb-1.5 z-50 min-w-[150px] bg-main border border-main rounded-xl shadow-xl overflow-hidden">
+                        <div className="py-1">
+                            {providers.map((p) => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => {
+                                        if (p.disabled) return;
+                                        onProviderChange(p.id);
+                                        setShowProviderMenu(false);
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center justify-between px-3 py-2 text-[11px] transition-colors",
+                                        p.id === providerId
+                                            ? "bg-accent/10 text-accent"
+                                            : p.disabled
+                                              ? "text-muted/60"
+                                              : "text-main hover:bg-secondary",
+                                    )}
+                                    disabled={p.disabled}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Zap
+                                            size={10}
+                                            className={
+                                                p.id === providerId
+                                                    ? "text-accent"
+                                                    : "text-muted"
+                                            }
+                                        />
+                                        <span className="font-medium">
+                                            {p.name}
+                                        </span>
+                                    </div>
+                                    {!p.hasKey && (
+                                        <span className="text-[9px] text-amber-500 font-mono">
+                                            no key
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
             {/* Model selector */}
             <div ref={modelRef} className="relative flex-shrink flex-1 min-w-0">
@@ -209,41 +197,33 @@ const ModelSelector = ({
                     </span>
                     <ChevronDown size={8} />
                 </button>
-                <AnimatePresence>
-                    {showModelMenu && models.length > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 4, scale: 0.97 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 4, scale: 0.97 }}
-                            transition={{ duration: 0.1 }}
-                            className="absolute bottom-full left-0 mb-1.5 z-50 w-[220px] bg-main border border-main rounded-xl shadow-xl overflow-hidden"
-                        >
-                            <div className="max-h-[200px] overflow-y-auto thin-scrollbar py-1">
-                                {models.map((m) => {
-                                    const label = m.name ?? m.id;
-                                    return (
-                                        <button
-                                            key={m.id}
-                                            onClick={() => {
-                                                onModelChange(m.id);
-                                                setShowModelMenu(false);
-                                            }}
-                                            className={cn(
-                                                "w-full text-left px-3 py-2 text-[11px] transition-colors truncate",
-                                                m.id === model
-                                                    ? "bg-accent/10 text-accent font-medium"
-                                                    : "text-main hover:bg-secondary",
-                                            )}
-                                            title={m.id}
-                                        >
-                                            {label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {showModelMenu && models.length > 0 && (
+                    <div className="absolute bottom-full left-0 mb-1.5 z-50 w-[220px] bg-main border border-main rounded-xl shadow-xl overflow-hidden">
+                        <div className="max-h-[200px] overflow-y-auto thin-scrollbar py-1">
+                            {models.map((m) => {
+                                const label = m.name ?? m.id;
+                                return (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => {
+                                            onModelChange(m.id);
+                                            setShowModelMenu(false);
+                                        }}
+                                        className={cn(
+                                            "w-full text-left px-3 py-2 text-[11px] transition-colors truncate",
+                                            m.id === model
+                                                ? "bg-accent/10 text-accent font-medium"
+                                                : "text-main hover:bg-secondary",
+                                        )}
+                                        title={m.id}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -454,13 +434,9 @@ ${
     return (
         <div className="h-full flex flex-col relative bg-main">
             {/* ── Chat Header bar ── */}
-            <div className="px-5 py-2 border-b border-main flex items-center justify-between shrink-0 bg-secondary/30">
+            <div className="px-5 py-2 flex items-center justify-between shrink-0 bg-secondary/30">
                 <div className="flex items-center space-x-2 text-muted">
-                    <span className="text-[10px] font-semibold tracking-wider text-main truncate max-w-[150px]">
-                        {activeSession
-                            ? activeSession.title
-                            : "FinTrace AI Analyst"}
-                    </span>
+                    <span className="text-[10px] font-semibold tracking-wider text-main truncate max-w-[150px]"></span>
                 </div>
                 <div className="flex items-center space-x-1">
                     <button
@@ -485,184 +461,158 @@ ${
                 </div>
             </div>
 
-            {/* ── Session History Sidebar Overlay ── */}
-            <AnimatePresence>
+            <div className="relative flex-1 min-h-0">
+                {/* ── Session History Sidebar Overlay ── */}
                 {showHistory && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -5 }}
-                        className="absolute inset-x-0 top-[45px] bottom-0 z-20 bg-main/95 backdrop-blur-sm border-b border-main flex flex-col"
-                        tabIndex={-1}
-                        // Hỗ trợ ESC thoát + click ra ngoài khoảng trắng để thoát
-                        onKeyDown={(e) => {
-                            if (e.key === "Escape") {
-                                setShowHistory(false);
-                            }
-                        }}
-                        ref={(el) => {
-                            if (el && showHistory) el.focus();
-                        }}
-                    >
-                        {/* Overlay để bắt click các vùng trống */}
-                        <div
-                            className="absolute inset-0 z-[-1] cursor-default"
-                            onClick={() => setShowHistory(false)}
-                            tabIndex={-1}
-                        />
-                        <div
-                            className="relative flex flex-col h-full"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex-1 overflow-y-auto thin-scrollbar p-3 space-y-1">
-                                {sessions.length === 0 ? (
-                                    <div className="text-[11px] text-muted text-center py-6">
-                                        No previous chats.
-                                    </div>
-                                ) : (
-                                    sessions
-                                        .slice()
-                                        .reverse()
-                                        .map((session) => (
-                                            <div
-                                                key={session.id}
-                                                className={cn(
-                                                    "flex items-center justify-between p-3 rounded-lg border group transition-all cursor-pointer",
-                                                    activeSessionId ===
-                                                        session.id
-                                                        ? "bg-accent/10 border-accent/50"
-                                                        : "hover:bg-secondary border-transparent",
-                                                )}
-                                                onClick={() => {
-                                                    setActiveSessionId(
-                                                        session.id,
-                                                    );
-                                                    setShowHistory(false);
-                                                }}
-                                            >
-                                                <div className="flex items-center space-x-3 min-w-0 flex-1 pr-2">
-                                                    <div className="truncate text-[12px] font-medium text-main">
-                                                        {session.title}
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        deleteSession(
-                                                            session.id,
-                                                        );
-                                                    }}
-                                                    className="text-muted hover:text-rose-500 transition-all p-1 rounded-md"
-                                                >
-                                                    <Trash2 size={12} />
-                                                </button>
-                                            </div>
-                                        ))
-                                )}
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* ── Message Area ── */}
-            <div className="flex-1 overflow-y-auto thin-scrollbar p-5 space-y-5">
-                {!activeSession || activeSession.messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
-                        <div className="w-12 h-12 rounded-full border-2 border-dashed border-main flex items-center justify-center bg-secondary/30 text-accent">
-                            <Bot size={20} />
-                        </div>
-                        <div className="space-y-1">
-                            <h3 className="text-[14px] font-bold">
-                                FinTrace AI Analyst
-                            </h3>
-                            <p className="text-[11px] text-muted max-w-[220px]">
-                                Ask me to predict trends, interpret volume, or
-                                summarize{" "}
-                                <strong className="text-main">
-                                    {selectedSymbol.replace("USDT", "")}
-                                </strong>{" "}
-                                metrics.
-                            </p>
-                        </div>
-                        <div className="pt-2 flex flex-col gap-1 w-[200px]">
-                            {[
-                                "Is it overbought?",
-                                "Support/Resistance levels?",
-                                "Explain recent volume",
-                            ].map((chip, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setInput(chip)}
-                                    className="text-[10px] font-mono py-1.5 px-3 rounded border border-main bg-secondary/30 hover:bg-main hover:border-accent/40 transition-colors text-muted hover:text-main text-left"
-                                >
-                                    {chip}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                ) : (
-                    activeSession.messages.map((msg, i) => (
-                        <div
-                            key={msg.id || i}
-                            className={cn(
-                                "flex flex-col space-y-1.5 max-w-[95%]",
-                                msg.role === "user"
-                                    ? "ml-auto items-end"
-                                    : "mr-auto",
-                            )}
-                        >
-                            <div
-                                className={cn(
-                                    "px-3 py-2 rounded-2xl text-[12.5px] leading-relaxed break-words shadow-sm",
-                                    msg.role === "user"
-                                        ? "bg-accent text-white rounded-br-sm"
-                                        : "bg-secondary border border-main rounded-bl-sm",
-                                    msg.error
-                                        ? "border-rose-500/50 text-rose-500 bg-rose-500/10"
-                                        : "",
-                                )}
-                            >
-                                {msg.role === "assistant" ? (
-                                    <div className="prose prose-invert prose-p:my-1 prose-pre:bg-main/50 prose-pre:border prose-pre:border-main prose-sm max-w-none">
-                                        <ReactMarkdown
-                                            components={{
-                                                a: ({ node, ...props }) => (
-                                                    <a
-                                                        {...props}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-0.5 text-accent hover:text-accent/80 transition-colors underline underline-offset-4 decoration-accent/30 hover:decoration-accent/80 mx-1 font-medium"
-                                                    >
-                                                        <span>
-                                                            {props.children}
-                                                        </span>
-                                                        <ExternalLink
-                                                            size={10}
-                                                            className="shrink-0 ml-0.5"
-                                                        />
-                                                    </a>
-                                                ),
+                    <div className="absolute inset-0 z-20 bg-main border-y border-main">
+                        <div className="h-full overflow-y-auto thin-scrollbar p-3 space-y-1">
+                            {sessions.length === 0 ? (
+                                <div className="text-[11px] text-muted text-center py-6">
+                                    No previous chats.
+                                </div>
+                            ) : (
+                                sessions
+                                    .slice()
+                                    .reverse()
+                                    .map((session) => (
+                                        <div
+                                            key={session.id}
+                                            className={cn(
+                                                "flex items-center justify-between p-2 rounded-md border transition-all cursor-pointer",
+                                                activeSessionId === session.id
+                                                    ? "bg-accent/10 border-accent/50"
+                                                    : "bg-main/40 border-transparent hover:bg-secondary/80 hover:border-main",
+                                            )}
+                                            onClick={() => {
+                                                setActiveSessionId(session.id);
+                                                setShowHistory(false);
                                             }}
                                         >
-                                            {msg.content ||
-                                                (msg.isStreaming
-                                                    ? "Fetching coin data and cooking news..."
-                                                    : "...")}
-                                        </ReactMarkdown>
-                                    </div>
-                                ) : (
-                                    msg.content
-                                )}
+                                            <div className="flex items-center space-x-3 min-w-0 flex-1 pr-2">
+                                                <div className="truncate text-[12px] font-medium text-main">
+                                                    {session.title}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    deleteSession(session.id);
+                                                }}
+                                                className="text-muted hover:text-rose-500 transition-all p-1 rounded-md"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    ))
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Message Area ── */}
+                <div className="h-full overflow-y-auto thin-scrollbar p-5 space-y-5">
+                    {!activeSession || activeSession.messages.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                            <div className="w-12 h-12 rounded-full border-2 border-dashed border-main flex items-center justify-center bg-secondary/30 text-accent">
+                                <Bot size={20} />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-[14px] font-bold">
+                                    FinTrace AI Analyst
+                                </h3>
+                                <p className="text-[11px] text-muted max-w-[220px]">
+                                    Ask me to predict trends, interpret volume,
+                                    or summarize{" "}
+                                    <strong className="text-main">
+                                        {selectedSymbol.replace("USDT", "")}
+                                    </strong>{" "}
+                                    metrics.
+                                </p>
+                            </div>
+                            <div className="pt-2 flex flex-col gap-1 w-[200px]">
+                                {[
+                                    "Is it overbought?",
+                                    "Support/Resistance levels?",
+                                    "Explain recent volume",
+                                ].map((chip, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setInput(chip)}
+                                        className="text-[10px] font-mono py-1.5 px-3 rounded border border-main bg-secondary/30 hover:bg-main hover:border-accent/40 transition-colors text-muted hover:text-main text-left"
+                                    >
+                                        {chip}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                    ))
-                )}
-                <div ref={messagesEndRef} />
+                    ) : (
+                        activeSession.messages.map((msg, i) => (
+                            <div
+                                key={msg.id || i}
+                                className={cn(
+                                    "flex flex-col space-y-1.5 max-w-[95%]",
+                                    msg.role === "user"
+                                        ? "ml-auto items-end"
+                                        : "mr-auto",
+                                )}
+                            >
+                                <div
+                                    className={cn(
+                                        "px-3 py-2 rounded-2xl text-[12.5px] leading-relaxed break-words shadow-sm",
+                                        msg.role === "user"
+                                            ? "bg-accent text-white rounded-br-sm"
+                                            : "bg-secondary border border-main rounded-bl-sm",
+                                        msg.error
+                                            ? "border-rose-500/50 text-rose-500 bg-rose-500/10"
+                                            : "",
+                                    )}
+                                >
+                                    {msg.role === "assistant" ? (
+                                        <div className="prose prose-invert prose-p:my-1 prose-pre:bg-main/50 prose-pre:border prose-pre:border-main prose-sm max-w-none">
+                                            <ReactMarkdown
+                                                components={{
+                                                    a: ({
+                                                        node,
+                                                        ...props
+                                                    }) => (
+                                                        <a
+                                                            {...props}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-0.5 text-accent hover:text-accent/80 transition-colors underline underline-offset-4 decoration-accent/30 hover:decoration-accent/80 mx-1 font-medium"
+                                                        >
+                                                            <span>
+                                                                {
+                                                                    props.children
+                                                                }
+                                                            </span>
+                                                            <ExternalLink
+                                                                size={10}
+                                                                className="shrink-0 ml-0.5"
+                                                            />
+                                                        </a>
+                                                    ),
+                                                }}
+                                            >
+                                                {msg.content ||
+                                                    (msg.isStreaming
+                                                        ? "Fetching coin data and cooking news..."
+                                                        : "...")}
+                                            </ReactMarkdown>
+                                        </div>
+                                    ) : (
+                                        msg.content
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
             </div>
 
             {/* ── Input Area ── */}
-            <div className="p-3 border-t border-main bg-main shrink-0 space-y-2">
+            <div className="p-2.5 border-t border-main bg-main shrink-0 space-y-1.5">
                 {/* Provider + Model selector row */}
                 <ModelSelector
                     providerId={activeProviderId}
@@ -676,7 +626,10 @@ ${
                 />
 
                 {/* Textarea + send button */}
-                <form onSubmit={handleSend} className="relative flex items-end">
+                <form
+                    onSubmit={handleSend}
+                    className="relative flex items-center"
+                >
                     <textarea
                         rows={Math.min(
                             4,
@@ -696,14 +649,14 @@ ${
                             }
                         }}
                         disabled={!canChat}
-                        className="w-full bg-secondary border border-main rounded-lg py-2 pl-4 pr-12 text-[12px] text-main focus:outline-none focus:border-accent/50 resize-none thin-scrollbar leading-relaxed placeholder:text-muted"
-                        style={{ minHeight: "40px" }}
+                        className="w-full bg-secondary border border-main rounded-md py-1.5 pl-3.5 pr-10 text-[12px] text-main focus:outline-none focus:border-accent/50 resize-none thin-scrollbar leading-5 placeholder:text-muted"
+                        style={{ minHeight: "36px" }}
                     />
                     {isStreaming ? (
                         <button
                             type="button"
                             onClick={stopStreaming}
-                            className="absolute right-2 bottom-1.5 p-1.5 w-7 h-7 flex items-center justify-center bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
+                            className="absolute right-1.5 bottom-1.5 p-1 w-6 h-6 flex items-center justify-center bg-rose-500 text-white rounded-md hover:bg-rose-600 transition-colors"
                         >
                             <div className="w-2.5 h-2.5 bg-current rounded-sm animate-pulse" />
                         </button>
@@ -711,9 +664,9 @@ ${
                         <button
                             type="submit"
                             disabled={!input.trim() || !canChat}
-                            className="absolute right-2 bottom-1.5 p-1.5 w-7 h-7 flex items-center justify-center bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 transition-colors"
+                            className="absolute right-1.5 bottom-1.5 p-1 w-6 h-6 flex items-center justify-center bg-accent text-white rounded-md hover:bg-accent/90 disabled:opacity-50 transition-colors"
                         >
-                            <Send size={12} className="ml-0.5" />
+                            <Send size={11} className="ml-0.5" />
                         </button>
                     )}
                 </form>

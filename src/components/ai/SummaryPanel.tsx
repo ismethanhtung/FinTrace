@@ -138,6 +138,9 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
                             className="px-2 py-1 bg-accent/10 hover:bg-accent/20 text-accent text-[9px] font-bold uppercase rounded transition-colors disabled:opacity-50 flex items-center gap-1"
                         >
                             Generate
+                            {isGenerating ? (
+                                <Loader2 size={12} className="animate-spin" />
+                            ) : null}
                         </button>
                     )}
                 </div>
@@ -156,7 +159,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
                 {!aiReport && !isGenerating && !error && (
                     <div className="text-[10.5px] text-muted italic leading-relaxed">
                         Nhấn Generate để AI tổng hợp toàn bộ số liệu 24h và tin
-                        tức mới nhất thành một Báo cáo phân tích chuyên sâu.
+                        tức mới nhất thành một Báo cáo phân tích.
                     </div>
                 )}
             </div>

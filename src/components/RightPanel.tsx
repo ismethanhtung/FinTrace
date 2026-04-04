@@ -73,33 +73,29 @@ export const RightPanel = () => {
                 className="absolute left-0 top-0 w-1.5 h-full z-30 cursor-col-resize hover:bg-accent/20 transition-colors"
             />
 
-            {/* ── Classic Trading Tabs ── */}
-            <div className="flex items-center shrink-0 border-b border-main bg-secondary/20 h-[38px]">
-                {TABS.map((tab) => {
-                    const isActive = activeTab === tab.id;
-                    const Icon = tab.icon;
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as Tab)}
-                            className={cn(
-                                "flex items-center space-x-1.5 px-4 h-full text-[11px] font-medium border-b-2 transition-colors relative",
-                                isActive
-                                    ? "border-accent text-accent bg-main"
-                                    : "border-transparent text-muted hover:text-main hover:bg-main/50",
-                            )}
-                        >
-                            {/*<Icon size={12} className={cn(isActive ? 'text-accent' : 'opacity-70')} />*/}
-                            <span>{tab.label}</span>
-                            {isActive && (
-                                <div className="absolute top-0 right-0 w-[1px] h-full bg-main" />
-                            )}
-                            {isActive && (
-                                <div className="absolute top-0 left-0 w-[1px] h-full bg-main" />
-                            )}
-                        </button>
-                    );
-                })}
+            {/* ── Tabs ── */}
+            <div className="shrink-0 border-b border-main bg-main px-2 py-1">
+                <div className="flex items-center gap-1 ">
+                    {TABS.map((tab) => {
+                        const isActive = activeTab === tab.id;
+                        const Icon = tab.icon;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as Tab)}
+                                className={cn(
+                                    "flex-1 h-7 rounded px-2.5 text-[11px] font-semibold transition-all",
+                                    "flex items-center justify-center gap-1.5",
+                                    isActive
+                                        ? "bg-secondary text-main"
+                                        : "text-muted hover:text-main  ",
+                                )}
+                            >
+                                <span>{tab.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* ── Content Area ── */}
