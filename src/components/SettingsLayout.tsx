@@ -19,37 +19,63 @@ import {
     ChevronRight,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useI18n } from "../context/I18nContext";
+import { type TranslationKey } from "../i18n/translate";
 
 // ─── Nav structure ────────────────────────────────────────────────────────────
 export type SettingsNavItem = {
     id: string;
     icon: React.ElementType;
-    label: string;
+    labelKey: TranslationKey;
 };
 
 export type SettingsNavGroup = {
-    group: string;
+    groupKey: TranslationKey;
     items: SettingsNavItem[];
 };
 
 export const SETTINGS_NAV: SettingsNavGroup[] = [
     {
-        group: "General settings",
+        groupKey: "settingsLayout.generalSettings",
         items: [
-            { id: "profile", icon: User, label: "Account" },
-            { id: "ai", icon: Sparkles, label: "AI Settings" },
-            { id: "ui", icon: Type, label: "Typography" },
-            { id: "appearance", icon: Palette, label: "Appearance" },
-            { id: "notif", icon: Bell, label: "Notifications" },
+            { id: "profile", icon: User, labelKey: "settingsLayout.account" },
+            { id: "ai", icon: Sparkles, labelKey: "settingsLayout.aiSettings" },
+            { id: "ui", icon: Type, labelKey: "settingsLayout.typography" },
+            {
+                id: "appearance",
+                icon: Palette,
+                labelKey: "settingsLayout.appearance",
+            },
+            {
+                id: "notif",
+                icon: Bell,
+                labelKey: "settingsLayout.notifications",
+            },
         ],
     },
     {
-        group: "Workspace settings",
+        groupKey: "settingsLayout.workspaceSettings",
         items: [
-            { id: "integrations", icon: Server, label: "Integrations" },
-            { id: "security", icon: Shield, label: "Security" },
-            { id: "data", icon: Database, label: "Data & Privacy" },
-            { id: "support", icon: LifeBuoy, label: "Support Access" },
+            {
+                id: "integrations",
+                icon: Server,
+                labelKey: "settingsLayout.integrations",
+            },
+            {
+                id: "security",
+                icon: Shield,
+                labelKey: "settingsLayout.security",
+            },
+            {
+                id: "data",
+                icon: Database,
+                labelKey: "settingsLayout.dataPrivacy",
+            },
+            {
+                id: "support",
+                icon: LifeBuoy,
+                labelKey: "settingsLayout.supportAccess",
+            },
         ],
     },
 ];
@@ -62,6 +88,8 @@ function SettingsSidebar({
     activeSection: string;
     onSelect: (id: string) => void;
 }) {
+    const { t } = useI18n();
+
     return (
         <aside className="w-[260px] shrink-0 border-r border-main bg-secondary/60 flex flex-col min-h-screen">
             {/* Logo row */}
@@ -69,7 +97,7 @@ function SettingsSidebar({
                 <div className="flex items-center gap-2.5">
                     <Image
                         src="/logo.gif"
-                        alt="FinTrace"
+                        alt={t("topbar.logoAlt")}
                         width={36}
                         height={36}
                         unoptimized
@@ -83,7 +111,7 @@ function SettingsSidebar({
                 <Link
                     href="/"
                     className="p-1.5 rounded-lg hover:bg-main border border-transparent hover:border-main transition-colors text-muted hover:text-main"
-                    title="Back to app"
+                    title={t("common.backToApp")}
                 >
                     <ArrowLeft size={14} />
                 </Link>
@@ -110,9 +138,9 @@ function SettingsSidebar({
             {/* Nav */}
             <nav className="flex-1 overflow-y-auto thin-scrollbar px-3 py-3 space-y-5">
                 {SETTINGS_NAV.map((group) => (
-                    <div key={group.group} className="space-y-0.5">
+                    <div key={group.groupKey} className="space-y-0.5">
                         <p className="px-3 pb-1.5 text-[10px] uppercase tracking-[0.14em] text-muted font-semibold">
-                            {group.group}
+                            {t(group.groupKey)}
                         </p>
                         {group.items.map((item) => {
                             const isActive = activeSection === item.id;
@@ -131,7 +159,7 @@ function SettingsSidebar({
                                         size={15}
                                         strokeWidth={isActive ? 2.2 : 1.8}
                                     />
-                                    <span>{item.label}</span>
+                                    <span>{t(item.labelKey)}</span>
                                     {isActive && (
                                         <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />
                                     )}
@@ -145,7 +173,7 @@ function SettingsSidebar({
             {/* Footer */}
             <div className="px-4 py-4 border-t border-main">
                 <p className="text-[10px] text-muted text-center">
-                    FinTrace v1.0 · Settings
+                    {t("settingsLayout.footer")}
                 </p>
             </div>
         </aside>

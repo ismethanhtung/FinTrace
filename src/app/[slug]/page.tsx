@@ -1,7 +1,10 @@
 import PageLayout from "../../components/PageLayout";
 import Image from "next/image";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { getMessagesByLocale, LOCALE_COOKIE_KEY, normalizeLocale } from "../../i18n/config";
+import { translate } from "../../i18n/translate";
 
 export default async function PlaceholderPage({
     params,
@@ -9,6 +12,13 @@ export default async function PlaceholderPage({
     params: Promise<{ slug: string }>;
 }) {
     const { slug } = await params;
+    const cookieStore = await cookies();
+    const locale = normalizeLocale(cookieStore.get(LOCALE_COOKIE_KEY)?.value);
+    const messages = getMessagesByLocale(locale);
+    const t = (
+        key: Parameters<typeof translate>[1],
+        values?: Parameters<typeof translate>[2],
+    ) => translate(messages, key, values);
     const normalizedSlug = slug.trim().toLowerCase();
 
     // Prevent static asset-like paths from being rendered by the placeholder page.
@@ -40,21 +50,20 @@ export default async function PlaceholderPage({
                     </div>
                     <div className="space-y-2">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                            Coming soon
+                            {t("boardPage.comingSoon")}
                         </p>
                         <h2 className="text-[15px] font-semibold text-main tracking-tight">
                             {title}
                         </h2>
                         <p className="text-[12px] text-muted leading-relaxed">
-                            This section is under development. Check back later
-                            for updates.
+                            {t("boardPage.boardComingSoon")}
                         </p>
                     </div>
                     <Link
                         href="/"
                         className="inline-flex items-center justify-center px-4 py-1.5 bg-accent text-white rounded-md text-[11px] font-semibold hover:bg-accent/90 transition-colors shadow-sm"
                     >
-                        Back to Dashboard
+                        {t("boardPage.backToDashboard")}
                     </Link>
                 </div>
             </div>

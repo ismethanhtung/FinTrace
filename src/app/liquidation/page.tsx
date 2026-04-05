@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-    AlertTriangle,
-} from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { LeftSidebar } from "../../components/LeftSidebar";
 import { FuturesLiquidationPanel } from "../../components/FuturesLiquidationPanel";
 import { AppTopBar } from "../../components/shell/AppTopBar";
@@ -27,8 +25,8 @@ export default function LiquidationPage() {
                 refreshAriaLabel="Reload liquidation stream"
             />
 
-            <main className="flex-1 min-h-0 flex flex-col overflow-hidden p-6 sm:p-8 mx-auto w-full max-w-[1600px]">
-                <div className="flex min-h-0 flex-1 w-full rounded-xl border border-main overflow-hidden bg-main">
+            <main className="flex-1 min-h-0 flex overflow-hidden">
+                <div className="flex min-h-0 flex-1 w-full overflow-hidden bg-main">
                     <LeftSidebar embedded />
 
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-main">
@@ -38,9 +36,7 @@ export default function LiquidationPage() {
                                 Dedicated Liquidation Stream
                             </div>
                             <div className="mt-1 text-[12px] text-muted">
-                                Theo doi liquidation futures trong mot trang
-                                rieng, nhung van giu nguyen tab Liquidation o
-                                trang chu.
+                                Follow liquidation futures.
                             </div>
                         </div>
 

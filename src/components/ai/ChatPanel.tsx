@@ -53,8 +53,10 @@ const ModelSelector = ({
 }: ModelSelectorProps) => {
     const [showProviderMenu, setShowProviderMenu] = useState(false);
     const [showModelMenu, setShowModelMenu] = useState(false);
+    const [modelQuery, setModelQuery] = useState("");
     const providerRef = useRef<HTMLDivElement>(null);
     const modelRef = useRef<HTMLDivElement>(null);
+    const modelSearchRef = useRef<HTMLInputElement>(null);
 
     // Close dropdowns on outside click
     useEffect(() => {
@@ -76,11 +78,27 @@ const ModelSelector = ({
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
+    useEffect(() => {
+        if (!showModelMenu) return;
+        const id = window.requestAnimationFrame(() => {
+            modelSearchRef.current?.focus();
+            modelSearchRef.current?.select();
+        });
+        return () => window.cancelAnimationFrame(id);
+    }, [showModelMenu]);
+
     const shortModel = model.includes("/")
         ? (model.split("/").pop() ?? model)
         : model;
     const displayModel =
         shortModel.length > 22 ? shortModel.slice(0, 20) + "…" : shortModel;
+    const modelQueryNorm = modelQuery.trim().toLowerCase();
+    const filteredModels = models.filter((m) => {
+        if (!modelQueryNorm) return true;
+        const id = m.id.toLowerCase();
+        const name = (m.name ?? "").toLowerCase();
+        return id.includes(modelQueryNorm) || name.includes(modelQueryNorm);
+    });
 
     return (
         <div className="flex items-center gap-1.5 min-w-0">
@@ -149,7 +167,11 @@ const ModelSelector = ({
             <div ref={modelRef} className="relative flex-shrink flex-1 min-w-0">
                 <button
                     onClick={() => {
-                        setShowModelMenu((v) => !v);
+                        setShowModelMenu((v) => {
+                            const next = !v;
+                            if (!next) setModelQuery("");
+                            return next;
+                        });
                         setShowProviderMenu(false);
                     }}
                     disabled={isLoadingModels}
@@ -198,9 +220,23 @@ const ModelSelector = ({
                     <ChevronDown size={8} />
                 </button>
                 {showModelMenu && models.length > 0 && (
-                    <div className="absolute bottom-full left-0 mb-1.5 z-50 w-[220px] bg-main border border-main rounded-xl shadow-xl overflow-hidden">
+                    <div className="absolute bottom-full left-0 mb-1.5 z-50 w-[200px] bg-main border border-main rounded-xl shadow-xl overflow-hidden">
+                        <div className="p-2 border-b border-main">
+                            <input
+                                ref={modelSearchRef}
+                                value={modelQuery}
+                                onChange={(e) => setModelQuery(e.target.value)}
+                                placeholder="Type to find model..."
+                                className="w-full rounded-md bg-secondary border border-main px-2 py-1 text-[10px] text-main placeholder:text-muted/80 outline-none focus:border-accent/40"
+                            />
+                        </div>
                         <div className="max-h-[200px] overflow-y-auto thin-scrollbar py-1">
-                            {models.map((m) => {
+                            {filteredModels.length === 0 && (
+                                <div className="px-3 py-2 text-[10px] text-muted">
+                                    No model matched.
+                                </div>
+                            )}
+                            {filteredModels.map((m) => {
                                 const label = m.name ?? m.id;
                                 return (
                                     <button
@@ -208,6 +244,7 @@ const ModelSelector = ({
                                         onClick={() => {
                                             onModelChange(m.id);
                                             setShowModelMenu(false);
+                                            setModelQuery("");
                                         }}
                                         className={cn(
                                             "w-full text-left px-3 py-2 text-[11px] transition-colors truncate",
@@ -571,10 +608,7 @@ ${
                                         <div className="prose prose-invert prose-p:my-1 prose-pre:bg-main/50 prose-pre:border prose-pre:border-main prose-sm max-w-none">
                                             <ReactMarkdown
                                                 components={{
-                                                    a: ({
-                                                        node,
-                                                        ...props
-                                                    }) => (
+                                                    a: ({ node, ...props }) => (
                                                         <a
                                                             {...props}
                                                             target="_blank"
@@ -582,9 +616,7 @@ ${
                                                             className="inline-flex items-center gap-0.5 text-accent hover:text-accent/80 transition-colors underline underline-offset-4 decoration-accent/30 hover:decoration-accent/80 mx-1 font-medium"
                                                         >
                                                             <span>
-                                                                {
-                                                                    props.children
-                                                                }
+                                                                {props.children}
                                                             </span>
                                                             <ExternalLink
                                                                 size={10}

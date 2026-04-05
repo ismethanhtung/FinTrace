@@ -15,58 +15,91 @@ import {
     ChevronDown,
     AlertTriangle,
     Waves,
+    LayoutGrid,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "motion/react";
+import { useI18n } from "../context/I18nContext";
+import { type TranslationKey } from "../i18n/translate";
 
 export const UserMenu = () => {
     const [isOpen, setIsOpen] = useState(false);
+    const { t } = useI18n();
 
     const menuItems = [
         {
-            group: "Overview",
+            groupKey: "userMenu.overview" as TranslationKey,
             items: [
                 {
                     icon: LayoutDashboard,
-                    label: "Dashboard (Soon)",
+                    labelKey: "userMenu.dashboardSoon" as TranslationKey,
                     href: "/dashboard",
                 },
                 {
                     icon: Activity,
-                    label: "Market Explorer (Soon)",
+                    labelKey: "userMenu.marketExplorerSoon" as TranslationKey,
                     href: "/explorer",
                 },
-                { icon: Wallet, label: "Portfolio (Soon)", href: "/portfolio" },
+                {
+                    icon: Wallet,
+                    labelKey: "userMenu.portfolioSoon" as TranslationKey,
+                    href: "/portfolio",
+                },
+                {
+                    icon: LayoutGrid,
+                    labelKey: "navigation.heatmap" as TranslationKey,
+                    href: "/heatmap",
+                },
             ],
         },
         {
-            group: "Analysis",
+            groupKey: "userMenu.analysis" as TranslationKey,
             items: [
-                { icon: Database, label: "Data Streams", href: "/data-stream" },
+                {
+                    icon: Database,
+                    labelKey: "navigation.dataStreams" as TranslationKey,
+                    href: "/data-stream",
+                },
                 {
                     icon: Terminal,
-                    label: "Query Engine",
+                    labelKey: "navigation.queryEngine" as TranslationKey,
                     href: "/query",
                 },
-                { icon: Cpu, label: "AI Insights (Soon)", href: "/ai" },
+                {
+                    icon: Cpu,
+                    labelKey: "userMenu.aiInsightsSoon" as TranslationKey,
+                    href: "/ai",
+                },
                 {
                     icon: AlertTriangle,
-                    label: "Liquidation",
+                    labelKey: "navigation.liquidation" as TranslationKey,
                     href: "/liquidation",
                 },
                 {
                     icon: Waves,
-                    label: "Smart Money",
+                    labelKey: "navigation.smartMoney" as TranslationKey,
                     href: "/smart-money",
                 },
             ],
         },
         {
-            group: "Account",
+            groupKey: "userMenu.account" as TranslationKey,
             items: [
-                { icon: History, label: "Transactions", href: "/transactions" },
-                { icon: Bell, label: "Alerts (Soon)", href: "/alerts" },
-                { icon: Settings, label: "Settings", href: "/settings" },
+                {
+                    icon: History,
+                    labelKey: "navigation.transactions" as TranslationKey,
+                    href: "/transactions",
+                },
+                {
+                    icon: Bell,
+                    labelKey: "userMenu.alertsSoon" as TranslationKey,
+                    href: "/alerts",
+                },
+                {
+                    icon: Settings,
+                    labelKey: "common.settings" as TranslationKey,
+                    href: "/settings",
+                },
             ],
         },
     ];
@@ -97,10 +130,10 @@ export const UserMenu = () => {
                             onClick={() => setIsOpen(false)}
                         />
                         <motion.div
-                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                            transition={{ duration: 0.15, ease: "easeOut" }}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 8 }}
+                            transition={{ duration: 0.14, ease: "easeOut" }}
                             className="absolute right-0 mt-2 w-56 bg-main border border-main rounded-lg shadow-xl z-50 overflow-hidden"
                         >
                             <div className="p-3 border-b border-main">
@@ -116,7 +149,7 @@ export const UserMenu = () => {
                                 {menuItems.map((group, idx) => (
                                     <div key={idx} className="py-1">
                                         <div className="px-3 py-1 text-[10px] font-bold text-muted uppercase tracking-wider">
-                                            {group.group}
+                                            {t(group.groupKey)}
                                         </div>
                                         {group.items.map((item, i) => (
                                             <Link
@@ -130,7 +163,7 @@ export const UserMenu = () => {
                                                     className="mr-2.5 text-muted"
                                                     strokeWidth={1.5}
                                                 />
-                                                {item.label}
+                                                {t(item.labelKey)}
                                             </Link>
                                         ))}
                                     </div>
@@ -144,7 +177,7 @@ export const UserMenu = () => {
                                         className="mr-2.5"
                                         strokeWidth={1.5}
                                     />
-                                    Sign Out
+                                    {t("common.signOut")}
                                 </button>
                             </div>
                         </motion.div>

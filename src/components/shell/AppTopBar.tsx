@@ -8,32 +8,38 @@ import { Moon, Palette, RefreshCw, Sun } from "lucide-react";
 import { QuickSearchDropdown } from "../AssetList";
 import { UserMenu } from "../UserMenu";
 import { WorldSwitch } from "./WorldSwitch";
+import { LocaleSwitch } from "./LocaleSwitch";
 import { useAppSettings, type AppTheme } from "../../context/AppSettingsContext";
+import { useI18n } from "../../context/I18nContext";
 import { useUniverse } from "../../context/UniverseContext";
+import { type TranslationKey } from "../../i18n/translate";
 import { cn } from "../../lib/utils";
 
 type NavItem = {
     href: string;
-    label: string;
+    label?: string;
+    labelKey?: TranslationKey;
 };
 
 const DEFAULT_NAV_ITEMS: NavItem[] = [
-    { href: "/", label: "Chart" },
-    { href: "/market", label: "Market" },
-    { href: "/board", label: "Board" },
-    { href: "/heatmap", label: "Heatmap" },
-    { href: "/data-stream", label: "Data Streams" },
-    { href: "/transactions", label: "Transactions" },
-    { href: "/news", label: "News" },
+    { href: "/", labelKey: "navigation.chart" },
+    { href: "/market", labelKey: "navigation.market" },
+    { href: "/board", labelKey: "navigation.board" },
+    { href: "/data-stream", labelKey: "navigation.dataStreams" },
+    { href: "/transactions", labelKey: "navigation.transactions" },
+    { href: "/news", labelKey: "navigation.news" },
 ];
 
-const THEME_META: Record<AppTheme, { icon: React.ReactNode; label: string }> = {
-    light: { icon: <Sun size={14} />, label: "Light" },
-    dark1: { icon: <Moon size={14} />, label: "Dark I" },
-    dark2: { icon: <Moon size={14} />, label: "Dark II" },
-    dark3: { icon: <Palette size={14} />, label: "Dark III" },
-    dark4: { icon: <Palette size={14} />, label: "Dark IV" },
-    dark5: { icon: <Moon size={14} />, label: "Dark V" },
+const THEME_META: Record<
+    AppTheme,
+    { icon: React.ReactNode; labelKey: TranslationKey }
+> = {
+    light: { icon: <Sun size={14} />, labelKey: "theme.light" },
+    dark1: { icon: <Moon size={14} />, labelKey: "theme.dark1" },
+    dark2: { icon: <Moon size={14} />, labelKey: "theme.dark2" },
+    dark3: { icon: <Palette size={14} />, labelKey: "theme.dark3" },
+    dark4: { icon: <Palette size={14} />, labelKey: "theme.dark4" },
+    dark5: { icon: <Moon size={14} />, labelKey: "theme.dark5" },
 };
 
 export function AppTopBar({
@@ -54,13 +60,15 @@ export function AppTopBar({
     headerClassName?: string;
 }) {
     const pathname = usePathname();
+    const { t } = useI18n();
     const { universe } = useUniverse();
     const { theme, toggleTheme } = useAppSettings();
     const meta = THEME_META[theme];
+    const themeLabel = t(meta.labelKey);
     const sharedNavItem =
         universe === "stock"
-            ? ({ href: "/board", label: "Board" } as const)
-            : ({ href: "/market", label: "Market" } as const);
+            ? ({ href: "/board", labelKey: "navigation.board" } as const)
+            : ({ href: "/market", labelKey: "navigation.market" } as const);
     const resolvedNavItems: NavItem[] = [];
     let sharedInserted = false;
     for (const item of navItems) {
@@ -84,7 +92,7 @@ export function AppTopBar({
                 <Link href="/" className="flex items-center space-x-2">
                     <Image
                         src="/logo.gif"
-                        alt="FinTrace logo"
+                        alt={t("topbar.logoAlt")}
                         width={36}
                         height={36}
                         className="rounded-sm"
@@ -114,7 +122,7 @@ export function AppTopBar({
                                         : "text-muted hover:text-main hover:bg-secondary/50 font-medium",
                                 )}
                             >
-                                <span>{item.label}</span>
+                                <span>{item.label ?? t(item.labelKey ?? "navigation.chart")}</span>
                             </Link>
                         );
                     })}
@@ -128,13 +136,14 @@ export function AppTopBar({
                 <button
                     onClick={toggleTheme}
                     className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main"
-                    title={`Current: ${meta.label} - click to cycle theme`}
+                    title={t("common.currentTheme", { theme: themeLabel })}
                 >
                     {meta.icon}
                     <span className="text-[11px] font-medium hidden sm:inline">
-                        {meta.label}
+                        {themeLabel}
                     </span>
                 </button>
+                <LocaleSwitch />
 
                 {onRefresh && (
                     <button

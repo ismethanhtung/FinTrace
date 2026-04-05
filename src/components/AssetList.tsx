@@ -24,6 +24,7 @@ import { Asset } from "../services/binanceService";
 import { TokenAvatar } from "./TokenAvatar";
 import { usePathname, useRouter } from "next/navigation";
 import { useUniverse } from "../context/UniverseContext";
+import { useI18n } from "../context/I18nContext";
 
 const RECENTS_KEY = "fintrace_recent_symbols";
 const MAX_RECENTS = 5;
@@ -54,6 +55,42 @@ function saveRecents(symbols: string[]) {
     }
 }
 
+function resolveAssetSecondaryLabel(asset: Asset, universe: "coin" | "stock") {
+    if (universe === "stock") {
+        const shortName = asset.stockProfile?.organShortName?.trim();
+        if (shortName) return shortName;
+        const companyName = asset.stockProfile?.organName?.trim();
+        if (companyName && companyName.toUpperCase() !== asset.symbol.toUpperCase()) {
+            return companyName;
+        }
+        if (asset.name && asset.name.toUpperCase() !== asset.symbol.toUpperCase()) {
+            return asset.name;
+        }
+        return "VN Stock feed";
+    }
+
+    const coinName = asset.binanceAssetInfo?.assetName?.trim() || asset.name?.trim();
+    if (coinName && coinName.toUpperCase() !== asset.symbol.toUpperCase()) {
+        return coinName;
+    }
+    return "Binance";
+}
+
+function matchesAssetQuery(asset: Asset, query: string): boolean {
+    const q = query.trim().toLowerCase();
+    if (!q) return false;
+
+    return (
+        asset.symbol.toLowerCase().includes(q) ||
+        asset.id.toLowerCase().includes(q) ||
+        asset.name.toLowerCase().includes(q) ||
+        asset.stockProfile?.organName?.toLowerCase().includes(q) ||
+        asset.stockProfile?.organShortName?.toLowerCase().includes(q) ||
+        asset.binanceAssetInfo?.assetName?.toLowerCase().includes(q) ||
+        false
+    );
+}
+
 // ─── Single asset row ─────────────────────────────────────────────────────────
 const AssetRow = ({
     asset,
@@ -66,7 +103,15 @@ const AssetRow = ({
     onClick: () => void;
     badge?: React.ReactNode;
 }) => {
+    const { t } = useI18n();
     const { universe } = useUniverse();
+    const secondaryLabel = resolveAssetSecondaryLabel(asset, universe);
+    const localizedSecondaryLabel =
+        secondaryLabel === "VN Stock feed"
+            ? t("assetSearch.stockFeed")
+            : secondaryLabel === "Binance"
+              ? t("assetSearch.binance")
+              : secondaryLabel;
     return (
         <div
             onClick={onClick}
@@ -95,7 +140,7 @@ const AssetRow = ({
                         {badge}
                     </div>
                     <div className="text-[10px] text-muted">
-                        {universe === "stock" ? "VN Stock feed" : "Binance"}
+                        {localizedSecondaryLabel}
                     </div>
                 </div>
             </div>
@@ -127,6 +172,7 @@ const AssetRow = ({
 
 // ─── WatchlistDropdown ────────────────────────────────────────────────────────
 export const WatchlistDropdown = () => {
+    const { t } = useI18n();
     const router = useRouter();
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
@@ -194,9 +240,7 @@ export const WatchlistDropdown = () => {
     );
 
     const filteredAssets = assets.filter(
-        (a) =>
-            a.symbol.toLowerCase().includes(filter.toLowerCase()) ||
-            a.id.toLowerCase().includes(filter.toLowerCase()),
+        (a) => matchesAssetQuery(a, filter),
     );
 
     // Top 5 gainers for "Trending" section
@@ -216,7 +260,7 @@ export const WatchlistDropdown = () => {
             <button
                 type="button"
                 onClick={() => setIsOpen((v) => !v)}
-                title="Mở Market — phím /"
+                title={t("assetSearch.openMarket")}
                 aria-keyshortcuts="/"
                 className={cn(
                     "flex items-center space-x-2 px-3 py-1.5 rounded-md transition-all border",
@@ -226,7 +270,9 @@ export const WatchlistDropdown = () => {
                 )}
             >
                 <List size={14} className="text-muted" />
-                <span className="text-[12px] font-medium">Market</span>
+                <span className="text-[12px] font-medium">
+                    {t("assetSearch.market")}
+                </span>
                 <kbd
                     className="pointer-events-none inline-flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded border border-main bg-secondary/70 px-1 font-mono text-[10px] font-semibold leading-none text-muted tabular-nums"
                     aria-hidden
@@ -265,7 +311,7 @@ export const WatchlistDropdown = () => {
                                     />
                                     <input
                                         type="text"
-                                        placeholder="Search symbol or name..."
+                                        placeholder={t("assetSearch.searchSymbol")}
                                         value={filter}
                                         onChange={(e) =>
                                             setFilter(e.target.value)
@@ -281,7 +327,9 @@ export const WatchlistDropdown = () => {
                                     /* ─── Search results ─── */
                                     <>
                                         <div className="px-3 py-2 text-[9px] font-bold text-muted uppercase tracking-widest bg-secondary/20">
-                                            Results ({filteredAssets.length})
+                                            {t("assetSearch.results", {
+                                                count: filteredAssets.length,
+                                            })}
                                         </div>
                                         {filteredAssets.length === 0 ? (
                                             <div className="p-8 text-center text-muted text-[12px]">
@@ -291,10 +339,10 @@ export const WatchlistDropdown = () => {
                                                             size={14}
                                                             className="animate-spin"
                                                         />
-                                                        Loading...
+                                                        {t("assetSearch.loading")}
                                                     </span>
                                                 ) : (
-                                                    "No assets found"
+                                                    t("assetSearch.noAssets")
                                                 )}
                                             </div>
                                         ) : (
@@ -321,7 +369,7 @@ export const WatchlistDropdown = () => {
                                             <>
                                                 <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20">
                                                     <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
-                                                        Recently Viewed
+                                                        {t("assetSearch.recentlyViewed")}
                                                     </span>
                                                 </div>
                                                 {recentAssets.map((asset) => (
@@ -339,7 +387,7 @@ export const WatchlistDropdown = () => {
                                                         }
                                                         badge={
                                                             <span className="text-[8px] text-muted bg-secondary px-1 py-0.5 rounded">
-                                                                recent
+                                                                {t("assetSearch.recent")}
                                                             </span>
                                                         }
                                                     />
@@ -350,7 +398,7 @@ export const WatchlistDropdown = () => {
                                         {/* Trending (top movers) */}
                                         <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20 border-t border-main">
                                             <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
-                                                Top Movers
+                                                {t("assetSearch.topMovers")}
                                             </span>
                                         </div>
                                         {trending.map((asset) => (
@@ -389,7 +437,7 @@ export const WatchlistDropdown = () => {
                                         {/* All top assets */}
                                         <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20 border-t border-main">
                                             <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
-                                                Top Assets
+                                                {t("assetSearch.topAssets")}
                                             </span>
                                         </div>
                                         {assets.map((asset) => (
@@ -419,6 +467,7 @@ export const WatchlistDropdown = () => {
 // Biến ô "Quick search" thành dropdown chọn symbol (tương tự WatchlistDropdown,
 // nhưng trigger là chính ô input thay vì nút "Market /").
 export const QuickSearchDropdown = () => {
+    const { t } = useI18n();
     const router = useRouter();
     const pathname = usePathname();
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -462,13 +511,8 @@ export const QuickSearchDropdown = () => {
     }, [recents, assets]);
 
     const filteredAssets = useMemo(() => {
-        const q = filter.trim().toLowerCase();
-        if (!q) return [];
-        return assets.filter(
-            (a) =>
-                a.symbol.toLowerCase().includes(q) ||
-                a.id.toLowerCase().includes(q),
-        );
+        if (!filter.trim()) return [];
+        return assets.filter((a) => matchesAssetQuery(a, filter));
     }, [assets, filter]);
 
     const shownFilteredAssets = useMemo(() => {
@@ -551,7 +595,7 @@ export const QuickSearchDropdown = () => {
                 <input
                     ref={inputRef}
                     type="text"
-                    placeholder="Quick search..."
+                    placeholder={t("assetSearch.quickSearch")}
                     value={filter}
                     onChange={(e) => {
                         setFilter(e.target.value);
@@ -560,7 +604,7 @@ export const QuickSearchDropdown = () => {
                     onFocus={() => setIsOpen(true)}
                     className="bg-secondary border border-transparent hover:border-main rounded-md py-1.5 pl-8 pr-12 text-[12px] w-44 focus:w-60 focus:outline-none focus:ring-1 focus:ring-accent/30 transition-all"
                     aria-keyshortcuts="/"
-                    title="Mở Quick search — phím /"
+                    title={t("assetSearch.openQuickSearch")}
                 />
                 <kbd
                     className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-main bg-secondary/70 px-1 font-mono text-[10px] font-semibold leading-none text-muted tabular-nums"
@@ -588,8 +632,9 @@ export const QuickSearchDropdown = () => {
                                 {hasQuery ? (
                                     <>
                                         <div className="px-3 py-2 text-[9px] font-bold text-muted uppercase tracking-widest bg-secondary/20">
-                                            Results (
-                                            {shownFilteredAssets.length})
+                                            {t("assetSearch.results", {
+                                                count: shownFilteredAssets.length,
+                                            })}
                                         </div>
                                         {shownFilteredAssets.length === 0 ? (
                                             <div className="p-8 text-center text-muted text-[12px]">
@@ -599,10 +644,10 @@ export const QuickSearchDropdown = () => {
                                                             size={14}
                                                             className="animate-spin"
                                                         />
-                                                        Loading...
+                                                        {t("assetSearch.loading")}
                                                     </span>
                                                 ) : (
-                                                    "No assets found"
+                                                    t("assetSearch.noAssets")
                                                 )}
                                             </div>
                                         ) : (
@@ -627,7 +672,7 @@ export const QuickSearchDropdown = () => {
                                             <>
                                                 <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20">
                                                     <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
-                                                        Recently Viewed
+                                                        {t("assetSearch.recentlyViewed")}
                                                     </span>
                                                 </div>
                                                 {recentAssets.map((asset) => (
@@ -650,7 +695,7 @@ export const QuickSearchDropdown = () => {
 
                                         <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20 border-t border-main">
                                             <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
-                                                Top Movers
+                                                {t("assetSearch.topMovers")}
                                             </span>
                                         </div>
                                         {trending.map((asset) => (
@@ -668,7 +713,7 @@ export const QuickSearchDropdown = () => {
 
                                         <div className="px-3 py-2 flex items-center space-x-1.5 bg-secondary/20 border-t border-main">
                                             <span className="text-[9px] font-bold text-muted uppercase tracking-widest">
-                                                Top Assets
+                                                {t("assetSearch.topAssets")}
                                             </span>
                                         </div>
                                         {topAssetsPreview.map((asset) => (

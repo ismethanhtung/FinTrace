@@ -13,7 +13,8 @@ import {
 } from "../services/marketStreamService";
 import { useUniverse } from "../context/UniverseContext";
 import { resolveUniverseSymbol } from "../lib/universeSymbol";
-import { stockLambdaService } from "../services/stockLambdaService";
+import { useDnseBoardStream } from "./useDnseBoardStream";
+import { useVietcapBoardSnapshot } from "./useVietcapBoardSnapshot";
 
 export type OrderBookEntry = {
     price: number;
@@ -35,8 +36,15 @@ export type OrderBookMetrics = {
     bestBidQty: number;
     bestAskQty: number;
 };
+export type StockForeignStats = {
+    buy: number;
+    sell: number;
+    room: number;
+};
 const SNAPSHOT_TIMEOUT_MS = 8_000;
-const STOCK_DEPTH_POLL_MS = 2_000;
+const STOCK_VIETCAP_GROUPS = ["VN30", "HNX30", "HOSE", "HNX", "UPCOM"];
+const STOCK_DNSE_BOARDS = ["G1", "G2", "G3"];
+const DNSE_SOCKET_VOLUME_MULTIPLIER = 10;
 
 /**
  * Suggest the best default grouping for a given price.
@@ -44,6 +52,8 @@ const STOCK_DEPTH_POLL_MS = 2_000;
  */
 export const GROUPING_OPTIONS = [0.01, 0.1, 1, 10, 50, 100, 1000] as const;
 export type Grouping = (typeof GROUPING_OPTIONS)[number];
+
+type DepthSide = "bid" | "ask";
 
 export function suggestGrouping(price: number): Grouping {
     if (price < 0.01) return 0.01;
@@ -160,6 +170,29 @@ function deriveDataFromState(
     return deriveOrderBookData(state, grouping);
 }
 
+function normalizeStockDepthLevels(
+    levels: Array<{ price: number; quantity: number }> | undefined,
+    side: DepthSide,
+    quantityMultiplier = 1,
+) {
+    if (!levels?.length) return [] as Array<{ price: number; quantity: number }>;
+    return levels
+        .map((level) => ({
+            price: level.price,
+            quantity: level.quantity * quantityMultiplier,
+        }))
+        .filter(
+            (level) =>
+                Number.isFinite(level.price) &&
+                level.price > 0 &&
+                Number.isFinite(level.quantity) &&
+                level.quantity > 0,
+        )
+        .sort((a, b) =>
+            side === "bid" ? b.price - a.price : a.price - b.price,
+        );
+}
+
 /**
  * @param symbol - Trading pair symbol (e.g. "BTCUSDT")
  * @param grouping - Price grouping precision for bucketing orders
@@ -195,6 +228,34 @@ export const useOrderBook = (
     const bookTickerSubscriptionRef = useRef<
         ReturnType<typeof subscribeSharedStream> | null
     >(null);
+    const stockSymbolsForStream = useMemo(
+        () =>
+            universe === "stock" && isHydrated && hasValidSymbol && resolvedSymbol
+                ? [resolvedSymbol]
+                : [],
+        [hasValidSymbol, isHydrated, resolvedSymbol, universe],
+    );
+    const {
+        status: stockStreamStatus,
+        error: stockStreamError,
+        dataBySymbol: stockStreamBySymbol,
+        lastUpdatedAt: stockStreamLastUpdatedAt,
+    } = useDnseBoardStream(stockSymbolsForStream, {
+        board: "G1",
+        boards: STOCK_DNSE_BOARDS,
+        resolution: "1",
+    });
+    const {
+        snapshotBySymbol: stockSnapshotBySymbol,
+        fetchedAt: stockSnapshotFetchedAt,
+        isLoading: isStockSnapshotLoading,
+        error: stockSnapshotError,
+        refetch: refetchStockSnapshot,
+    } = useVietcapBoardSnapshot({
+        enabled: universe === "stock",
+        groups: STOCK_VIETCAP_GROUPS,
+        refreshIntervalMs: 45_000,
+    });
 
     const resetBookState = useCallback(() => {
         bookRef.current = null;
@@ -239,74 +300,7 @@ export const useOrderBook = (
     }, [pushDepthUpdateTimestamp]);
 
     const loadSnapshot = useCallback(async () => {
-        if (universe === "stock") {
-            if (!isHydrated) {
-                setIsLoading(true);
-                return;
-            }
-            if (!hasValidSymbol || !resolvedSymbol) {
-                setError("Invalid stock symbol for order book");
-                setConnectionStatus("disconnected");
-                setIsLoading(false);
-                return;
-            }
-            if (loadingSnapshotRef.current) return;
-            loadingSnapshotRef.current = true;
-            const requestSeq = ++snapshotRequestSeqRef.current;
-            if (!bookRef.current) setIsLoading(true);
-            try {
-                const snapshot = await stockLambdaService.getStockDepth(
-                    resolvedSymbol,
-                );
-                if (requestSeq !== snapshotRequestSeqRef.current) {
-                    return;
-                }
-                if (!snapshot) {
-                    if (!bookRef.current) {
-                        setError("Stock depth temporarily unavailable");
-                        setConnectionStatus("disconnected");
-                    }
-                    return;
-                }
-
-                const bids = new Map<string, number>();
-                const asks = new Map<string, number>();
-                snapshot.bids.forEach((level) => {
-                    bids.set(String(level.price), level.quantity);
-                });
-                snapshot.asks.forEach((level) => {
-                    asks.set(String(level.price), level.quantity);
-                });
-
-                bookRef.current = {
-                    lastUpdateId: Date.now(),
-                    bids,
-                    asks,
-                };
-                pendingDiffsRef.current = [];
-                pushDepthUpdateTimestamp();
-                setLastUpdatedAt(snapshot.fetchedAt || Date.now());
-                setError(null);
-                setConnectionStatus("connected");
-                setBookVersion((v) => v + 1);
-            } catch (err) {
-                if (!bookRef.current) {
-                    setError(
-                        err instanceof Error
-                            ? err.message
-                            : "Failed to load stock order book",
-                    );
-                }
-                setConnectionStatus("error");
-            } finally {
-                loadingSnapshotRef.current = false;
-                if (requestSeq !== snapshotRequestSeqRef.current) {
-                    return;
-                }
-                if (mountedRef.current) setIsLoading(false);
-            }
-            return;
-        }
+        if (universe === "stock") return;
         if (!isHydrated) {
             setIsLoading(true);
             return;
@@ -393,30 +387,14 @@ export const useOrderBook = (
         resetBookState();
 
         if (universe === "stock") {
-            if (!isHydrated) {
-                setIsLoading(true);
-                setConnectionStatus("connecting");
-                subscriptionRef.current?.unsubscribe();
-                subscriptionRef.current = null;
-                bookTickerSubscriptionRef.current?.unsubscribe();
-                bookTickerSubscriptionRef.current = null;
-                return;
-            }
-            mountedRef.current = true;
+            setIsLoading(false);
             setError(null);
-            setConnectionStatus("connecting");
             subscriptionRef.current?.unsubscribe();
             subscriptionRef.current = null;
             bookTickerSubscriptionRef.current?.unsubscribe();
             bookTickerSubscriptionRef.current = null;
-            void loadSnapshot();
-            const timer = setInterval(() => {
-                if (!mountedRef.current) return;
-                void loadSnapshot();
-            }, STOCK_DEPTH_POLL_MS);
             return () => {
                 mountedRef.current = false;
-                clearInterval(timer);
                 subscriptionRef.current?.unsubscribe();
                 subscriptionRef.current = null;
                 bookTickerSubscriptionRef.current?.unsubscribe();
@@ -502,7 +480,45 @@ export const useOrderBook = (
         () => deriveDataFromState(bookRef.current, grouping),
         [bookVersion, grouping],
     );
-    const data = liveData;
+    const stockData = useMemo(() => {
+        if (universe !== "stock") return null;
+        if (!isHydrated || !hasValidSymbol || !resolvedSymbol) return null;
+
+        const stream = stockStreamBySymbol[resolvedSymbol];
+        const snapshot = stockSnapshotBySymbol[resolvedSymbol];
+        const streamBids = normalizeStockDepthLevels(
+            stream?.bid,
+            "bid",
+            DNSE_SOCKET_VOLUME_MULTIPLIER,
+        );
+        const streamAsks = normalizeStockDepthLevels(
+            stream?.offer,
+            "ask",
+            DNSE_SOCKET_VOLUME_MULTIPLIER,
+        );
+        const snapshotBids = normalizeStockDepthLevels(snapshot?.bid, "bid");
+        const snapshotAsks = normalizeStockDepthLevels(snapshot?.offer, "ask");
+        const bids = streamBids.length ? streamBids : snapshotBids;
+        const asks = streamAsks.length ? streamAsks : snapshotAsks;
+        if (!bids.length && !asks.length) return null;
+
+        const state: OrderBookState = {
+            lastUpdateId: stockStreamLastUpdatedAt ?? Date.now(),
+            bids: new Map(bids.map((level) => [String(level.price), level.quantity])),
+            asks: new Map(asks.map((level) => [String(level.price), level.quantity])),
+        };
+        return deriveDataFromState(state, grouping);
+    }, [
+        grouping,
+        hasValidSymbol,
+        isHydrated,
+        resolvedSymbol,
+        stockSnapshotBySymbol,
+        stockStreamBySymbol,
+        stockStreamLastUpdatedAt,
+        universe,
+    ]);
+    const data = universe === "stock" ? stockData : liveData;
 
     const metrics = useMemo<OrderBookMetrics | null>(() => {
         if (!data) return null;
@@ -523,7 +539,7 @@ export const useOrderBook = (
             askVolume,
             imbalancePct,
             spreadBps,
-            updatesPerSec10s,
+            updatesPerSec10s: universe === "stock" ? 0 : updatesPerSec10s,
             bestBid: Number.isFinite(bookBid) ? bookBid : data.bids[0]?.price ?? 0,
             bestAsk: Number.isFinite(bookAsk) ? bookAsk : data.asks[0]?.price ?? 0,
             bestBidQty: Number.isFinite(bookBidQty)
@@ -533,16 +549,74 @@ export const useOrderBook = (
                 ? bookAskQty
                 : data.asks[0]?.quantity ?? 0,
         };
-    }, [bookTicker, data, updatesPerSec10s]);
+    }, [bookTicker, data, universe, updatesPerSec10s]);
+
+    const stockError = useMemo(() => {
+        if (universe !== "stock") return null;
+        if (!isHydrated) return null;
+        if (!hasValidSymbol || !resolvedSymbol) {
+            return "Invalid stock symbol for order book";
+        }
+        return stockStreamError || stockSnapshotError || null;
+    }, [
+        hasValidSymbol,
+        isHydrated,
+        resolvedSymbol,
+        stockSnapshotError,
+        stockStreamError,
+        universe,
+    ]);
+
+    const stockLastUpdatedAt = useMemo(() => {
+        if (stockStreamLastUpdatedAt) return stockStreamLastUpdatedAt;
+        if (!stockSnapshotFetchedAt) return null;
+        const parsed = Date.parse(stockSnapshotFetchedAt);
+        return Number.isFinite(parsed) ? parsed : null;
+    }, [stockSnapshotFetchedAt, stockStreamLastUpdatedAt]);
+
+    const stockIsLoading =
+        universe === "stock" &&
+        !data &&
+        (isStockSnapshotLoading || stockStreamStatus === "connecting");
+    const stockForeignStats = useMemo<StockForeignStats | null>(() => {
+        if (universe !== "stock" || !resolvedSymbol) return null;
+        const snapshot = stockSnapshotBySymbol[resolvedSymbol];
+        if (!snapshot) return null;
+        return {
+            buy: Number.isFinite(snapshot.foreignBuy) ? snapshot.foreignBuy : 0,
+            sell: Number.isFinite(snapshot.foreignSell)
+                ? snapshot.foreignSell
+                : 0,
+            room: Number.isFinite(snapshot.foreignRoom)
+                ? snapshot.foreignRoom
+                : 0,
+        };
+    }, [resolvedSymbol, stockSnapshotBySymbol, universe]);
+    const effectiveConnectionStatus: MarketStreamStatus =
+        universe === "stock"
+            ? stockStreamStatus === "connected"
+                ? "connected"
+                : stockStreamStatus === "connecting"
+                  ? "connecting"
+                  : stockStreamStatus === "error"
+                    ? "error"
+                    : "disconnected"
+            : connectionStatus;
 
     return {
         data,
         metrics,
-        isLoading,
-        error,
-        connectionStatus,
-        lastUpdatedAt,
-        refetch: loadSnapshot,
+        isLoading: universe === "stock" ? stockIsLoading : isLoading,
+        error: universe === "stock" ? stockError : error,
+        connectionStatus: effectiveConnectionStatus,
+        lastUpdatedAt: universe === "stock" ? stockLastUpdatedAt : lastUpdatedAt,
+        refetch:
+            universe === "stock"
+                ? async () => {
+                      await refetchStockSnapshot();
+                  }
+                : loadSnapshot,
+        stockForeignStats,
         reconnect: () => subscriptionRef.current?.reconnect(),
     };
 };

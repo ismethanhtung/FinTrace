@@ -12,6 +12,8 @@ import {
     UNIVERSE_COOKIE_KEY,
 } from "../lib/preferences";
 import { getColorSchemeForTheme } from "../lib/themeDom";
+import { I18nProvider } from "../context/I18nContext";
+import { LOCALE_COOKIE_KEY, normalizeLocale } from "../i18n/config";
 
 const jetbrainsMono = JetBrains_Mono({
     subsets: ["latin"],
@@ -58,10 +60,11 @@ export default async function RootLayout({
     const initialUniverse = normalizeUniverse(
         cookieStore.get(UNIVERSE_COOKIE_KEY)?.value,
     );
+    const initialLocale = normalizeLocale(cookieStore.get(LOCALE_COOKIE_KEY)?.value);
 
     return (
         <html
-            lang="en"
+            lang={initialLocale}
             data-theme={initialTheme}
             style={{ colorScheme: getColorSchemeForTheme(initialTheme) }}
             suppressHydrationWarning
@@ -72,11 +75,13 @@ export default async function RootLayout({
                 />
             </head>
             <body className={`${jetbrainsMono.variable} antialiased`}>
-                <AppSettingsProvider initialTheme={initialTheme}>
-                    <UniverseProvider initialUniverse={initialUniverse}>
-                        <MarketProvider>{children}</MarketProvider>
-                    </UniverseProvider>
-                </AppSettingsProvider>
+                <I18nProvider initialLocale={initialLocale}>
+                    <AppSettingsProvider initialTheme={initialTheme}>
+                        <UniverseProvider initialUniverse={initialUniverse}>
+                            <MarketProvider>{children}</MarketProvider>
+                        </UniverseProvider>
+                    </AppSettingsProvider>
+                </I18nProvider>
             </body>
         </html>
     );

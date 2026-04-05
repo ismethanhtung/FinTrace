@@ -31,6 +31,7 @@ import {
     AIProviderId,
     DEFAULT_SYSTEM_PROMPT,
 } from "../../context/AppSettingsContext";
+import { useI18n } from "../../context/I18nContext";
 import { cn } from "../../lib/utils";
 import { aiProviderService, ModelInfo } from "../../services/aiProviderService";
 import { getFallbackModelsForProvider } from "../../lib/aiModelDefaults";
@@ -263,14 +264,15 @@ const ProviderCard = ({
     onToggle: (enabled: boolean) => void;
     onRemove: () => void;
 }) => {
+    const { t } = useI18n();
     const [expanded, setExpanded] = useState(false);
     const hasKey = keySource !== "none";
     const statusLabel =
         keySource === "user"
-            ? "personal key"
+            ? t("settingsPage.personalKey")
             : keySource === "platform"
-              ? "platform key"
-              : "no key";
+              ? t("settingsPage.platformKey")
+              : t("settingsPage.noKey");
 
     return (
         <div
@@ -323,7 +325,7 @@ const ProviderCard = ({
                         <button
                             onClick={onRemove}
                             className="p-1.5 rounded-md text-muted hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
-                            title="Remove provider"
+                            title={t("settingsPage.removeProvider")}
                         >
                             <Trash2 size={13} />
                         </button>
@@ -346,7 +348,7 @@ const ProviderCard = ({
                 <div className="px-4 pb-4 space-y-3 border-t border-main/50 pt-4">
                     <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
-                            API Key
+                            {t("settingsPage.apiKey")}
                         </label>
                         <ApiKeyInput
                             value={provider.apiKey}
@@ -355,14 +357,14 @@ const ProviderCard = ({
                         />
                         <p className="text-[11px] text-muted">
                             {keySource === "user"
-                                ? "Using your personal API key. It overrides the platform key."
+                                ? t("settingsPage.usingPersonalKey")
                                 : keySource === "platform"
-                                  ? "No personal key entered. FinTrace is currently using the platform key for this provider."
-                                  : "No key available yet. Add your own key or configure the platform key on the server."}
+                                  ? t("settingsPage.usingPlatformKey")
+                                  : t("settingsPage.noKeyAvailable")}
                         </p>
                     </div>
                     <p className="text-[11px] text-muted">
-                        Get your key at{" "}
+                        {t("settingsPage.getYourKeyAt")}{" "}
                         <a
                             href={provider.websiteUrl}
                             target="_blank"
@@ -389,6 +391,7 @@ const AddProviderForm = ({
 }: {
     onAdd: (p: Omit<AIProviderConfig, "enabled">) => void;
 }) => {
+    const { t } = useI18n();
     const [open, setOpen] = useState(false);
     const [form, setForm] = useState({
         id: "",
@@ -431,7 +434,7 @@ const AddProviderForm = ({
                 className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-main hover:border-accent/40 hover:bg-accent/5 transition-colors text-muted hover:text-main text-[13px]"
             >
                 <Plus size={14} />
-                <span>Add Custom Provider</span>
+                <span>{t("settingsPage.addCustomProvider")}</span>
             </button>
         );
     }
@@ -442,16 +445,16 @@ const AddProviderForm = ({
             className="p-5 rounded-xl border border-accent/30 bg-accent/5 space-y-4"
         >
             <h4 className="text-[13px] font-bold text-main">
-                Add Custom Provider
+                {t("settingsPage.addCustomProvider")}
             </h4>
             <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
-                        Provider ID *
+                        {t("settingsPage.providerIdRequired")}
                     </label>
                     <input
                         required
-                        placeholder="e.g. mistral"
+                        placeholder={t("settingsPage.providerIdPlaceholder")}
                         value={form.id}
                         onChange={(e) =>
                             setForm((f) => ({ ...f, id: e.target.value }))
@@ -461,11 +464,11 @@ const AddProviderForm = ({
                 </div>
                 <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
-                        Display Name *
+                        {t("settingsPage.displayNameRequired")}
                     </label>
                     <input
                         required
-                        placeholder="e.g. Mistral AI"
+                        placeholder={t("settingsPage.displayNamePlaceholder")}
                         value={form.name}
                         onChange={(e) =>
                             setForm((f) => ({ ...f, name: e.target.value }))
@@ -476,7 +479,7 @@ const AddProviderForm = ({
             </div>
             <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
-                    API Key
+                    {t("settingsPage.apiKey")}
                 </label>
                 <ApiKeyInput
                     value={form.apiKey}
@@ -486,7 +489,7 @@ const AddProviderForm = ({
             </div>
             <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
-                    Base URL (OpenAI-compatible) *
+                    {t("settingsPage.baseUrlRequired")}
                 </label>
                 <input
                     required
@@ -498,11 +501,11 @@ const AddProviderForm = ({
                     className="w-full bg-main border border-main rounded-lg py-2 px-3 text-[13px] focus:outline-none focus:ring-1 focus:ring-accent/30 font-mono"
                 />
                 <p className="text-[11px] text-muted">
-                    Ví dụ: endpoint chat ở{" "}
+                    {t("settingsPage.baseUrlExamplePrefix")}{" "}
                     <code className="bg-secondary border border-main px-1 py-0.5 rounded text-[11px]">
                         /chat/completions
                     </code>{" "}
-                    và models ở{" "}
+                    {t("settingsPage.baseUrlExampleAnd")}{" "}
                     <code className="bg-secondary border border-main px-1 py-0.5 rounded text-[11px]">
                         /models
                     </code>
@@ -511,7 +514,7 @@ const AddProviderForm = ({
             </div>
             <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
-                    Website URL
+                    {t("settingsPage.websiteUrl")}
                 </label>
                 <input
                     placeholder="https://console.example.com/keys"
@@ -524,10 +527,10 @@ const AddProviderForm = ({
             </div>
             <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
-                    Description
+                    {t("settingsPage.description")}
                 </label>
                 <input
-                    placeholder="Short description"
+                    placeholder={t("settingsPage.shortDescription")}
                     value={form.description}
                     onChange={(e) =>
                         setForm((f) => ({ ...f, description: e.target.value }))
@@ -541,13 +544,13 @@ const AddProviderForm = ({
                     onClick={() => setOpen(false)}
                     className="px-4 py-2 text-[12px] rounded-lg border border-main text-muted hover:text-main transition-colors"
                 >
-                    Cancel
+                    {t("settingsPage.cancel")}
                 </button>
                 <button
                     type="submit"
                     className="px-4 py-2 text-[12px] rounded-lg bg-accent text-white font-semibold hover:bg-accent/90 transition-colors"
                 >
-                    Add Provider
+                    {t("settingsPage.addProvider")}
                 </button>
             </div>
         </form>
@@ -556,6 +559,7 @@ const AddProviderForm = ({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
+    const { t } = useI18n();
     const {
         font,
         setFont,
@@ -650,18 +654,48 @@ export default function SettingsPage() {
     const modelProviderOptions = aiProviders;
 
     const sectionMeta: Record<string, { title: string; description: string }> = {
-        profile: { title: "My Profile", description: "Update your personal details and account information." },
-        ai: { title: "AI Settings", description: "Configure AI providers, default model, and system prompt." },
-        ui: { title: "Typography", description: "Choose the interface font. Changes apply immediately." },
-        appearance: { title: "Appearance", description: "Select a color theme that suits your workflow." },
-        notif: { title: "Notifications", description: "Manage alerts and notification preferences." },
-        integrations: { title: "Integrations", description: "Connect external data providers to FinTrace." },
-        security: { title: "Security", description: "Manage account security and access settings." },
-        data: { title: "Data & Privacy", description: "Control how your data is stored and used." },
-        support: { title: "Support Access", description: "Manage support team access to your account." },
+        profile: {
+            title: t("settingsPage.sectionProfileTitle"),
+            description: t("settingsPage.sectionProfileDesc"),
+        },
+        ai: {
+            title: t("settingsPage.sectionAiTitle"),
+            description: t("settingsPage.sectionAiDesc"),
+        },
+        ui: {
+            title: t("settingsPage.sectionTypographyTitle"),
+            description: t("settingsPage.sectionTypographyDesc"),
+        },
+        appearance: {
+            title: t("settingsPage.sectionAppearanceTitle"),
+            description: t("settingsPage.sectionAppearanceDesc"),
+        },
+        notif: {
+            title: t("settingsPage.sectionNotificationsTitle"),
+            description: t("settingsPage.sectionNotificationsDesc"),
+        },
+        integrations: {
+            title: t("settingsPage.sectionIntegrationsTitle"),
+            description: t("settingsPage.sectionIntegrationsDesc"),
+        },
+        security: {
+            title: t("settingsPage.sectionSecurityTitle"),
+            description: t("settingsPage.sectionSecurityDesc"),
+        },
+        data: {
+            title: t("settingsPage.sectionDataTitle"),
+            description: t("settingsPage.sectionDataDesc"),
+        },
+        support: {
+            title: t("settingsPage.sectionSupportTitle"),
+            description: t("settingsPage.sectionSupportDesc"),
+        },
     };
 
-    const current = sectionMeta[activeSection] ?? { title: "Settings", description: "" };
+    const current = sectionMeta[activeSection] ?? {
+        title: t("settingsPage.settings"),
+        description: "",
+    };
 
     return (
         <SettingsLayout
@@ -675,8 +709,8 @@ export default function SettingsPage() {
                 <div className="space-y-0 divide-y divide-[var(--border-color)]">
                     {/* Avatar row */}
                     <SettingsRow
-                        label="Profile photo"
-                        description="Your avatar shown across the app."
+                        label={t("settingsPage.profilePhoto")}
+                        description={t("settingsPage.profilePhotoDesc")}
                     >
                         <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center shrink-0">
@@ -684,56 +718,77 @@ export default function SettingsPage() {
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <button className="px-3 py-1.5 text-[12px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors">
-                                    Change photo
+                                    {t("settingsPage.changePhoto")}
                                 </button>
                                 <button className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors">
-                                    Remove
+                                    {t("settingsPage.remove")}
                                 </button>
                             </div>
                         </div>
                     </SettingsRow>
 
                     {/* Name row */}
-                    <SettingsRow label="Full name" description="Your display name across FinTrace.">
+                    <SettingsRow
+                        label={t("settingsPage.fullName")}
+                        description={t("settingsPage.fullNameDesc")}
+                    >
                         <div className="grid grid-cols-2 gap-3">
-                            <FieldInput placeholder="First name" defaultValue="Brian" />
-                            <FieldInput placeholder="Last name" defaultValue="Frederin" />
+                            <FieldInput
+                                placeholder={t("settingsPage.firstName")}
+                                defaultValue="Brian"
+                            />
+                            <FieldInput
+                                placeholder={t("settingsPage.lastName")}
+                                defaultValue="Frederin"
+                            />
                         </div>
                     </SettingsRow>
 
                     {/* Email */}
-                    <SettingsRow label="Email address" description="Used for notifications and login.">
+                    <SettingsRow
+                        label={t("settingsPage.emailAddress")}
+                        description={t("settingsPage.emailAddressDesc")}
+                    >
                         <div className="flex gap-2">
                             <FieldInput type="email" defaultValue="brian@fintrace.io" className="flex-1" />
                             <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors whitespace-nowrap">
-                                Change email
+                                {t("settingsPage.changeEmail")}
                             </button>
                         </div>
                     </SettingsRow>
 
                     {/* Username */}
-                    <SettingsRow label="Username" description="Unique identifier in the platform.">
+                    <SettingsRow
+                        label={t("settingsPage.username")}
+                        description={t("settingsPage.usernameDesc")}
+                    >
                         <FieldInput defaultValue="brian_fintrace" />
                     </SettingsRow>
 
                     {/* Timezone */}
-                    <SettingsRow label="Timezone" description="Used for time-based alerts and reports.">
+                    <SettingsRow
+                        label={t("settingsPage.timezone")}
+                        description={t("settingsPage.timezoneDesc")}
+                    >
                         <FieldSelect defaultValue="GMT+7 — Indochina Time">
-                            <option>UTC — Coordinated Universal Time</option>
-                            <option>EST — Eastern Standard Time</option>
-                            <option>PST — Pacific Standard Time</option>
-                            <option>GMT+7 — Indochina Time</option>
+                            <option>{t("settingsPage.tzUtc")}</option>
+                            <option>{t("settingsPage.tzEst")}</option>
+                            <option>{t("settingsPage.tzPst")}</option>
+                            <option>{t("settingsPage.tzIct")}</option>
                         </FieldSelect>
                     </SettingsRow>
 
                     {/* Account security header */}
                     <div className="pt-8 pb-4">
                         <p className="text-[11px] uppercase tracking-widest text-muted font-semibold">
-                            Account security
+                            {t("settingsPage.accountSecurity")}
                         </p>
                     </div>
 
-                    <SettingsRow label="Password" description="Last changed 3 months ago.">
+                    <SettingsRow
+                        label={t("settingsPage.password")}
+                        description={t("settingsPage.passwordDesc")}
+                    >
                         <div className="flex gap-2">
                             <input
                                 type="password"
@@ -742,14 +797,14 @@ export default function SettingsPage() {
                                 className="flex-1 bg-secondary border border-main rounded-lg py-2.5 px-4 text-[14px] focus:outline-none opacity-60 cursor-default"
                             />
                             <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors whitespace-nowrap">
-                                Change password
+                                {t("settingsPage.changePassword")}
                             </button>
                         </div>
                     </SettingsRow>
 
                     <SettingsRow
-                        label="2-Step verification"
-                        description="Add an extra layer of security to your account during login."
+                        label={t("settingsPage.twoStepVerification")}
+                        description={t("settingsPage.twoStepVerificationDesc")}
                     >
                         <Toggle checked={true} onChange={() => undefined} />
                     </SettingsRow>
@@ -757,26 +812,26 @@ export default function SettingsPage() {
                     {/* Danger zone */}
                     <div className="pt-8 pb-4">
                         <p className="text-[11px] uppercase tracking-widest text-muted font-semibold">
-                            Danger zone
+                            {t("settingsPage.dangerZone")}
                         </p>
                     </div>
 
                     <SettingsRow
-                        label="Log out of all devices"
-                        description="Log out of all other active sessions on other devices besides this one."
+                        label={t("settingsPage.logoutAllDevices")}
+                        description={t("settingsPage.logoutAllDevicesDesc")}
                     >
                         <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors">
-                            Log out all
+                            {t("settingsPage.logoutAll")}
                         </button>
                     </SettingsRow>
 
                     <SettingsRow
-                        label="Delete account"
-                        description="Permanently delete your account and all associated data."
+                        label={t("settingsPage.deleteAccount")}
+                        description={t("settingsPage.deleteAccountDesc")}
                         danger
                     >
                         <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-rose-500/40 text-rose-500 hover:bg-rose-500/10 transition-colors">
-                            Delete account
+                            {t("settingsPage.deleteAccount")}
                         </button>
                     </SettingsRow>
                 </div>
@@ -789,13 +844,18 @@ export default function SettingsPage() {
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-[13px] font-semibold">AI Providers</p>
+                                <p className="text-[13px] font-semibold">
+                                    {t("settingsPage.aiProviders")}
+                                </p>
                                 <p className="text-[12px] text-muted mt-0.5">
-                                    Configure API keys. Toggle providers on/off in the chat panel.
+                                    {t("settingsPage.aiProvidersDesc")}
                                 </p>
                             </div>
                             <span className="text-[11px] text-muted bg-secondary border border-main px-2.5 py-1 rounded-full">
-                                {availableProviderCount} / {aiProviders.length} available
+                                {t("settingsPage.availableProviders", {
+                                    available: availableProviderCount,
+                                    total: aiProviders.length,
+                                })}
                             </span>
                         </div>
                         <div className="space-y-2">
@@ -826,16 +886,19 @@ export default function SettingsPage() {
                     <div className="space-y-0 divide-y divide-[var(--border-color)]">
                         <div className="pb-4">
                             <p className="text-[11px] uppercase tracking-widest text-muted font-semibold">
-                                Model defaults
+                                {t("settingsPage.modelDefaults")}
                             </p>
                         </div>
 
                         <SettingsRow
-                            label="Default model"
+                            label={t("settingsPage.defaultModel")}
                             description={
                                 modelProvider
-                                    ? `${modelProvider.name} model used whenever this provider is selected in AI features.`
-                                    : "Choose the default model for a provider."
+                                    ? t(
+                                          "settingsPage.defaultModelDescWithProvider",
+                                          { provider: modelProvider.name },
+                                      )
+                                    : t("settingsPage.defaultModelDesc")
                             }
                         >
                             <div className="space-y-3">
@@ -872,7 +935,8 @@ export default function SettingsPage() {
                                     >
                                         {models.length === 0 ? (
                                             <option value={modelSelectionValue}>
-                                                {modelSelectionValue} (loading…)
+                                                {modelSelectionValue} (
+                                                {t("settingsPage.loading")})
                                             </option>
                                         ) : (
                                             models.map((m) => (
@@ -901,24 +965,24 @@ export default function SettingsPage() {
 
                                 <p className="text-[11px] text-muted">
                                     {modelKeySource === "user"
-                                        ? "Model list is loaded with your personal API key."
+                                        ? t("settingsPage.modelListPersonalKey")
                                         : modelKeySource === "platform"
-                                          ? "Model list is loaded with the FinTrace platform key."
-                                          : "No key is available for this provider, so FinTrace is showing a curated fallback list."}
+                                          ? t("settingsPage.modelListPlatformKey")
+                                          : t("settingsPage.modelListNoKey")}
                                 </p>
                             </div>
                         </SettingsRow>
 
                         <SettingsRow
-                            label="System prompt"
+                            label={t("settingsPage.systemPrompt")}
                             description={
                                 <>
-                                    Injected at the start of every chat.{" "}
+                                    {t("settingsPage.systemPromptDesc")}{" "}
                                     <button
                                         onClick={() => setSystemPrompt(DEFAULT_SYSTEM_PROMPT)}
                                         className="text-accent hover:underline"
                                     >
-                                        Reset to default
+                                        {t("settingsPage.resetToDefault")}
                                     </button>
                                 </>
                             }
@@ -931,11 +995,11 @@ export default function SettingsPage() {
                                 className="w-full bg-secondary border border-main rounded-lg py-3 px-4 text-[13px] font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-accent/30 resize-y"
                             />
                             <p className="text-[11px] text-muted mt-1.5">
-                                Use{" "}
+                                {t("settingsPage.useContextPrefix")}{" "}
                                 <code className="bg-main border border-main px-1 py-0.5 rounded text-[11px]">
                                     {"{CONTEXT}"}
                                 </code>{" "}
-                                to inject live market data automatically.
+                                {t("settingsPage.useContextSuffix")}
                             </p>
                         </SettingsRow>
                     </div>
@@ -949,14 +1013,14 @@ export default function SettingsPage() {
                         label="CryptoPanic"
                         description={
                             <>
-                                Auth token for real-time crypto news.{" "}
+                                {t("settingsPage.cryptoPanicDesc")}{" "}
                                 <a
                                     href="https://cryptopanic.com/developers/api/"
                                     target="_blank"
                                     rel="noreferrer"
                                     className="text-accent hover:underline inline-flex items-center gap-0.5"
                                 >
-                                    Get token
+                                    {t("settingsPage.getToken")}
                                     <ExternalLink size={10} />
                                 </a>
                             </>
@@ -964,7 +1028,7 @@ export default function SettingsPage() {
                     >
                         <ApiKeyInput
                             value={cryptoPanicApiKey}
-                            placeholder="Your free api auth token..."
+                            placeholder={t("settingsPage.cryptoPanicPlaceholder")}
                             onChange={setCryptoPanicApiKey}
                         />
                     </SettingsRow>
@@ -974,8 +1038,18 @@ export default function SettingsPage() {
             {/* ── Typography ── */}
             {activeSection === "ui" && (
                 <div className="space-y-3">
-                    {FONT_OPTIONS.map(({ value, description }) => {
+                    {FONT_OPTIONS.map(({ value }) => {
                         const isActive = font === value;
+                        const fontDescription =
+                            value === "Inter"
+                                ? t("settingsPage.fontInterDesc")
+                                : value === "Outfit"
+                                  ? t("settingsPage.fontOutfitDesc")
+                                  : value === "Plus Jakarta Sans"
+                                    ? t("settingsPage.fontPlusJakartaDesc")
+                                    : value === "IBM Plex Sans"
+                                      ? t("settingsPage.fontIbmPlexDesc")
+                                      : t("settingsPage.fontSpaceGroteskDesc");
                         return (
                             <button
                                 key={value}
@@ -1005,7 +1079,7 @@ export default function SettingsPage() {
                                         className="text-[12px] text-muted"
                                         style={{ fontFamily: FONT_STACKS[value] }}
                                     >
-                                        {description}
+                                        {fontDescription}
                                     </p>
                                     <p
                                         className="text-[11px] text-muted/70 mt-1 tracking-wide"
@@ -1034,12 +1108,24 @@ export default function SettingsPage() {
             {activeSection === "appearance" && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {THEME_OPTIONS.map((t) => {
-                            const isActive = theme === t.value;
+                    {THEME_OPTIONS.map((themeOption) => {
+                            const isActive = theme === themeOption.value;
+                            const themeLabel =
+                                themeOption.value === "light"
+                                    ? t("theme.light")
+                                    : themeOption.value === "dark1"
+                                      ? t("theme.dark1")
+                                      : themeOption.value === "dark2"
+                                        ? t("theme.dark2")
+                                        : themeOption.value === "dark3"
+                                          ? t("theme.dark3")
+                                          : themeOption.value === "dark4"
+                                            ? t("theme.dark4")
+                                            : t("theme.dark5");
                             return (
                                 <button
-                                    key={t.value}
-                                    onClick={() => setTheme(t.value)}
+                                    key={themeOption.value}
+                                    onClick={() => setTheme(themeOption.value)}
                                     className={cn(
                                         "relative rounded-2xl overflow-hidden border-2 transition-all text-left",
                                         isActive
@@ -1050,24 +1136,24 @@ export default function SettingsPage() {
                                     {/* Swatch */}
                                     <div
                                         className="h-24 p-3.5 flex flex-col justify-between"
-                                        style={{ backgroundColor: t.bg }}
+                                        style={{ backgroundColor: themeOption.bg }}
                                     >
                                         {/* Simulated sidebar + content */}
                                         <div className="flex gap-1.5">
                                             <div className="flex flex-col gap-1 w-5 shrink-0">
                                                 {[14, 10, 12].map((w, i) => (
-                                                    <div key={i} className="h-1 rounded-full" style={{ backgroundColor: t.border, width: w }} />
+                                                    <div key={i} className="h-1 rounded-full" style={{ backgroundColor: themeOption.border, width: w }} />
                                                 ))}
                                             </div>
                                             <div className="flex-1 flex flex-col gap-1">
-                                                <div className="h-1 rounded-full w-full" style={{ backgroundColor: t.secondaryBg }} />
+                                                <div className="h-1 rounded-full w-full" style={{ backgroundColor: themeOption.secondaryBg }} />
                                                 <div className="h-1 rounded-full" style={{ backgroundColor: "#007AFF", width: "40%" }} />
                                                 <div className="flex gap-1">
-                                                    <div className="h-1 rounded-full flex-1" style={{ backgroundColor: t.secondaryBg }} />
+                                                    <div className="h-1 rounded-full flex-1" style={{ backgroundColor: themeOption.secondaryBg }} />
                                                     <div className="h-1 w-4 rounded-full bg-emerald-500/80" />
                                                 </div>
                                                 <div className="flex gap-1">
-                                                    <div className="h-1 rounded-full flex-1" style={{ backgroundColor: t.secondaryBg }} />
+                                                    <div className="h-1 rounded-full flex-1" style={{ backgroundColor: themeOption.secondaryBg }} />
                                                     <div className="h-1 w-3 rounded-full bg-rose-500/80" />
                                                 </div>
                                             </div>
@@ -1076,17 +1162,17 @@ export default function SettingsPage() {
                                     {/* Label bar */}
                                     <div
                                         className="px-3 py-2.5 flex items-center justify-between"
-                                        style={{ backgroundColor: t.secondaryBg, borderTop: `1px solid ${t.border}` }}
+                                        style={{ backgroundColor: themeOption.secondaryBg, borderTop: `1px solid ${themeOption.border}` }}
                                     >
-                                        <span className="text-[12px] font-semibold" style={{ color: t.text }}>
-                                            {t.label}
+                                        <span className="text-[12px] font-semibold" style={{ color: themeOption.text }}>
+                                            {themeLabel}
                                         </span>
                                         {isActive ? (
                                             <div className="w-4 h-4 rounded-full bg-accent flex items-center justify-center">
                                                 <Check size={9} strokeWidth={3} className="text-white" />
                                             </div>
                                         ) : (
-                                            <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: t.border }} />
+                                            <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: themeOption.border }} />
                                         )}
                                     </div>
                                 </button>
@@ -1101,28 +1187,28 @@ export default function SettingsPage() {
                 <div className="space-y-0 divide-y divide-[var(--border-color)]">
                     <div className="pb-4">
                         <p className="text-[11px] uppercase tracking-widest text-muted font-semibold">
-                            Push notifications
+                            {t("settingsPage.pushNotifications")}
                         </p>
                     </div>
                     {[
                         {
-                            label: "Price alerts",
-                            desc: "Get notified when an asset hits your target price.",
+                            label: t("settingsPage.priceAlerts"),
+                            desc: t("settingsPage.priceAlertsDesc"),
                             on: true,
                         },
                         {
-                            label: "Portfolio reports",
-                            desc: "Daily performance summary of your portfolio.",
+                            label: t("settingsPage.portfolioReports"),
+                            desc: t("settingsPage.portfolioReportsDesc"),
                             on: false,
                         },
                         {
-                            label: "Breaking market news",
-                            desc: "Breaking news affecting your watched assets.",
+                            label: t("settingsPage.breakingMarketNews"),
+                            desc: t("settingsPage.breakingMarketNewsDesc"),
                             on: true,
                         },
                         {
-                            label: "AI insights",
-                            desc: "AI-generated signals and pattern detections.",
+                            label: t("settingsPage.aiInsights"),
+                            desc: t("settingsPage.aiInsightsDesc"),
                             on: false,
                         },
                     ].map((n) => (
@@ -1137,28 +1223,30 @@ export default function SettingsPage() {
             {activeSection === "security" && (
                 <div className="space-y-0 divide-y divide-[var(--border-color)]">
                     <SettingsRow
-                        label="Two-factor authentication"
-                        description="Protect your account with an authenticator app."
+                        label={t("settingsPage.twoFactorAuthentication")}
+                        description={t("settingsPage.twoFactorAuthenticationDesc")}
                     >
                         <div className="flex items-center gap-3">
-                            <span className="text-[12px] text-emerald-500 font-medium">Enabled</span>
+                            <span className="text-[12px] text-emerald-500 font-medium">
+                                {t("settingsPage.enabled")}
+                            </span>
                             <Toggle checked={true} onChange={() => undefined} />
                         </div>
                     </SettingsRow>
                     <SettingsRow
-                        label="Active sessions"
-                        description="2 devices currently logged in."
+                        label={t("settingsPage.activeSessions")}
+                        description={t("settingsPage.activeSessionsDesc")}
                     >
                         <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors">
-                            Manage sessions
+                            {t("settingsPage.manageSessions")}
                         </button>
                     </SettingsRow>
                     <SettingsRow
-                        label="API access tokens"
-                        description="Tokens for programmatic access to your data."
+                        label={t("settingsPage.apiAccessTokens")}
+                        description={t("settingsPage.apiAccessTokensDesc")}
                     >
                         <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors">
-                            View tokens
+                            {t("settingsPage.viewTokens")}
                         </button>
                     </SettingsRow>
                 </div>
@@ -1168,26 +1256,26 @@ export default function SettingsPage() {
             {activeSection === "data" && (
                 <div className="space-y-0 divide-y divide-[var(--border-color)]">
                     <SettingsRow
-                        label="Analytics & telemetry"
-                        description="Help improve FinTrace by sharing anonymous usage data."
+                        label={t("settingsPage.analyticsTelemetry")}
+                        description={t("settingsPage.analyticsTelemetryDesc")}
                     >
                         <Toggle checked={true} onChange={() => undefined} />
                     </SettingsRow>
                     <SettingsRow
-                        label="Data export"
-                        description="Download a full copy of your FinTrace data."
+                        label={t("settingsPage.dataExport")}
+                        description={t("settingsPage.dataExportDesc")}
                     >
                         <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors">
-                            Request export
+                            {t("settingsPage.requestExport")}
                         </button>
                     </SettingsRow>
                     <SettingsRow
-                        label="Delete all data"
-                        description="Permanently erase all your data. This cannot be undone."
+                        label={t("settingsPage.deleteAllData")}
+                        description={t("settingsPage.deleteAllDataDesc")}
                         danger
                     >
                         <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-rose-500/40 text-rose-500 hover:bg-rose-500/10 transition-colors">
-                            Delete data
+                            {t("settingsPage.deleteData")}
                         </button>
                     </SettingsRow>
                 </div>
@@ -1197,24 +1285,26 @@ export default function SettingsPage() {
             {activeSection === "support" && (
                 <div className="space-y-0 divide-y divide-[var(--border-color)]">
                     <SettingsRow
-                        label="Support access"
-                        description="Allow the FinTrace team to access your account for support purposes."
+                        label={t("settingsPage.supportAccess")}
+                        description={t("settingsPage.supportAccessDesc")}
                     >
                         <div className="flex items-center gap-3">
-                            <span className="text-[12px] text-muted">Until Aug 31, 2026</span>
+                            <span className="text-[12px] text-muted">
+                                {t("settingsPage.supportUntil")}
+                            </span>
                             <Toggle checked={true} onChange={() => undefined} />
                         </div>
                     </SettingsRow>
                     <SettingsRow
-                        label="Contact support"
-                        description="Reach out to the team directly."
+                        label={t("settingsPage.contactSupport")}
+                        description={t("settingsPage.contactSupportDesc")}
                     >
                         <a
                             href="mailto:support@fintrace.io"
                             className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors"
                         >
                             <Mail size={13} />
-                            Send email
+                            {t("settingsPage.sendEmail")}
                         </a>
                     </SettingsRow>
                 </div>

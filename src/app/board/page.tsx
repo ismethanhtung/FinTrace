@@ -41,6 +41,7 @@ import { cn } from "../../lib/utils";
 import { useUniverse } from "../../context/UniverseContext";
 import { useAppSettings } from "../../context/AppSettingsContext";
 import { useMarket } from "../../context/MarketContext";
+import { useI18n } from "../../context/I18nContext";
 import { useDnseBoardStream } from "../../hooks/useDnseBoardStream";
 import { useVietcapBoardSnapshot } from "../../hooks/useVietcapBoardSnapshot";
 import { useVietcapMarketIndexes } from "../../hooks/useVietcapMarketIndexes";
@@ -764,6 +765,7 @@ function BoardRowSkeleton({
 }
 
 export default function BoardPage() {
+    const { t } = useI18n();
     const { universe } = useUniverse();
     const { toggleTheme, theme } = useAppSettings();
     const router = useRouter();
@@ -1760,10 +1762,10 @@ export default function BoardPage() {
               : "border-amber-500/30 bg-amber-500/10 text-amber-500";
     const streamStatusLabel =
         streamStatus === "connected"
-            ? "Socket: connected"
+            ? t("boardPage.socketConnected")
             : streamStatus === "error"
-              ? "Socket: error"
-              : "Socket: connecting";
+              ? t("boardPage.socketError")
+              : t("boardPage.socketConnecting");
     const snapshotStatusClass =
         isVietcapSnapshotLoading && vietcapSnapshotCount === 0
             ? "border-amber-500/30 bg-amber-500/10 text-amber-500"
@@ -1773,6 +1775,15 @@ export default function BoardPage() {
     const kbIntradayStatusClass = kbIntradayError
         ? "border-rose-500/30 bg-rose-500/10 text-rose-500"
         : "border-indigo-500/30 bg-indigo-500/10 text-indigo-500";
+    const boardTabs = [
+        { id: "MY_LIST_SOON", label: t("boardPage.tabMyListSoon"), chevron: false },
+        { id: "VN30", label: "VN30", chevron: true },
+        { id: "HNX30", label: "HNX30", chevron: true },
+        { id: "HOSE", label: "HOSE", chevron: true },
+        { id: "HNX", label: "HNX", chevron: true },
+        { id: "UPCOM", label: "UPCOM", chevron: true },
+        { id: "SECTOR", label: t("boardPage.tabSectorStocks"), chevron: true },
+    ] as const;
 
     if (universe !== "stock") {
         return <div className="h-screen w-full bg-main" />;
@@ -1781,8 +1792,8 @@ export default function BoardPage() {
     return (
         <div className="flex h-screen w-full flex-col overflow-hidden bg-main text-main">
             <AppTopBar
-                refreshTitle="Refresh board"
-                refreshAriaLabel="Refresh board"
+                refreshTitle={t("boardPage.refreshBoard")}
+                refreshAriaLabel={t("boardPage.refreshBoard")}
             />
 
             {universe !== "stock" ? (
@@ -1801,21 +1812,20 @@ export default function BoardPage() {
                         </div>
                         <div className="space-y-2">
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                                Coming soon
+                                {t("boardPage.comingSoon")}
                             </p>
                             <h2 className="text-[15px] font-semibold tracking-tight text-main">
-                                Board
+                                {t("boardPage.board")}
                             </h2>
                             <p className="text-[12px] leading-relaxed text-muted">
-                                This section is under development. Check back
-                                later for updates.
+                                {t("boardPage.boardComingSoon")}
                             </p>
                         </div>
                         <Link
                             href="/"
                             className="inline-flex items-center justify-center rounded-md bg-accent px-4 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-accent/90"
                         >
-                            Back to Dashboard
+                            {t("boardPage.backToDashboard")}
                         </Link>
                     </div>
                 </div>
@@ -1858,19 +1868,19 @@ export default function BoardPage() {
                                 <thead>
                                     <tr className="border-b border-main text-muted">
                                         <th className="p-1 text-left font-medium">
-                                            Chỉ số
+                                            {t("boardPage.index")}
                                         </th>
                                         <th className="p-1 text-right font-medium">
-                                            Điểm
+                                            {t("boardPage.points")}
                                         </th>
                                         <th className="p-1 text-right font-medium">
-                                            +/-
+                                            {t("boardPage.change")}
                                         </th>
                                         <th className="p-1 text-right font-medium">
-                                            KLGD
+                                            {t("boardPage.volume")}
                                         </th>
                                         <th className="p-1 text-right font-medium">
-                                            GTGD
+                                            {t("boardPage.value")}
                                         </th>
                                     </tr>
                                 </thead>
@@ -1929,7 +1939,7 @@ export default function BoardPage() {
                             />
                             <input
                                 type="text"
-                                placeholder="Tìm kiếm mã CK"
+                                placeholder={t("boardPage.searchStock")}
                                 value={search}
                                 onChange={(e) => {
                                     setSearch(e.target.value);
@@ -1959,12 +1969,18 @@ export default function BoardPage() {
                                         {search.trim().length > 0 ? (
                                             <>
                                                 <div className="px-3 py-2 text-[9px] font-bold text-muted uppercase tracking-widest bg-secondary/20">
-                                                    Results (
-                                                    {searchResults.length})
+                                                    {t(
+                                                        "boardPage.searchResults",
+                                                        {
+                                                            count: searchResults.length,
+                                                        },
+                                                    )}
                                                 </div>
                                                 {searchResults.length === 0 ? (
                                                     <div className="p-6 text-center text-muted text-[12px]">
-                                                        No stocks found
+                                                        {t(
+                                                            "boardPage.noStocksFound",
+                                                        )}
                                                     </div>
                                                 ) : (
                                                     searchResults.map(
@@ -2085,12 +2101,16 @@ export default function BoardPage() {
                                         ) : (
                                             <>
                                                 <div className="px-3 py-2 text-[9px] font-bold text-muted uppercase tracking-widest bg-secondary/20 flex items-center gap-1.5">
-                                                    Recently Viewed
+                                                    {t(
+                                                        "boardPage.recentlyViewed",
+                                                    )}
                                                 </div>
                                                 {recentSearchResults.length ===
                                                 0 ? (
                                                     <div className="p-6 text-center text-muted text-[12px]">
-                                                        Chưa có mã gần đây
+                                                        {t(
+                                                            "boardPage.noRecentStocks",
+                                                        )}
                                                     </div>
                                                 ) : (
                                                     recentSearchResults.map(
@@ -2215,36 +2235,20 @@ export default function BoardPage() {
                         </div>
 
                         <div className="flex h-full items-center gap-1 overflow-x-auto thin-scrollbar">
-                            {[
-                                "Danh mục của tôi (Soon)",
-                                "VN30",
-                                "HNX30",
-                                "HOSE",
-                                "HNX",
-                                "UPCOM",
-                                "CP Ngành",
-                            ].map((tab) => (
+                            {boardTabs.map((tab) => (
                                 <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
                                     className={cn(
                                         "h-full whitespace-nowrap border-b-2 px-3 text-[11px] font-semibold transition-colors",
-                                        activeTab === tab
+                                        activeTab === tab.id
                                             ? "border-emerald-500 text-emerald-500"
                                             : "border-transparent text-muted hover:text-main",
                                     )}
                                 >
                                     <span className="inline-flex items-center gap-1">
-                                        {tab}
-                                        {[
-                                            "VN30",
-                                            "HNX30",
-                                            "HOSE",
-                                            "HNX",
-                                            "UPCOM",
-                                            "CP Ngành",
-                                            "ETF",
-                                        ].includes(tab) && (
+                                        {tab.label}
+                                        {tab.chevron && (
                                             <ChevronDown size={11} />
                                         )}
                                     </span>
@@ -2266,7 +2270,7 @@ export default function BoardPage() {
                             <button
                                 onClick={toggleTheme}
                                 className="rounded-md p-1.5 text-muted hover:bg-main hover:text-main"
-                                title="Toggle theme"
+                                title={t("boardPage.toggleTheme")}
                             >
                                 {isLight ? (
                                     <Moon size={14} />
@@ -2307,7 +2311,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("ticker")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            CK
+                                            {t("boardPage.colTicker")}
                                             {sortGlyph("ticker")}
                                         </span>
                                         <div
@@ -2326,7 +2330,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("ceiling")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Trần
+                                            {t("boardPage.colCeiling")}
                                             {sortGlyph("ceiling")}
                                         </span>
                                         <div
@@ -2345,7 +2349,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("floor")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Sàn
+                                            {t("boardPage.colFloor")}
                                             {sortGlyph("floor")}
                                         </span>
                                         <div
@@ -2378,19 +2382,19 @@ export default function BoardPage() {
                                         colSpan={6}
                                         className="border-r border-main border-b border-main p-2 text-center"
                                     >
-                                        Bên mua
+                                        {t("boardPage.groupBuySide")}
                                     </th>
                                     <th
                                         colSpan={4}
                                         className="border-r border-main border-b border-main p-1 text-center"
                                     >
-                                        Khớp lệnh
+                                        {t("boardPage.groupMatched")}
                                     </th>
                                     <th
                                         colSpan={6}
                                         className="border-r border-main border-b border-main p-1 text-center"
                                     >
-                                        Bên bán
+                                        {t("boardPage.groupSellSide")}
                                     </th>
                                     <th
                                         rowSpan={2}
@@ -2401,7 +2405,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("totalVol")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Tổng KL
+                                            {t("boardPage.colTotalVolume")}
                                             {sortGlyph("totalVol")}
                                         </span>
                                         <div
@@ -2420,7 +2424,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("high")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Cao
+                                            {t("boardPage.colHigh")}
                                             {sortGlyph("high")}
                                         </span>
                                         <div
@@ -2439,7 +2443,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("low")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Thấp
+                                            {t("boardPage.colLow")}
                                             {sortGlyph("low")}
                                         </span>
                                         <div
@@ -2453,7 +2457,7 @@ export default function BoardPage() {
                                         colSpan={3}
                                         className="border-b border-main p-1 text-center"
                                     >
-                                        ĐTNN
+                                        {t("boardPage.groupForeign")}
                                     </th>
                                 </tr>
                                 <tr className="border-b border-main text-[10px] text-muted leading-none">
@@ -2465,7 +2469,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("buy0Price")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Giá 3{sortGlyph("buy0Price")}
+                                            {t("boardPage.colPriceLevel3")}
+                                            {sortGlyph("buy0Price")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2482,7 +2487,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("buy0Vol")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            KL 3{sortGlyph("buy0Vol")}
+                                            {t("boardPage.colVolumeLevel3")}
+                                            {sortGlyph("buy0Vol")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2499,7 +2505,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("buy1Price")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Giá 2{sortGlyph("buy1Price")}
+                                            {t("boardPage.colPriceLevel2")}
+                                            {sortGlyph("buy1Price")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2516,7 +2523,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("buy1Vol")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            KL 2{sortGlyph("buy1Vol")}
+                                            {t("boardPage.colVolumeLevel2")}
+                                            {sortGlyph("buy1Vol")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2533,7 +2541,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("buy2Price")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Giá 1{sortGlyph("buy2Price")}
+                                            {t("boardPage.colPriceLevel1")}
+                                            {sortGlyph("buy2Price")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2550,7 +2559,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("buy2Vol")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            KL 1{sortGlyph("buy2Vol")}
+                                            {t("boardPage.colVolumeLevel1")}
+                                            {sortGlyph("buy2Vol")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2568,7 +2578,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("matchPrice")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Giá
+                                            {t("boardPage.colPrice")}
                                             {sortGlyph("matchPrice")}
                                         </span>
                                         <div
@@ -2586,7 +2596,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("matchVol")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            KL
+                                            {t("boardPage.colVolume")}
                                             {sortGlyph("matchVol")}
                                         </span>
                                         <div
@@ -2643,7 +2653,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("sell0Price")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Giá 1{sortGlyph("sell0Price")}
+                                            {t("boardPage.colPriceLevel1")}
+                                            {sortGlyph("sell0Price")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2660,7 +2671,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("sell0Vol")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            KL 1{sortGlyph("sell0Vol")}
+                                            {t("boardPage.colVolumeLevel1")}
+                                            {sortGlyph("sell0Vol")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2677,7 +2689,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("sell1Price")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Giá 2{sortGlyph("sell1Price")}
+                                            {t("boardPage.colPriceLevel2")}
+                                            {sortGlyph("sell1Price")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2694,7 +2707,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("sell1Vol")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            KL 2{sortGlyph("sell1Vol")}
+                                            {t("boardPage.colVolumeLevel2")}
+                                            {sortGlyph("sell1Vol")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2711,7 +2725,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("sell2Price")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Giá 3{sortGlyph("sell2Price")}
+                                            {t("boardPage.colPriceLevel3")}
+                                            {sortGlyph("sell2Price")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2728,7 +2743,8 @@ export default function BoardPage() {
                                         onClick={headerSortClick("sell2Vol")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            KL 3{sortGlyph("sell2Vol")}
+                                            {t("boardPage.colVolumeLevel3")}
+                                            {sortGlyph("sell2Vol")}
                                         </span>
                                         <div
                                             className={resizeHandleClass}
@@ -2746,7 +2762,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("foreignBuy")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            NN mua
+                                            {t("boardPage.colForeignBuy")}
                                             {sortGlyph("foreignBuy")}
                                         </span>
                                         <div
@@ -2764,7 +2780,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("foreignSell")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            NN bán
+                                            {t("boardPage.colForeignSell")}
                                             {sortGlyph("foreignSell")}
                                         </span>
                                         <div
@@ -2782,7 +2798,7 @@ export default function BoardPage() {
                                         onClick={headerSortClick("foreignRoom")}
                                     >
                                         <span className="inline-flex items-center gap-0.5">
-                                            Room
+                                            {t("boardPage.colForeignRoom")}
                                             {sortGlyph("foreignRoom")}
                                         </span>
                                         <div
@@ -2809,11 +2825,9 @@ export default function BoardPage() {
                                             colSpan={BOARD_TABLE_COLSPAN}
                                             className="p-6 text-center text-[12px] text-muted"
                                         >
-                                            Không có dữ liệu cho nhóm{" "}
-                                            <span className="font-semibold text-main">
-                                                {activeTab}
-                                            </span>{" "}
-                                            lúc này.
+                                            {t("boardPage.noDataForGroup", {
+                                                group: activeTab,
+                                            })}
                                         </td>
                                     </tr>
                                 ) : (
@@ -3465,8 +3479,7 @@ export default function BoardPage() {
                         </table>
                         <div className="border-b border-main bg-main/70 px-2 py-1 text-center">
                             <p className="text-[10px] text-muted">
-                                Thank you DNSE Socket + Vietcap Snapshot - Cơ
-                                sở: Giá: x1,000 - Khối lượng: x1
+                                {t("boardPage.footerDataSource")}
                             </p>
                         </div>
                     </div>

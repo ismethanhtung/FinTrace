@@ -4,6 +4,7 @@ import React from "react";
 import { cn } from "../../lib/utils";
 import type { DataStreamConfig } from "../../lib/dataStream/types";
 import { DollarSign, Bell, Volume2, Search } from "lucide-react";
+import { useI18n } from "../../context/I18nContext";
 
 export function DataStreamFilters({
     config,
@@ -18,6 +19,7 @@ export function DataStreamFilters({
     soundArmed: boolean;
     onToggleSoundEnabled: () => void;
 }) {
+    const { t } = useI18n();
     const setNum = (key: keyof DataStreamConfig, v: number) => {
         onChange({ ...config, [key]: v });
     };
@@ -30,55 +32,57 @@ export function DataStreamFilters({
 
     return (
         <div className="rounded-xl border border-main bg-secondary/10 p-4 space-y-3">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="space-y-1">
+            <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 text-[10px] text-muted uppercase tracking-widest font-bold">
                         <Volume2 size={13} className="text-muted" />
-                        Smart Filters
+                        {t("dataStream.filters.smartFilters")}
                     </div>
                     <div className="text-[12px] text-muted">
-                        Giảm rác + ưu tiên tín hiệu lớn.
+                        {t("dataStream.filters.smartFiltersHint")}
                     </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2 shrink-0">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted leading-none">
-                        Highlight Alert
+                <div className="flex items-center gap-2 shrink-0 bg-main/40 px-2.5 py-1.5">
+                    <span className="text-[11px] font-semibold text-muted leading-none">
+                        {t("dataStream.filters.highlightAlert")}
                     </span>
                     <button
                         type="button"
                         onClick={onToggleSoundEnabled}
                         aria-pressed={soundArmed && soundEnabled}
                         className={cn(
-                            "rounded-md border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1.5",
+                            "h-7 rounded-md border px-2.5 text-[10px] font-semibold transition-colors inline-flex items-center gap-1.5",
                             !soundArmed
-                                ? "border-main bg-secondary/25 text-main hover:bg-secondary"
+                                ? "border-main bg-secondary text-main hover:border-accent/40"
                                 : soundEnabled
-                                  ? "border-accent/30 bg-accent/15 text-accent"
-                                  : "border-transparent text-muted hover:bg-secondary hover:text-main",
+                                  ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-400"
+                                  : "border-main bg-secondary/40 text-muted hover:text-main hover:border-accent/40",
                         )}
                         title={
                             soundArmed
                                 ? soundEnabled
-                                    ? "Tắt âm thanh highlight"
-                                    : "Bật âm thanh highlight"
-                                : "Nhấn để cho phép trình duyệt phát âm thanh cảnh báo"
+                                    ? t("dataStream.filters.soundOffTitle")
+                                    : t("dataStream.filters.soundOnTitle")
+                                : t("dataStream.filters.soundArmTitle")
                         }
                     >
                         <Bell
-                            size={11}
+                            size={12}
                             className={cn(
                                 "shrink-0",
                                 !soundArmed && "text-muted",
-                                soundArmed && soundEnabled && "text-accent",
+                                soundArmed &&
+                                    soundEnabled &&
+                                    "text-emerald-400",
                                 soundArmed && !soundEnabled && "text-muted",
                             )}
                         />
                         {!soundArmed
-                            ? "Kích hoạt"
+                            ? t("dataStream.filters.soundOn")
                             : soundEnabled
-                              ? "Bật"
-                              : "Tắt"}
+                              ? t("dataStream.filters.soundOn")
+                              : t("dataStream.filters.soundOff")}
                     </button>
                 </div>
             </div>
@@ -88,7 +92,7 @@ export function DataStreamFilters({
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted">
                         <DollarSign size={12} />
-                        Min Volume (USD)
+                        {t("dataStream.filters.minVolumeUsd")}
                     </div>
                     <input
                         type="number"
@@ -105,7 +109,7 @@ export function DataStreamFilters({
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted">
                         <DollarSign size={12} />
-                        Highlight (BUY &gt;= USD)
+                        {t("dataStream.filters.highlightBuyUsd")}
                     </div>
                     <input
                         type="number"
@@ -124,15 +128,24 @@ export function DataStreamFilters({
             <div className="border-t border-main pt-3">
                 <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted">
                     <Search size={12} />
-                    Event Toggles
+                    {t("dataStream.filters.eventToggles")}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                     {(
                         [
-                            { key: "showBuy", label: "BUY" },
-                            { key: "showSell", label: "SELL" },
-                            { key: "showFunding", label: "FUNDING" },
-                            { key: "showHighlightOnly", label: "HIGHLIGHT ONLY" },
+                            { key: "showBuy", label: t("dataStream.filters.buy") },
+                            {
+                                key: "showSell",
+                                label: t("dataStream.filters.sell"),
+                            },
+                            {
+                                key: "showFunding",
+                                label: t("dataStream.filters.funding"),
+                            },
+                            {
+                                key: "showHighlightOnly",
+                                label: t("dataStream.filters.highlightOnly"),
+                            },
                         ] as const
                     ).map((t) => (
                         <button
@@ -159,25 +172,27 @@ export function DataStreamFilters({
                         type="button"
                         disabled
                         className="cursor-not-allowed rounded-md border border-dashed border-main bg-secondary/20 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-muted opacity-60"
-                        title="Coming soon (on-chain realtime + whale provider)"
+                        title={t("dataStream.filters.whaleAlertSoonTitle")}
                     >
-                        Whale Alert Soon
+                        {t("dataStream.filters.whaleAlertSoon")}
                     </button>
                     <button
                         type="button"
                         disabled
                         className="cursor-not-allowed rounded-md border border-dashed border-main bg-secondary/20 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-muted opacity-60"
-                        title="Coming soon (liquidity pool realtime)"
+                        title={t(
+                            "dataStream.filters.liquidityChangesSoonTitle",
+                        )}
                     >
-                        Liquidity Changes Soon
+                        {t("dataStream.filters.liquidityChangesSoon")}
                     </button>
                     <button
                         type="button"
                         disabled
                         className="cursor-not-allowed rounded-md border border-dashed border-main bg-secondary/20 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-muted opacity-60"
-                        title="Coming soon (social pulse realtime)"
+                        title={t("dataStream.filters.socialPulseSoonTitle")}
                     >
-                        Social Pulse Soon
+                        {t("dataStream.filters.socialPulseSoon")}
                     </button>
                 </div>
             </div>

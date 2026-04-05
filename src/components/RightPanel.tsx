@@ -6,6 +6,7 @@ import { cn } from "../lib/utils";
 import { ChatPanel } from "./ai/ChatPanel";
 import { NewsPanel } from "./ai/NewsPanel";
 import { SummaryPanel } from "./ai/SummaryPanel";
+import { useI18n } from "../context/I18nContext";
 
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 600;
@@ -14,6 +15,7 @@ const DEFAULT_WIDTH = 340;
 type Tab = "chat" | "news" | "summary";
 
 export const RightPanel = () => {
+    const { t } = useI18n();
     const [activeTab, setActiveTab] = useState<Tab>("chat");
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const isDragging = useRef(false);
@@ -57,9 +59,9 @@ export const RightPanel = () => {
     }, []);
 
     const TABS = [
-        { id: "chat", label: "AI Chat", icon: MessageSquare },
-        { id: "news", label: "News", icon: Rss },
-        { id: "summary", label: "Summary", icon: FileText },
+        { id: "chat", label: t("rightPanel.aiChat"), icon: MessageSquare },
+        { id: "news", label: t("navigation.news"), icon: Rss },
+        { id: "summary", label: t("rightPanel.summary"), icon: FileText },
     ];
 
     return (

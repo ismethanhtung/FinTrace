@@ -5,6 +5,7 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import { useMarket } from "../context/MarketContext";
 import { cn } from "../lib/utils";
 import { normalizeBinanceFuturesForceOrderEvent } from "../services/dataStream/normalizeBinanceEvent";
+import { useI18n } from "../context/I18nContext";
 
 type LiquidationRecord = {
     id: string;
@@ -22,7 +23,7 @@ type LiquidationRecord = {
     usdText: string;
 };
 
-const MAX_ROWS = 120;
+const MAX_ROWS = 250;
 const LIQUIDATION_GRID =
     "grid-cols-[80px_120px_72px_92px_92px_88px_96px_108px_140px]";
 type SharedStatus = "connecting" | "connected" | "error";
@@ -182,6 +183,7 @@ function toRecord(
 }
 
 export const FuturesLiquidationPanel = () => {
+    const { t } = useI18n();
     const { marketType, selectedSymbol, futuresAssets } = useMarket();
     const [rows, setRows] = useState<LiquidationRecord[]>([]);
     const [status, setStatus] = useState<SharedStatus>("connecting");
@@ -244,7 +246,7 @@ export const FuturesLiquidationPanel = () => {
     if (marketType !== "futures") {
         return (
             <div className="flex-1 flex items-center justify-center p-6 text-center text-[12px] text-muted">
-                Liquidation stream chỉ hỗ trợ Binance Futures.
+                {t("liquidationPanel.futuresOnly")}
             </div>
         );
     }
@@ -265,26 +267,34 @@ export const FuturesLiquidationPanel = () => {
                     />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-muted">
                         {status === "connected"
-                            ? "Live Liquidations"
+                            ? t("liquidationPanel.live")
                             : status === "error"
-                              ? "Stream Error"
-                              : "Connecting"}
+                              ? t("liquidationPanel.streamError")
+                              : t("liquidationPanel.connecting")}
                     </span>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => {
-                        closeSharedForceOrderSocket();
-                        setRows([]);
-                        setReceivedCount(0);
-                        seenIdsRef.current = new Set();
-                        setReloadKey((prev) => prev + 1);
-                    }}
-                    className="px-2 py-1 rounded border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-medium flex items-center gap-1"
-                >
-                    <RefreshCw size={10} />
-                    Reconnect
-                </button>
+                <div className="flex items-center gap-3">
+                    <span className="text-[10px] text-muted font-mono tabular-nums">
+                        {t("liquidationPanel.snapshot", {
+                            rows: rows.length,
+                            max: MAX_ROWS,
+                        })}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            closeSharedForceOrderSocket();
+                            setRows([]);
+                            setReceivedCount(0);
+                            seenIdsRef.current = new Set();
+                            setReloadKey((prev) => prev + 1);
+                        }}
+                        className="px-2 py-1 rounded border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-medium flex items-center gap-1"
+                    >
+                        <RefreshCw size={10} />
+                        {t("liquidationPanel.reconnect")}
+                    </button>
+                </div>
             </div>
 
             {error ? (
@@ -296,12 +306,17 @@ export const FuturesLiquidationPanel = () => {
 
             <div className="px-4 pt-3 pb-2 text-[11px] text-muted">
                 {viewMode === "symbol"
-                    ? `Theo dõi feed thanh lý futures và lọc theo ${selectedSymbol}.`
-                    : "Theo dõi toàn bộ liquidation futures market."}
+                    ? t("liquidationPanel.followSymbol", {
+                          symbol: selectedSymbol,
+                      })
+                    : t("liquidationPanel.followAll")}
             </div>
 
             <div className="px-4 pb-2 text-[10px] text-muted font-mono">
-                received: {receivedCount} · shown: {visibleRows.length}
+                {t("liquidationPanel.receivedShown", {
+                    received: receivedCount,
+                    shown: visibleRows.length,
+                })}
             </div>
 
             <div className="px-4 pb-3 flex items-center gap-2">
@@ -327,7 +342,7 @@ export const FuturesLiquidationPanel = () => {
                             : "border-main bg-main text-muted hover:text-main hover:bg-secondary",
                     )}
                 >
-                    Tất cả
+                    {t("common.all")}
                 </button>
             </div>
 
@@ -337,15 +352,15 @@ export const FuturesLiquidationPanel = () => {
                     LIQUIDATION_GRID,
                 )}
             >
-                <span>Time</span>
-                <span>Asset</span>
-                <span>Side</span>
-                <span className="text-right">Price</span>
-                <span className="text-right">Avg Price</span>
-                <span className="text-right">Qty</span>
-                <span className="text-right">Filled</span>
-                <span className="text-right">Notional</span>
-                <span>Order</span>
+                <span>{t("liquidationPanel.time")}</span>
+                <span>{t("liquidationPanel.asset")}</span>
+                <span>{t("liquidationPanel.side")}</span>
+                <span className="text-right">{t("liquidationPanel.price")}</span>
+                <span className="text-right">{t("liquidationPanel.avgPrice")}</span>
+                <span className="text-right">{t("liquidationPanel.qty")}</span>
+                <span className="text-right">{t("liquidationPanel.filled")}</span>
+                <span className="text-right">{t("liquidationPanel.notional")}</span>
+                <span>{t("liquidationPanel.order")}</span>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar">
@@ -353,9 +368,11 @@ export const FuturesLiquidationPanel = () => {
                     <div className="h-full flex items-center justify-center text-[12px] text-muted px-4 text-center">
                         {receivedCount > 0
                             ? viewMode === "symbol"
-                                ? `Feed đang có dữ liệu, nhưng chưa có liquidation nào khớp ${selectedSymbol}.`
-                                : "Feed đang có dữ liệu nhưng chưa có row hợp lệ để hiển thị."
-                            : `Chưa nhận được liquidation event nào cho feed futures.`}
+                                ? t("liquidationPanel.noRowsForSymbol", {
+                                      symbol: selectedSymbol,
+                                  })
+                                : t("liquidationPanel.noValidRows")
+                            : t("liquidationPanel.noEvents")}
                     </div>
                 ) : (
                     visibleRows.map((r) => (

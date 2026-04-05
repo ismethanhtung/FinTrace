@@ -13,13 +13,21 @@ import {
     RefreshCw,
     TrendingUp,
 } from "lucide-react";
-import { LineChart, Line, YAxis } from "recharts";
+import {
+    LineChart,
+    Line,
+    YAxis,
+    XAxis,
+    Tooltip,
+    ResponsiveContainer,
+} from "recharts";
 import { useMarket } from "../../context/MarketContext";
 import { useMarketPageData } from "../../hooks/useMarketPageData";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { cn } from "../../lib/utils";
 import { AppTopBar } from "../../components/shell/AppTopBar";
+import { useI18n } from "../../context/I18nContext";
 import {
     NetworkMapPayload,
     shouldKeepByNetwork,
@@ -66,6 +74,17 @@ const statCardSparks = [
 
 type Trend = "up" | "down" | "flat";
 type Sentiment = "Positive" | "Negative" | "Neutral";
+type FearGreedChartPoint = {
+    timestamp: number;
+    score: number;
+    name: string;
+};
+type AltcoinSeasonChartPoint = {
+    timestamp: number;
+    index: number;
+    name: string;
+    altcoinMarketcap: number;
+};
 
 const SUB_TABS: MarketSubTabKey[] = [
     "Top",
@@ -168,37 +187,201 @@ function StatCard({
 }
 
 function AltcoinSeasonCard() {
+    const { t } = useI18n();
+    const [points, setPoints] = useState<AltcoinSeasonChartPoint[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        let alive = true;
+        async function loadAltcoinSeason() {
+            try {
+                setIsLoading(true);
+                const res = await fetch("/api/market/altcoin-season?days=45");
+                if (!res.ok) return;
+                const json = (await res.json()) as {
+                    points?: Array<{
+                        timestamp?: number;
+                        index?: number;
+                        name?: string;
+                        altcoinMarketcap?: number;
+                    }>;
+                };
+                if (!alive) return;
+                const next = (json.points ?? [])
+                    .map((p) => {
+                        const ts = Number(p.timestamp);
+                        const index = Number(p.index);
+                        if (!Number.isFinite(ts) || !Number.isFinite(index))
+                            return null;
+                        return {
+                            timestamp: ts,
+                            index,
+                            name: String(p.name ?? ""),
+                            altcoinMarketcap: Number(p.altcoinMarketcap ?? NaN),
+                        };
+                    })
+                    .filter((p): p is AltcoinSeasonChartPoint => Boolean(p))
+                    .sort((a, b) => a.timestamp - b.timestamp);
+                setPoints(next);
+            } catch {
+                if (!alive) return;
+                setPoints([]);
+            } finally {
+                if (alive) setIsLoading(false);
+            }
+        }
+        loadAltcoinSeason();
+        return () => {
+            alive = false;
+        };
+    }, []);
+
+    const chartData = useMemo(() => points.slice(-30), [points]);
+    const latest = chartData[chartData.length - 1] ?? null;
+    const val = latest?.index ?? 0;
+    const seasonLabel =
+        val >= 75
+            ? t("marketPage.altcoinSeason")
+            : val <= 25
+              ? "Bitcoin Season"
+              : t("marketPage.neutral");
+    const tone = val >= 75 ? "#22c55e" : val <= 25 ? "#ef4444" : "#eab308";
+    const circumference = 2 * Math.PI * 36;
+    const filled = (val / 100) * circumference * 0.5;
+
     return (
-        <div className="bg-secondary border border-main rounded-xl px-4 py-4 flex flex-col justify-between">
-            <div className="flex items-center gap-1 text-muted text-[11px] mb-2">
-                Altcoin Season
-                <ChevronDown size={11} className="opacity-60" />
+        <div className="bg-secondary border border-main rounded-xl px-3.5 py-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+                <div className="text-[10px] text-muted uppercase tracking-widest">
+                    {t("marketPage.altcoinSeason")}
+                </div>
+                <div className="text-[9px] font-semibold text-muted">
+                    {seasonLabel}
+                </div>
             </div>
-            <div className="text-[20px] font-bold tracking-tight">
-                ???
-                <span className="text-[13px] text-muted font-normal">/150</span>
-            </div>
-            <div className="mt-2">
-                <div className="w-full h-1 bg-main rounded-full overflow-hidden">
+            <div className="flex items-end gap-2 min-h-[72px]">
+                <div className="w-[88px] shrink-0 text-center">
+                    <div className="relative w-20 h-10 overflow-hidden mx-auto">
+                        <svg
+                            width="80"
+                            height="52"
+                            viewBox="0 0 80 52"
+                            className="absolute top-0 left-0"
+                        >
+                            <path
+                                d="M 4 44 A 36 36 0 0 1 76 44"
+                                fill="none"
+                                stroke="var(--border-color)"
+                                strokeWidth="7"
+                                strokeLinecap="round"
+                            />
+                            <path
+                                d="M 4 44 A 36 36 0 0 1 76 44"
+                                fill="none"
+                                stroke={tone}
+                                strokeWidth="7"
+                                strokeLinecap="round"
+                                strokeDasharray={`${filled} ${circumference}`}
+                            />
+                        </svg>
+                    </div>
                     <div
-                        className="h-full bg-accent rounded-full"
-                        style={{ width: "37%" }}
-                    />
+                        className="text-[22px] font-bold tracking-tight mt-0.5 tabular-nums"
+                        style={{ color: tone }}
+                    >
+                        {isLoading ? "--" : Math.round(val)}
+                    </div>
                 </div>
-                <div className="flex justify-between text-[10px] text-muted mt-1">
-                    <span>Bitcoin</span>
-                    <span>Altcoin</span>
+
+                <div className="flex-1 min-w-0">
+                    <div className="h-[62px] w-full">
+                        {chartData.length > 1 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart
+                                    data={chartData}
+                                    margin={{ top: 4, right: 4, left: 0, bottom: 4 }}
+                                >
+                                    <XAxis dataKey="timestamp" hide />
+                                    <YAxis hide domain={[0, 100]} />
+                                    <Tooltip
+                                        cursor={false}
+                                        isAnimationActive={false}
+                                        labelFormatter={(value) => {
+                                            const ts = Number(value);
+                                            if (!Number.isFinite(ts)) return "";
+                                            return new Date(ts * 1000).toLocaleDateString(
+                                                "en-GB",
+                                                {
+                                                    day: "2-digit",
+                                                    month: "2-digit",
+                                                },
+                                            );
+                                        }}
+                                        formatter={(value, _label, item) => {
+                                            const index = Number(value);
+                                            const mcap = Number(
+                                                item?.payload?.altcoinMarketcap ??
+                                                    NaN,
+                                            );
+                                            const mcapText = Number.isFinite(mcap)
+                                                ? mcap.toLocaleString("en-US", {
+                                                      maximumFractionDigits: 0,
+                                                  })
+                                                : "--";
+                                            return [
+                                                `${Math.round(index)} | Mcap ${mcapText}`,
+                                                t("marketPage.index"),
+                                            ];
+                                        }}
+                                        contentStyle={{
+                                            backgroundColor: "var(--bg-secondary)",
+                                            border: "1px solid var(--border-color)",
+                                            fontSize: "10px",
+                                            color: "var(--text-main)",
+                                        }}
+                                        wrapperStyle={{
+                                            pointerEvents: "none",
+                                            zIndex: 20,
+                                        }}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="index"
+                                        stroke={tone}
+                                        strokeWidth={1.6}
+                                        dot={false}
+                                        isAnimationActive={false}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-[10px] text-muted">
+                                {isLoading
+                                    ? t("marketPage.loading")
+                                    : t("marketPage.noChartData")}
+                            </div>
+                        )}
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[9px] text-muted">
+                        <span>BTC</span>
+                        <span>{t("marketPage.neutral")}</span>
+                        <span>ALT</span>
+                    </div>
                 </div>
+            </div>
+            <div className="text-[9px] text-muted">
+                {t("marketPage.lastPoints", { count: chartData.length })}
             </div>
         </div>
     );
 }
 
 function AvgRsiCard() {
+    const { t } = useI18n();
     return (
         <div className="bg-secondary border border-main rounded-xl px-4 py-4 flex flex-col justify-between">
             <div className="flex items-center gap-1 text-muted text-[11px] mb-2">
-                Average Crypto RSI
+                {t("marketPage.averageCryptoRsi")}
                 <ChevronDown size={11} className="opacity-60" />
             </div>
             <div className="text-[20px] font-bold tracking-tight">???</div>
@@ -210,8 +393,8 @@ function AvgRsiCard() {
                     />
                 </div>
                 <div className="flex justify-between text-[10px] text-muted mt-2">
-                    <span>Oversold</span>
-                    <span>Overbought</span>
+                    <span>{t("marketPage.oversold")}</span>
+                    <span>{t("marketPage.overbought")}</span>
                 </div>
             </div>
         </div>
@@ -219,40 +402,184 @@ function AvgRsiCard() {
 }
 
 function FearGreedCard() {
-    const val = 20;
+    const { t } = useI18n();
+    const [points, setPoints] = useState<FearGreedChartPoint[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        let alive = true;
+        async function loadFearGreed() {
+            try {
+                setIsLoading(true);
+                const res = await fetch("/api/market/fear-greed?days=45");
+                if (!res.ok) return;
+                const json = (await res.json()) as {
+                    points?: Array<{
+                        timestamp?: number;
+                        score?: number;
+                        name?: string;
+                    }>;
+                };
+                if (!alive) return;
+                const next = (json.points ?? [])
+                    .map((p) => {
+                        const ts = Number(p.timestamp);
+                        const score = Number(p.score);
+                        if (!Number.isFinite(ts) || !Number.isFinite(score))
+                            return null;
+                        return {
+                            timestamp: ts,
+                            score,
+                            name: String(p.name ?? ""),
+                        };
+                    })
+                    .filter((p): p is FearGreedChartPoint => Boolean(p))
+                    .sort((a, b) => a.timestamp - b.timestamp);
+                setPoints(next);
+            } catch {
+                if (!alive) return;
+                setPoints([]);
+            } finally {
+                if (alive) setIsLoading(false);
+            }
+        }
+        loadFearGreed();
+        return () => {
+            alive = false;
+        };
+    }, []);
+
+    const chartData = useMemo(() => points.slice(-30), [points]);
+    const latest = chartData[chartData.length - 1] ?? null;
+    const val = latest?.score ?? 0;
+    const sentiment = latest?.name ?? t("marketPage.noData");
+    const tone =
+        val >= 80
+            ? "#16a34a"
+            : val >= 60
+              ? "#22c55e"
+              : val >= 40
+                ? "#eab308"
+                : val >= 20
+                  ? "#f97316"
+                  : "#ef4444";
     const circumference = 2 * Math.PI * 36;
     const filled = (val / 100) * circumference * 0.5;
+
     return (
-        <div className="bg-secondary border border-main rounded-xl px-4 py-4 flex flex-col items-center justify-center">
-            <div className="relative w-20 h-10 overflow-hidden">
-                <svg
-                    width="80"
-                    height="52"
-                    viewBox="0 0 80 52"
-                    className="absolute top-0 left-0"
-                >
-                    <path
-                        d="M 4 44 A 36 36 0 0 1 76 44"
-                        fill="none"
-                        stroke="var(--border-color)"
-                        strokeWidth="7"
-                        strokeLinecap="round"
-                    />
-                    <path
-                        d="M 4 44 A 36 36 0 0 1 76 44"
-                        fill="none"
-                        stroke="#22c55e"
-                        strokeWidth="7"
-                        strokeLinecap="round"
-                        strokeDasharray={`${filled} ${circumference}`}
-                    />
-                </svg>
+        <div className="bg-secondary border border-main rounded-xl px-3.5 py-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+                <div className="text-[10px] text-muted uppercase tracking-widest">
+                    {t("marketPage.fearGreed")}
+                </div>
+                <div className="text-[9px] font-semibold text-muted">{sentiment}</div>
             </div>
-            <div className="text-[22px] font-bold tracking-tight mt-1">
-                {val}
+            <div className="flex items-end gap-2 min-h-[72px]">
+                <div className="w-[88px] shrink-0 text-center">
+                    <div className="relative w-20 h-10 overflow-hidden mx-auto">
+                        <svg
+                            width="80"
+                            height="52"
+                            viewBox="0 0 80 52"
+                            className="absolute top-0 left-0"
+                        >
+                            <path
+                                d="M 4 44 A 36 36 0 0 1 76 44"
+                                fill="none"
+                                stroke="var(--border-color)"
+                                strokeWidth="7"
+                                strokeLinecap="round"
+                            />
+                            <path
+                                d="M 4 44 A 36 36 0 0 1 76 44"
+                                fill="none"
+                                stroke={tone}
+                                strokeWidth="7"
+                                strokeLinecap="round"
+                                strokeDasharray={`${filled} ${circumference}`}
+                            />
+                        </svg>
+                    </div>
+                    <div
+                        className="text-[22px] font-bold tracking-tight mt-0.5 tabular-nums"
+                        style={{ color: tone }}
+                    >
+                        {isLoading ? "--" : Math.round(val)}
+                    </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                    <div className="h-[62px] w-full">
+                        {chartData.length > 1 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart
+                                    data={chartData}
+                                    margin={{ top: 4, right: 4, left: 0, bottom: 4 }}
+                                >
+                                    <XAxis dataKey="timestamp" hide />
+                                    <YAxis hide domain={[0, 100]} />
+                                    <Tooltip
+                                        cursor={false}
+                                        isAnimationActive={false}
+                                        labelFormatter={(value) => {
+                                            const ts = Number(value);
+                                            if (!Number.isFinite(ts)) return "";
+                                            return new Date(ts * 1000).toLocaleDateString(
+                                                "en-GB",
+                                                {
+                                                    day: "2-digit",
+                                                    month: "2-digit",
+                                                },
+                                            );
+                                        }}
+                                        formatter={(value, _label, item) => {
+                                            const score = Number(value);
+                                            const name = String(
+                                                item?.payload?.name ?? "",
+                                            );
+                                            return [
+                                                `${Math.round(score)} (${name || "N/A"})`,
+                                                t("marketPage.score"),
+                                            ];
+                                        }}
+                                        contentStyle={{
+                                            backgroundColor: "var(--bg-secondary)",
+                                            border: "1px solid var(--border-color)",
+                                            fontSize: "10px",
+                                            color: "var(--text-main)",
+                                        }}
+                                        wrapperStyle={{
+                                            pointerEvents: "none",
+                                            zIndex: 20,
+                                        }}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="score"
+                                        stroke={tone}
+                                        strokeWidth={1.6}
+                                        dot={false}
+                                        isAnimationActive={false}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-[10px] text-muted">
+                                {isLoading
+                                    ? t("marketPage.loading")
+                                    : t("marketPage.noChartData")}
+                            </div>
+                        )}
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[9px] text-muted">
+                        <span>0</span>
+                        <span>50</span>
+                        <span>100</span>
+                    </div>
+                </div>
             </div>
-            <div className="text-[10px] text-muted uppercase tracking-widest">
-                Fear &amp; Greed
+            <div className="text-[9px] text-muted">
+                {t("marketPage.lastPoints", { count: chartData.length })}
             </div>
         </div>
     );
@@ -476,6 +803,7 @@ function CoinAvatar({ symbol, logoUrl }: { symbol: string; logoUrl?: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function MarketPage() {
+    const { t } = useI18n();
     const router = useRouter();
     const searchParams = useSearchParams();
     const { universe, marketType, setMarketType, setSelectedSymbol } =
@@ -657,13 +985,13 @@ export default function MarketPage() {
             isStock
                 ? [
                       {
-                          title: "Market Cap",
+                          title: t("marketPage.marketCap"),
                           value: stats.marketCap,
                           change: "+???%",
                           positive: true,
                       },
                       {
-                          title: "24h Volume",
+                          title: t("marketPage.volume"),
                           value: stats.volume24h,
                           change: "+0.00%",
                           positive: true,
@@ -677,13 +1005,13 @@ export default function MarketPage() {
                   ]
                 : [
                       {
-                          title: "Market Cap",
+                          title: t("marketPage.marketCap"),
                           value: stats.marketCap,
                           change: "+???%",
                           positive: true,
                       },
                       {
-                          title: "24h Volume",
+                          title: t("marketPage.volume"),
                           value: stats.volume24h,
                           change: "+0.00%",
                           positive: true,
@@ -695,7 +1023,7 @@ export default function MarketPage() {
                           positive: true,
                       },
                   ],
-        [isStock, stats],
+        [isStock, stats, t],
     );
 
     const sortedData = useMemo(
@@ -728,28 +1056,9 @@ export default function MarketPage() {
             <AppTopBar
                 onRefresh={handleRefresh}
                 isRefreshing={isRefreshing}
-                refreshTitle="Refresh markets"
-                refreshAriaLabel="Refresh markets"
+                refreshTitle={t("marketPage.refreshMarkets")}
+                refreshAriaLabel={t("marketPage.refreshMarkets")}
                 headerClassName="sticky top-0"
-                rightExtra={
-                    <div className="relative hidden md:block">
-                        <Search
-                            size={13}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-                        />
-                        <input
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            type="text"
-                            placeholder={
-                                isStock
-                                    ? "Search stocks..."
-                                    : "Search assets..."
-                            }
-                            className="bg-secondary border border-transparent hover:border-main rounded-md py-1.5 pl-8 pr-3 text-[12px] w-48 focus:w-64 focus:outline-none focus:ring-1 focus:ring-accent/30 transition-all"
-                        />
-                    </div>
-                }
             />
 
             <main className="flex-1 max-w-[1600px] w-full mx-auto px-6 py-6 space-y-6">
@@ -770,7 +1079,17 @@ export default function MarketPage() {
                                             : "text-muted hover:text-main hover:bg-secondary/60",
                                     )}
                                 >
-                                    {tab}
+                                    {tab === "Top"
+                                        ? t("marketPage.top")
+                                        : tab === "Trending"
+                                          ? t("marketPage.trending")
+                                          : tab === "New"
+                                            ? t("marketPage.new")
+                                            : tab === "Most Visited"
+                                              ? t("marketPage.mostVisited")
+                                              : tab === "Gainers"
+                                                ? t("marketPage.gainers")
+                                                : t("marketPage.more")}
                                     {tab === "More" && (
                                         <ChevronDown size={11} />
                                     )}
@@ -793,7 +1112,18 @@ export default function MarketPage() {
                                                             : "text-muted hover:text-main hover:bg-main",
                                                     )}
                                                 >
-                                                    {option}
+                                                    {option ===
+                                                    "Highest Volume"
+                                                        ? t(
+                                                              "marketPage.highestVolume",
+                                                          )
+                                                        : option === "Losers"
+                                                          ? t(
+                                                                "marketPage.losers",
+                                                            )
+                                                          : t(
+                                                                "marketPage.mostVolatile",
+                                                            )}
                                                 </button>
                                             ))}
                                         </div>
@@ -861,7 +1191,9 @@ export default function MarketPage() {
                                                 : "bg-secondary border border-main text-muted hover:border-accent/40 hover:text-main",
                                         )}
                                     >
-                                        {chip}
+                                        {chip === "All Network"
+                                            ? t("marketPage.allNetwork")
+                                            : chip}
                                         {chip === "More" && (
                                             <ChevronDown size={11} />
                                         )}
@@ -877,6 +1209,19 @@ export default function MarketPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                        <div className="relative hidden md:block">
+                            <Search
+                                size={13}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                            />
+                            <input
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                type="text"
+                                placeholder={t("marketPage.searchAssets")}
+                                className="bg-secondary border border-main rounded-lg py-1.5 pl-8 pr-3 text-[11px] w-44 lg:w-52 focus:w-56 lg:focus:w-64 focus:outline-none focus:ring-1 focus:ring-accent/30 transition-all"
+                            />
+                        </div>
                         <div className="flex items-center rounded-lg border border-main overflow-hidden">
                             {MARKET_TABS.map((tab) => (
                                 <button
@@ -896,13 +1241,15 @@ export default function MarketPage() {
                                             : "text-muted hover:text-main hover:bg-secondary",
                                     )}
                                 >
-                                    {tab}
+                                    {tab === "Spot"
+                                        ? t("marketPage.spot")
+                                        : t("marketPage.futures")}
                                 </button>
                             ))}
                         </div>
                         <button className="flex items-center gap-1.5 bg-secondary border border-main px-3.5 py-1.5 rounded-lg text-[11px] text-muted hover:text-main hover:border-accent/40 transition-colors">
                             <Filter size={13} />
-                            Filter
+                            {t("marketPage.filter")}
                         </button>
                     </div>
                 </div>
@@ -931,30 +1278,30 @@ export default function MarketPage() {
                                         #
                                     </th>
                                     <th className="px-5 py-3.5 font-semibold">
-                                        Name
+                                        {t("marketPage.name")}
                                     </th>
                                     <th className="px-5 py-3.5 font-semibold text-right">
-                                        Price
+                                        {t("marketPage.price")}
                                     </th>
                                     {isStock ? (
                                         <>
                                             <th className="px-5 py-3.5 font-semibold text-right">
-                                                Day %
+                                                {t("marketPage.dayPercent")}
                                             </th>
                                             <th className="px-5 py-3.5 font-semibold text-right">
-                                                Day Range
+                                                {t("marketPage.dayRange")}
                                             </th>
                                             <th className="px-5 py-3.5 font-semibold text-right">
-                                                Volume
+                                                {t("marketPage.volume")}
                                             </th>
                                             <th className="px-5 py-3.5 font-semibold text-right">
-                                                Turnover
+                                                {t("marketPage.turnover")}
                                             </th>
                                             <th className="px-5 py-3.5 font-semibold text-center">
-                                                Exchange
+                                                {t("marketPage.exchange")}
                                             </th>
                                             <th className="px-5 py-3.5 font-semibold text-center">
-                                                Sector
+                                                {t("marketPage.sector")}
                                             </th>
                                         </>
                                     ) : (
@@ -969,16 +1316,16 @@ export default function MarketPage() {
                                                 7d %
                                             </th>
                                             <th className="px-5 py-3.5 font-semibold text-right">
-                                                Market Cap
+                                                {t("marketPage.marketCap")}
                                             </th>
                                             <th className="px-5 py-3.5 font-semibold text-right">
-                                                24h Volume
+                                                {t("marketPage.volume")}
                                             </th>
                                             <th className="px-5 py-3.5 font-semibold text-center">
-                                                Sentiment
+                                                {t("marketPage.sentiment")}
                                             </th>
                                             <th className="px-5 py-3.5 font-semibold text-center">
-                                                Last 7 Days
+                                                {t("marketPage.last7Days")}
                                             </th>
                                         </>
                                     )}
@@ -1129,7 +1476,7 @@ export default function MarketPage() {
                                                     colSpan={isStock ? 9 : 10}
                                                     className="px-5 py-8 text-center text-[12px] text-muted"
                                                 >
-                                                    No data
+                                                    {t("marketPage.noData")}
                                                 </td>
                                             </tr>
                                         )}

@@ -4,17 +4,27 @@ import React from "react";
 import { cn } from "../../lib/utils";
 import type { StreamRecord } from "../../lib/dataStream/types";
 import { Loader2 } from "lucide-react";
+import { useI18n } from "../../context/I18nContext";
 
 const GRID = "grid grid-cols-6 gap-x-3 px-3 items-center min-w-0";
 
-export function DataStreamTape({ records }: { records: StreamRecord[] }) {
+export function DataStreamTape({
+    records,
+    snapshotTradeLimit,
+    maxRecords,
+}: {
+    records: StreamRecord[];
+    snapshotTradeLimit: number;
+    maxRecords: number;
+}) {
+    const { t } = useI18n();
     return (
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden border border-main rounded-xl">
             <div className="px-3 py-3 border-b border-main bg-secondary/10 shrink-0 flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-main">
-                    Data Stream
+                    {t("dataStream.tape.title")}
                 </span>
-                <span className="inline-flex items-center gap-2">
+                <span className="inline-flex items-center gap-2 text-[10px] text-muted font-mono tabular-nums">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 </span>
             </div>
@@ -25,12 +35,14 @@ export function DataStreamTape({ records }: { records: StreamRecord[] }) {
                     "py-2 text-[9px] font-semibold uppercase tracking-wider text-muted border-b border-main bg-secondary/10 shrink-0",
                 )}
             >
-                <span className="text-left">Time</span>
-                <span className="text-left">Action</span>
-                <span className="text-left">Token</span>
-                <span className="text-right">Value</span>
-                <span className="text-left">Source</span>
-                <span className="text-left">Details</span>
+                <span className="text-left">{t("dataStream.tape.time")}</span>
+                <span className="text-left">{t("dataStream.tape.action")}</span>
+                <span className="text-left">{t("dataStream.tape.token")}</span>
+                <span className="text-right">{t("dataStream.tape.value")}</span>
+                <span className="text-left">{t("dataStream.tape.source")}</span>
+                <span className="text-left">
+                    {t("dataStream.tape.details")}
+                </span>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar">

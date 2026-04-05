@@ -25,6 +25,7 @@ import { useMarket } from "../../context/MarketContext";
 import { useUniverse } from "../../context/UniverseContext";
 import { NewsPageAiSummaryTooltip } from "./NewsPageAiSummaryTooltip";
 import { WorldSwitch } from "../shell/WorldSwitch";
+import { useI18n } from "../../context/I18nContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface NewsArticle {
@@ -114,6 +115,7 @@ const CENTER_GRID_SKELETON_COUNT = 4;
 const RIGHT_SKELETON_COUNT = 5;
 
 export const NewsPageClient = () => {
+    const { t, locale } = useI18n();
     const router = useRouter();
     const { assets, setSelectedSymbol } = useMarket();
     const { universe } = useUniverse();
@@ -191,10 +193,10 @@ export const NewsPageClient = () => {
         const mins = Math.floor(diff / 60_000);
         const hours = Math.floor(diff / 3_600_000);
         const days = Math.floor(diff / 86_400_000);
-        if (mins < 2) return "just now";
-        if (mins < 60) return `${mins}m ago`;
-        if (hours < 24) return `${hours}h ago`;
-        return `${days}d ago`;
+        if (mins < 2) return t("newsPage.justNow");
+        if (mins < 60) return t("newsPage.minutesAgo", { count: mins });
+        if (hours < 24) return t("newsPage.hoursAgo", { count: hours });
+        return t("newsPage.daysAgo", { count: days });
     };
 
     // ─── Existing market menu logic ─────────────────────────────────────────────
@@ -269,12 +271,15 @@ export const NewsPageClient = () => {
         router.push("/");
     };
 
-    const currentDate = new Date().toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-    });
+    const currentDate = new Date().toLocaleDateString(
+        locale === "vi" ? "vi-VN" : "en-US",
+        {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        },
+    );
     const isInitialNewsLoading = isLoadingNews && articles.length === 0;
 
     return (
@@ -286,15 +291,17 @@ export const NewsPageClient = () => {
             <div className="news-content-layer">
                 <div className="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center text-[10px] uppercase tracking-[0.2em] news-font-mono border-b border-black">
                     <div className="flex gap-6">
-                        <span>Vol. CLXXIV ... No. 59,234</span>
+                        <span>{t("newsPage.editionInfo")}</span>
                         <span className="hidden md:inline">
-                            Weather: Overcast 64°F
+                            {t("newsPage.weather")}
                         </span>
                     </div>
                     <div className="flex gap-6">
-                        <span className="font-bold">Price: $0.25</span>
+                        <span className="font-bold">
+                            {t("newsPage.newspaperPrice")}
+                        </span>
                         <span className="hidden sm:inline">
-                            Late City Edition
+                            {t("newsPage.lateCityEdition")}
                         </span>
                     </div>
                 </div>
@@ -306,22 +313,28 @@ export const NewsPageClient = () => {
                     >
                         <img
                             src="/logo.gif"
-                            alt="FinTrace logo"
+                            alt={t("topbar.logoAlt")}
                             className="h-6 w-6 object-contain"
                         />
                         FinTrace
                     </Link>
                     <Link href="/" className="hover:italic transition-all">
-                        Home
+                        {t("newsPage.home")}
                     </Link>
-                    <Link href="/market" className="hover:italic transition-all">
-                        Markets
+                    <Link
+                        href="/market"
+                        className="hover:italic transition-all"
+                    >
+                        {t("newsPage.markets")}
                     </Link>
-                    <Link href="/heatmap" className="hover:italic transition-all">
-                        Heatmap
+                    <Link
+                        href="/heatmap"
+                        className="hover:italic transition-all"
+                    >
+                        {t("newsPage.heatmap")}
                     </Link>
                     <Link href="/news" className="italic transition-all">
-                        News
+                        {t("newsPage.news")}
                     </Link>
                     <WorldSwitch />
                     <div ref={marketMenuRef} className="relative">
@@ -332,9 +345,9 @@ export const NewsPageClient = () => {
                             }
                             className="hover:italic transition-all inline-flex items-center gap-1"
                             aria-expanded={isMarketMenuOpen}
-                            aria-label="Open market dropdown"
+                            aria-label={t("newsPage.openMarketDropdown")}
                         >
-                            SEARCH
+                            {t("newsPage.search")}
                             <ChevronDown
                                 size={12}
                                 className={`transition-transform ${isMarketMenuOpen ? "rotate-180" : ""}`}
@@ -357,7 +370,9 @@ export const NewsPageClient = () => {
                                                     event.target.value,
                                                 )
                                             }
-                                            placeholder="Search asset..."
+                                            placeholder={t(
+                                                "newsPage.searchAsset",
+                                            )}
                                             className="w-full bg-transparent border border-black/30 py-1.5 pl-8 pr-2 text-[11px] news-font-mono focus:outline-none focus:border-black"
                                             autoFocus
                                         />
@@ -367,7 +382,7 @@ export const NewsPageClient = () => {
                                 <div className="max-h-80 overflow-y-auto">
                                     {filteredMarketAssets.length === 0 ? (
                                         <p className="px-3 py-5 text-[11px] news-font-mono opacity-60">
-                                            No matching assets.
+                                            {t("newsPage.noMatchingAssets")}
                                         </p>
                                     ) : (
                                         filteredMarketAssets.map((asset) => (
@@ -383,10 +398,14 @@ export const NewsPageClient = () => {
                                                     {asset.symbol}
                                                 </span>
                                                 <span className="text-[10px] news-font-mono">
-                                                    ${asset.price.toLocaleString("en-US", {
-                                                        minimumFractionDigits: 2,
-                                                        maximumFractionDigits: 2,
-                                                    })}
+                                                    $
+                                                    {asset.price.toLocaleString(
+                                                        "en-US",
+                                                        {
+                                                            minimumFractionDigits: 2,
+                                                            maximumFractionDigits: 2,
+                                                        },
+                                                    )}
                                                 </span>
                                             </button>
                                         ))
@@ -405,12 +424,12 @@ export const NewsPageClient = () => {
                     <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                         <div className="hidden md:block w-48 text-left">
                             <p className="text-[10px] news-font-mono uppercase leading-tight">
-                                "All the News That's
+                                "{t("newsPage.headerMottoLine1")}
                                 <br />
-                                Fit to Print"
+                                {t("newsPage.headerMottoLine2")}"
                             </p>
                         </div>
-                        
+
                         <h1 className="news-font-display font-black text-6xl md:text-8xl lg:text-9xl tracking-tighter italic">
                             <span className="inline-flex items-center gap-3 md:gap-5">
                                 <span>FinTrace</span>
@@ -419,9 +438,9 @@ export const NewsPageClient = () => {
 
                         <div className="hidden md:block w-48 text-right">
                             <p className="text-[10px] news-font-mono uppercase leading-tight">
-                                Established 2016
+                                {t("newsPage.established2026")}
                                 <br />
-                                Ho Chi Minh City , Tuesday
+                                {t("newsPage.cityDateLine")}
                             </p>
                         </div>
                     </div>
@@ -459,16 +478,20 @@ export const NewsPageClient = () => {
                         <aside className="lg:col-span-3 order-2 lg:order-1 flex flex-col gap-8">
                             <div className="news-newspaper-border p-4 bg-white/50">
                                 <h4 className="news-font-display font-bold text-lg border-b border-black pb-2 mb-4 flex items-center justify-between">
-                                    Market Watch
+                                    {t("newsPage.marketWatch")}
                                     <Globe size={14} />
                                 </h4>
                                 <table className="w-full text-[10px] news-font-mono border-collapse">
                                     <thead>
                                         <tr className="border-b border-black/20 text-left">
-                                            <th className="pb-2">Asset</th>
-                                            <th className="pb-2">Price</th>
+                                            <th className="pb-2">
+                                                {t("newsPage.asset")}
+                                            </th>
+                                            <th className="pb-2">
+                                                {t("newsPage.price")}
+                                            </th>
                                             <th className="pb-2 text-right">
-                                                Chg%
+                                                {t("newsPage.changePercent")}
                                             </th>
                                         </tr>
                                     </thead>
@@ -494,8 +517,7 @@ export const NewsPageClient = () => {
                                     </tbody>
                                 </table>
                                 <div className="mt-4 pt-2 border-t border-black/10 text-[8px] italic opacity-60">
-                                    * Data delayed by 30 seconds. Source:
-                                    FinTrace.
+                                    {t("newsPage.dataDelayedNote")}
                                 </div>
                             </div>
 
@@ -531,8 +553,12 @@ export const NewsPageClient = () => {
                                                           className={`${idx === 0 ? "bg-black text-white" : "border border-black"} px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest`}
                                                       >
                                                           {idx === 0
-                                                              ? "Analysis"
-                                                              : "Breaking"}
+                                                              ? t(
+                                                                    "newsPage.analysis",
+                                                                )
+                                                              : t(
+                                                                    "newsPage.breaking",
+                                                                )}
                                                       </span>
                                                       <span className="text-[9px] news-font-mono text-gray-500">
                                                           {article.relativeTime}
@@ -574,23 +600,22 @@ export const NewsPageClient = () => {
 
                             <div className="bg-black text-white p-6 text-center mt-4">
                                 <p className="text-[10px] news-font-mono uppercase tracking-[0.3em] mb-4">
-                                    Open to opportunities
+                                    {t("newsPage.openToOpportunities")}
                                 </p>
                                 <h4 className="news-font-display italic text-2xl md:text-3xl mb-2 leading-tight">
                                     Nguyen Thanh Tung
                                 </h4>
                                 <p className="text-[10px] news-font-mono uppercase mb-1 opacity-90">
-                                    Software engineer
+                                    {t("newsPage.softwareEngineer")}
                                 </p>
                                 <p className="text-[9px] news-font-mono leading-relaxed opacity-75 mb-4 max-w-[14rem] mx-auto">
-                                    Product-minded builder · reliable systems &
-                                    clear ship velocity.
+                                    {t("newsPage.profileTagline")}
                                 </p>
                                 <a
                                     href="mailto:?subject=Opportunity%20%E2%80%94%20Nguyen%20Thanh%20Tung&body=Hi%20Tung%2C%0A%0AWe%27d%20like%20to%20discuss%20a%20role%20with%20you.%0A%0A"
                                     className="inline-block border border-white/30 px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-white hover:text-black transition-colors"
                                 >
-                                    Hire me
+                                    {t("newsPage.hireMe")}
                                 </a>
                             </div>
                         </aside>
@@ -648,17 +673,22 @@ export const NewsPageClient = () => {
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="block"
-                                                aria-label={centerArticles[0].title}
+                                                aria-label={
+                                                    centerArticles[0].title
+                                                }
                                             >
                                                 <div className="aspect-video overflow-hidden mb-6 grayscale contrast-110 border border-black relative bg-black/5">
                                                     <img
                                                         src={`https://picsum.photos/seed/${centerArticles[0].id}/800/450`}
-                                                        alt={centerArticles[0].title}
+                                                        alt={
+                                                            centerArticles[0]
+                                                                .title
+                                                        }
                                                         className="w-full h-full object-cover"
                                                         referrerPolicy="no-referrer"
                                                     />
                                                     <div className="absolute top-4 left-4 bg-black text-white px-2 py-1 text-[9px] uppercase tracking-widest font-bold">
-                                                        Must Read
+                                                        {t("newsPage.mustRead")}
                                                     </div>
                                                 </div>
                                             </a>
@@ -668,7 +698,9 @@ export const NewsPageClient = () => {
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="block"
-                                                aria-label={centerArticles[0].title}
+                                                aria-label={
+                                                    centerArticles[0].title
+                                                }
                                             >
                                                 <h2 className="news-font-display font-black text-3xl md:text-4xl lg:text-5xl leading-[0.9] mb-6 tracking-tight group-hover:underline">
                                                     {centerArticles[0].title}
@@ -679,28 +711,40 @@ export const NewsPageClient = () => {
                                                 <div className="w-12 h-12 rounded-full grayscale border border-black overflow-hidden bg-black/5">
                                                     <img
                                                         src={`https://picsum.photos/seed/author-${centerArticles[0].id}/100/100`}
-                                                        alt="Author"
+                                                        alt={t(
+                                                            "newsPage.author",
+                                                        )}
                                                         referrerPolicy="no-referrer"
                                                     />
                                                 </div>
                                                 <div>
                                                     <p className="text-xs font-bold uppercase tracking-tighter">
-                                                        {centerArticles[0].source}
+                                                        {
+                                                            centerArticles[0]
+                                                                .source
+                                                        }
                                                     </p>
                                                     <p className="text-[10px] news-font-mono text-gray-500">
-                                                        {centerArticles[0].relativeTime ||
+                                                        {centerArticles[0]
+                                                            .relativeTime ||
                                                             formatTimeAgo(
-                                                                centerArticles[0].publishedAt,
+                                                                centerArticles[0]
+                                                                    .publishedAt,
                                                             )}
                                                     </p>
                                                 </div>
                                                 <div className="ml-auto flex gap-2 items-center">
                                                     <NewsPageAiSummaryTooltip
-                                                        article={centerArticles[0]}
+                                                        article={
+                                                            centerArticles[0]
+                                                        }
                                                         buttonClassName="p-2 rounded-full border-black/20"
                                                     />
                                                     <a
-                                                        href={centerArticles[0].url}
+                                                        href={
+                                                            centerArticles[0]
+                                                                .url
+                                                        }
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="p-2 border border-black/20 rounded-full hover:bg-black hover:text-white transition-colors"
@@ -711,17 +755,28 @@ export const NewsPageClient = () => {
                                             </div>
 
                                             <div className="space-y-3 text-base leading-relaxed">
-                                                {centerArticles[0].description && (
-                                                    <p>{centerArticles[0].description}</p>
+                                                {centerArticles[0]
+                                                    .description && (
+                                                    <p>
+                                                        {
+                                                            centerArticles[0]
+                                                                .description
+                                                        }
+                                                    </p>
                                                 )}
                                                 <p className="text-[13px]">
                                                     <a
-                                                        href={centerArticles[0].url}
+                                                        href={
+                                                            centerArticles[0]
+                                                                .url
+                                                        }
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="text-blue-600 hover:underline"
                                                     >
-                                                        Read full article →
+                                                        {t(
+                                                            "newsPage.readFullArticle",
+                                                        )}
                                                     </a>
                                                 </p>
                                             </div>
@@ -735,46 +790,66 @@ export const NewsPageClient = () => {
 
                                     {centerArticles.length > 1 && (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-black">
-                                            {centerArticles.slice(1).map((article) => (
-                                                <article key={article.id} className="group cursor-pointer">
-                                                    <a
-                                                        href={article.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="block"
-                                                        aria-label={article.title}
+                                            {centerArticles
+                                                .slice(1)
+                                                .map((article) => (
+                                                    <article
+                                                        key={article.id}
+                                                        className="group cursor-pointer"
                                                     >
-                                                        <h4 className="news-font-display font-bold text-lg mb-2 group-hover:underline italic">
-                                                            {article.title}
-                                                        </h4>
-                                                    </a>
-                                                    {article.description && (
-                                                        <p className="text-xs leading-relaxed opacity-80">
-                                                            {article.description.substring(0, 120)}...
-                                                        </p>
-                                                    )}
-                                                    <div className="mt-3 flex items-center justify-between gap-2 text-[9px] news-font-mono uppercase text-gray-500">
-                                                        <span className="min-w-0">
-                                                            {article.source} •{" "}
-                                                            {article.relativeTime ||
-                                                                formatTimeAgo(
-                                                                    article.publishedAt,
+                                                        <a
+                                                            href={article.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="block"
+                                                            aria-label={
+                                                                article.title
+                                                            }
+                                                        >
+                                                            <h4 className="news-font-display font-bold text-lg mb-2 group-hover:underline italic">
+                                                                {article.title}
+                                                            </h4>
+                                                        </a>
+                                                        {article.description && (
+                                                            <p className="text-xs leading-relaxed opacity-80">
+                                                                {article.description.substring(
+                                                                    0,
+                                                                    120,
                                                                 )}
-                                                        </span>
-                                                        <span className="flex items-center gap-2 shrink-0">
-                                                            <NewsPageAiSummaryTooltip article={article} />
-                                                            <a
-                                                                href={article.url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="hover:text-black"
-                                                            >
-                                                                Read →
-                                                            </a>
-                                                        </span>
-                                                    </div>
-                                                </article>
-                                            ))}
+                                                                ...
+                                                            </p>
+                                                        )}
+                                                        <div className="mt-3 flex items-center justify-between gap-2 text-[9px] news-font-mono uppercase text-gray-500">
+                                                            <span className="min-w-0">
+                                                                {article.source}{" "}
+                                                                •{" "}
+                                                                {article.relativeTime ||
+                                                                    formatTimeAgo(
+                                                                        article.publishedAt,
+                                                                    )}
+                                                            </span>
+                                                            <span className="flex items-center gap-2 shrink-0">
+                                                                <NewsPageAiSummaryTooltip
+                                                                    article={
+                                                                        article
+                                                                    }
+                                                                />
+                                                                <a
+                                                                    href={
+                                                                        article.url
+                                                                    }
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="hover:text-black"
+                                                                >
+                                                                    {t(
+                                                                        "newsPage.readMore",
+                                                                    )}
+                                                                </a>
+                                                            </span>
+                                                        </div>
+                                                    </article>
+                                                ))}
                                         </div>
                                     )}
                                 </>
@@ -785,15 +860,19 @@ export const NewsPageClient = () => {
                                 <button
                                     type="button"
                                     onClick={handlePrevious}
-                                    disabled={isInitialNewsLoading || currentPage === 0}
+                                    disabled={
+                                        isInitialNewsLoading ||
+                                        currentPage === 0
+                                    }
                                     className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${
-                                        isInitialNewsLoading || currentPage === 0
+                                        isInitialNewsLoading ||
+                                        currentPage === 0
                                             ? "opacity-50 cursor-not-allowed"
                                             : "hover:italic"
                                     }`}
                                 >
                                     <ChevronLeft size={14} />
-                                    Previous
+                                    {t("newsPage.previous")}
                                 </button>
                                 <button
                                     type="button"
@@ -809,7 +888,7 @@ export const NewsPageClient = () => {
                                             : "hover:italic"
                                     }`}
                                 >
-                                    Next
+                                    {t("newsPage.next")}
                                     <ChevronRight size={14} />
                                 </button>
                             </div>
@@ -822,12 +901,12 @@ export const NewsPageClient = () => {
                                         size={12}
                                         className="text-yellow-400"
                                     />
-                                    Flash Report
+                                    {t("newsPage.flashReport")}
                                 </h5>
                                 <div className="space-y-4">
                                     <div>
                                         <p className="text-[9px] uppercase opacity-60">
-                                            24h Volume
+                                            {t("newsPage.volume24h")}
                                         </p>
                                         <p className="text-xl news-font-display italic">
                                             {volume24h}
@@ -838,7 +917,7 @@ export const NewsPageClient = () => {
                                     </div>
                                     <div>
                                         <p className="text-[9px] uppercase opacity-60">
-                                            BTC Dominance
+                                            {t("newsPage.btcDominance")}
                                         </p>
                                         <p className="text-xl news-font-display italic">
                                             {btcDominance}
@@ -849,8 +928,7 @@ export const NewsPageClient = () => {
                                     </div>
                                     <div className="pt-2 border-t border-white/20">
                                         <p className="text-[8px] leading-tight opacity-80">
-                                            "Volatility is the price of
-                                            admission for the future of money."
+                                            "{t("newsPage.flashQuote")}"
                                         </p>
                                     </div>
                                 </div>
@@ -859,7 +937,7 @@ export const NewsPageClient = () => {
                             {/* Right column articles */}
                             <div className="space-y-6">
                                 <h4 className="text-[10px] news-font-mono uppercase tracking-[0.2em] border-b border-black pb-2">
-                                    Trending News
+                                    {t("newsPage.trendingNews")}
                                 </h4>
 
                                 {isInitialNewsLoading
@@ -897,7 +975,9 @@ export const NewsPageClient = () => {
                                                       <div className="w-28 h-28 grayscale border border-black overflow-hidden bg-black/5">
                                                           <img
                                                               src={`https://picsum.photos/seed/${article.id}-thumb/200/120`}
-                                                              alt={article.title}
+                                                              alt={
+                                                                  article.title
+                                                              }
                                                               className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                                                               referrerPolicy="no-referrer"
                                                           />
@@ -909,7 +989,9 @@ export const NewsPageClient = () => {
                                                           target="_blank"
                                                           rel="noopener noreferrer"
                                                           className="block"
-                                                          aria-label={article.title}
+                                                          aria-label={
+                                                              article.title
+                                                          }
                                                       >
                                                           <h5 className="text-sm font-bold leading-tight group-hover:underline line-clamp-3">
                                                               {article.title}
@@ -917,24 +999,31 @@ export const NewsPageClient = () => {
                                                       </a>
                                                       {article.description && (
                                                           <p className="text-[10px] leading-relaxed opacity-70 line-clamp-2">
-                                                              {article.description}
+                                                              {
+                                                                  article.description
+                                                              }
                                                           </p>
                                                       )}
                                                   </div>
                                               </div>
                                               <div className="flex items-center justify-between gap-2 text-[9px] news-font-mono text-gray-600">
                                                   <span className="min-w-0 truncate">
-                                                      {article.source} • {article.relativeTime}
+                                                      {article.source} •{" "}
+                                                      {article.relativeTime}
                                                   </span>
                                                   <span className="flex items-center gap-2 shrink-0">
-                                                      <NewsPageAiSummaryTooltip article={article} />
+                                                      <NewsPageAiSummaryTooltip
+                                                          article={article}
+                                                      />
                                                       <a
                                                           href={article.url}
                                                           target="_blank"
                                                           rel="noopener noreferrer"
                                                           className="text-[10px] text-blue-600 hover:underline font-medium"
                                                       >
-                                                          Read →
+                                                          {t(
+                                                              "newsPage.readMore",
+                                                          )}
                                                       </a>
                                                   </span>
                                               </div>
@@ -944,19 +1033,19 @@ export const NewsPageClient = () => {
 
                             <div className="news-newspaper-divider-thick pt-6">
                                 <h4 className="news-font-display font-bold text-xl mb-2">
-                                    Subscribe to all the news
+                                    {t("newsPage.subscribeTitle")}
                                 </h4>
                                 <p className="text-[10px] news-font-mono uppercase text-gray-500 mb-4">
-                                    Never miss the latest updates.
+                                    {t("newsPage.subscribeHint")}
                                 </p>
                                 <div className="space-y-3">
                                     <input
                                         type="email"
-                                        placeholder="Email address"
+                                        placeholder={t("newsPage.emailAddress")}
                                         className="w-full bg-transparent border-b border-black py-2 text-sm focus:outline-none focus:border-b-2 placeholder:text-black/30"
                                     />
                                     <button className="w-full bg-black text-white py-3 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-gray-800 transition-colors">
-                                        Sign Me Up
+                                        {t("newsPage.signMeUp")}
                                     </button>
                                 </div>
                             </div>
@@ -971,73 +1060,72 @@ export const NewsPageClient = () => {
                                 FinTrace
                             </h2>
                             <p className="text-[10px] news-font-mono uppercase leading-relaxed opacity-60">
-                                Your trusted companion for crypto market insights,
-                                real-time analytics, and tomorrow's investment edge.
+                                {t("newsPage.footerTagline")}
                             </p>
                         </div>
                         <div className="grid grid-cols-2 gap-4 md:col-span-2">
                             <div className="space-y-2">
                                 <h5 className="text-[10px] font-bold uppercase tracking-widest mb-4">
-                                    Navigate
+                                    {t("newsPage.navigate")}
                                 </h5>
                                 <Link
                                     href="/"
                                     className="block text-xs hover:italic"
                                 >
-                                    Dashboard
+                                    {t("newsPage.dashboard")}
                                 </Link>
                                 <Link
                                     href="/market"
                                     className="block text-xs hover:italic"
                                 >
-                                    Market
+                                    {t("newsPage.market")}
                                 </Link>
                                 <Link
                                     href="/heatmap"
                                     className="block text-xs hover:italic"
                                 >
-                                    Heatmap
+                                    {t("newsPage.heatmap")}
                                 </Link>
                                 <Link
                                     href="/news"
                                     className="block text-xs hover:italic"
                                 >
-                                    News
+                                    {t("newsPage.news")}
                                 </Link>
                             </div>
                             <div className="space-y-2">
                                 <h5 className="text-[10px] font-bold uppercase tracking-widest mb-4">
-                                    Support
+                                    {t("newsPage.support")}
                                 </h5>
                                 <a
                                     href="#"
                                     className="block text-xs hover:italic"
                                 >
-                                    Help Center
+                                    {t("newsPage.helpCenter")}
                                 </a>
                                 <a
                                     href="#"
                                     className="block text-xs hover:italic"
                                 >
-                                    Subscriptions
+                                    {t("newsPage.subscriptions")}
                                 </a>
                                 <a
                                     href="#"
                                     className="block text-xs hover:italic"
                                 >
-                                    Gift Cards
+                                    {t("newsPage.giftCards")}
                                 </a>
                                 <a
                                     href="#"
                                     className="block text-xs hover:italic"
                                 >
-                                    Contact Us
+                                    {t("newsPage.contactUs")}
                                 </a>
                             </div>
                         </div>
                         <div className="md:col-span-1">
                             <h5 className="text-[10px] font-bold uppercase tracking-widest mb-4">
-                                Follow Me
+                                {t("newsPage.followMe")}
                             </h5>
                             <div className="flex gap-4">
                                 {["FB", "TW", "IG"].map((social) => (
@@ -1054,11 +1142,11 @@ export const NewsPageClient = () => {
                         </div>
                     </div>
                     <div className="pt-8 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-4 text-[9px] news-font-mono uppercase tracking-widest opacity-50">
-                        <p>© 2026 The FinTrace Company. All rights reserved.</p>
+                        <p>{t("newsPage.copyright")}</p>
                         <div className="flex gap-6">
-                            <a href="#">Privacy Policy</a>
-                            <a href="#">Terms of Service</a>
-                            <a href="#">Cookie Settings</a>
+                            <a href="#">{t("newsPage.privacyPolicy")}</a>
+                            <a href="#">{t("newsPage.termsOfService")}</a>
+                            <a href="#">{t("newsPage.cookieSettings")}</a>
                         </div>
                     </div>
                 </footer>

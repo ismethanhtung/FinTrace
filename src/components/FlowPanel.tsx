@@ -18,6 +18,7 @@ import { useMarket } from "../context/MarketContext";
 import { useMarketFlow, PERIODS, FlowPeriod } from "../hooks/useMarketFlow";
 import { cn } from "../lib/utils";
 import { RefreshCw, Info, AlertCircle } from "lucide-react";
+import { useI18n } from "../context/I18nContext";
 
 const PERIOD_LABELS: Record<FlowPeriod, string> = {
     "15m": "15m",
@@ -140,6 +141,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export const FlowPanel = () => {
+    const { t } = useI18n();
     const { selectedSymbol } = useMarket();
     const [period, setPeriod] = useState<FlowPeriod>("1d");
     const { data, isLoading, isRefreshing, error, refetch } = useMarketFlow(
@@ -250,14 +252,14 @@ export const FlowPanel = () => {
                 <div className="flex flex-col items-center space-y-3 text-center max-w-xs">
                     <AlertCircle size={20} className="text-rose-500" />
                     <p className="text-[12px] text-rose-500 font-medium">
-                        Lỗi tải dữ liệu
+                        {t("flowPanel.loadError")}
                     </p>
                     <p className="text-[10px] text-muted">{error}</p>
                     <button
                         onClick={refetch}
                         className="px-3 py-1.5 bg-accent/20 text-accent text-[10px] font-medium rounded hover:bg-accent/30 transition-colors"
                     >
-                        Thử lại
+                        {t("flowPanel.tryAgain")}
                     </button>
                 </div>
             </div>
@@ -301,7 +303,7 @@ export const FlowPanel = () => {
                 <section className="bg-main p-4 border-b border-main lg:border-r">
                     <div className="flex items-center space-x-1.5 mb-3">
                         <span className="text-[11px] font-bold text-main uppercase tracking-wide">
-                            Phân tích dòng tiền
+                            {t("flowPanel.moneyFlowAnalysis")}
                         </span>
                         <Info size={11} className="text-muted" />
                     </div>
@@ -359,7 +361,7 @@ export const FlowPanel = () => {
                 <section className="bg-main p-4 border-b border-main">
                     <div className="flex items-center space-x-1.5 mb-2">
                         <span className="text-[11px] font-bold text-main uppercase tracking-wide">
-                            Bảng số liệu ({baseSymbol})
+                            {t("flowPanel.statTable", { symbol: baseSymbol })}
                         </span>
                     </div>
                     {buckets && (
@@ -368,33 +370,33 @@ export const FlowPanel = () => {
                                 <thead className="bg-secondary/20 text-muted">
                                     <tr>
                                         <th className="py-1 px-2 text-left font-medium">
-                                            Lệnh
+                                            {t("flowPanel.orderSize")}
                                         </th>
                                         <th className="py-1 px-2 font-medium">
-                                            Mua
+                                            {t("flowPanel.buy")}
                                         </th>
                                         <th className="py-1 px-2 font-medium">
-                                            Bán
+                                            {t("flowPanel.sell")}
                                         </th>
                                         <th className="py-1 px-2 font-medium">
-                                            Dòng vào
+                                            {t("flowPanel.inflow")}
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-main">
                                     {[
                                         {
-                                            label: "Lớn",
+                                            label: t("flowPanel.large"),
                                             buy: buckets.large.buy,
                                             sell: buckets.large.sell,
                                         },
                                         {
-                                            label: "TB",
+                                            label: t("flowPanel.medium"),
                                             buy: buckets.medium.buy,
                                             sell: buckets.medium.sell,
                                         },
                                         {
-                                            label: "Nhỏ",
+                                            label: t("flowPanel.small"),
                                             buy: buckets.small.buy,
                                             sell: buckets.small.sell,
                                         },
@@ -429,7 +431,7 @@ export const FlowPanel = () => {
                                     })}
                                     <tr className="bg-secondary/5 font-bold">
                                         <td className="py-1 px-2 text-left">
-                                            Tổng
+                                            {t("flowPanel.total")}
                                         </td>
                                         <td className="py-1 px-2 text-emerald-500">
                                             {numFmt(totalBuy, 2)}
@@ -458,7 +460,9 @@ export const FlowPanel = () => {
                 <section className="bg-main p-4 border-b border-main lg:border-r">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-[11px] font-bold text-main uppercase tracking-wide">
-                            Dòng vào Taker ({baseSymbol})
+                            {t("flowPanel.takerInflow", {
+                                symbol: baseSymbol,
+                            })}
                         </span>
                         <Info size={11} className="text-muted" />
                     </div>
@@ -505,7 +509,7 @@ export const FlowPanel = () => {
                 <section className="bg-main p-4 border-b border-main">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-[11px] font-bold text-main uppercase tracking-wide">
-                            Thay đổi OI (Nợ ký quỹ)
+                            {t("flowPanel.oiChange")}
                         </span>
                         <Info size={11} className="text-muted" />
                     </div>
@@ -542,7 +546,7 @@ export const FlowPanel = () => {
                 <section className="bg-main p-4 border-b border-main lg:col-span-2">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-[11px] font-bold text-main uppercase tracking-wide">
-                            Tỷ lệ vị thế Long/Short
+                            {t("flowPanel.longShortRatio")}
                         </span>
                         {lsChartData.length > 0 &&
                             (() => {
@@ -602,7 +606,7 @@ export const FlowPanel = () => {
                             className="animate-spin text-muted"
                         />
                         <span className="text-[11px] text-muted">
-                            Đang truy xuất dữ liệu từ Binance...
+                            {t("flowPanel.loadingFromBinance")}
                         </span>
                     </div>
                 )}
@@ -611,7 +615,7 @@ export const FlowPanel = () => {
                 <div className="sticky bottom-2 flex justify-center pointer-events-none">
                     <div className="px-2 py-1 rounded-md border border-main bg-main/90 text-[10px] text-muted inline-flex items-center gap-1.5">
                         <RefreshCw size={10} className="animate-spin" />
-                        Đang cập nhật dữ liệu...
+                        {t("flowPanel.refreshing")}
                     </div>
                 </div>
             )}

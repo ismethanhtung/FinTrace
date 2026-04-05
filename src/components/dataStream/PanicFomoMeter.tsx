@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { cn } from "../../lib/utils";
 import { QuestionTooltip } from "../ui/QuestionTooltip";
+import { useI18n } from "../../context/I18nContext";
 
 export function PanicFomoMeter({
     panicScore,
@@ -11,6 +12,7 @@ export function PanicFomoMeter({
     panicScore: number;
     fomoScore: number;
 }) {
+    const { t } = useI18n();
     const { leftPct, rightPct } = useMemo(() => {
         const panic = Math.max(0, Math.min(1, panicScore));
         const fomo = Math.max(0, Math.min(1, fomoScore));
@@ -24,21 +26,25 @@ export function PanicFomoMeter({
 
     const label =
         panicScore > fomoScore + 0.08
-            ? "Panic"
+            ? t("dataStream.panicFomo.panic")
             : fomoScore > panicScore + 0.08
-              ? "FOMO"
-              : "Neutral";
+              ? t("dataStream.panicFomo.fomo")
+              : t("dataStream.panicFomo.neutral");
 
     const accentTone =
-        label === "Panic" ? "text-rose-500" : label === "FOMO" ? "text-emerald-500" : "text-muted";
+        label === t("dataStream.panicFomo.panic")
+            ? "text-rose-500"
+            : label === t("dataStream.panicFomo.fomo")
+              ? "text-emerald-500"
+              : "text-muted";
 
     return (
         <div className="rounded-lg border border-main bg-main/50 p-3">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-[10px] text-muted uppercase tracking-widest font-bold">
-                    Panic / FOMO
+                    {t("dataStream.panicFomo.title")}
                     <QuestionTooltip
-                        text="Panic: SELL-dominant + tốc độ cao. FOMO: BUY-dominant + tốc độ cao. Meter phản ánh 'nhịp' và 'phe nào chiếm ưu thế' trong cửa sổ gần nhất."
+                        text={t("dataStream.panicFomo.tooltip")}
                     />
                 </div>
                 <div className={cn("text-[12px] font-mono font-semibold tabular-nums", accentTone)}>
@@ -59,14 +65,15 @@ export function PanicFomoMeter({
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[9px] text-muted font-mono">
                     <span>
-                        Panic: {(panicScore * 100).toFixed(0)}%
+                        {t("dataStream.panicFomo.panic")}:{" "}
+                        {(panicScore * 100).toFixed(0)}%
                     </span>
                     <span>
-                        FOMO: {(fomoScore * 100).toFixed(0)}%
+                        {t("dataStream.panicFomo.fomo")}:{" "}
+                        {(fomoScore * 100).toFixed(0)}%
                     </span>
                 </div>
             </div>
         </div>
     );
 }
-

@@ -21,7 +21,7 @@ type WorkerIncoming =
     | DataStreamWorkerEventMessage
     | DataStreamWorkerResetMessage;
 
-const MAX_RECORDS_FALLBACK = 100;
+const MAX_RECORDS_FALLBACK = 250;
 const FLUSH_MS = 150;
 const SPEED_WINDOW_MS = 10_000;
 const NET_WINDOW_MS = 30_000;
@@ -327,4 +327,3 @@ setInterval(() => {
 
     (self as any).postMessage(state);
 }, FLUSH_MS);
-

@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useAppSettings } from "../../context/AppSettingsContext";
 import { aiProviderService } from "../../services/aiProviderService";
 import { cn } from "../../lib/utils";
+import { useI18n } from "../../context/I18nContext";
 
 export type NewsPageSummaryArticle = {
     id: string;
@@ -23,8 +24,11 @@ export type NewsPageSummaryArticle = {
     description?: string;
 };
 
-const SUMMARY_SYSTEM_PROMPT =
+const SUMMARY_SYSTEM_PROMPT_VI =
     "Bạn là chuyên gia phân tích tài chính AI. Nhiệm vụ của bạn là đọc tin tức, sau đó trả về chuẩn xác theo định dạng Markdown tiếng Việt thật ngắn gọn:\n1. 2-3 gạch đầu dòng tóm tắt ý chính.\n2. Cuối cùng, bắt buộc kết luận bằng dòng chữ:\n\n**Đánh giá:** [Tích cực / Tiêu cực / Bình thường / Không liên quan / Giật tít rẻ tiền] - (1 câu giải thích ngắn).";
+
+const SUMMARY_SYSTEM_PROMPT_EN =
+    "You are an AI financial analyst. Read the news and return a concise English Markdown output:\n1. 2-3 bullet points of key takeaways.\n2. End with:\n\n**Verdict:** [Positive / Negative / Neutral / Not relevant / Clickbait] - (one short explanation sentence).";
 
 function hostFromUrl(url: string): string {
     try {
@@ -45,6 +49,7 @@ export function NewsPageAiSummaryTooltip({
     /** Override trigger button look */
     buttonClassName?: string;
 }) {
+    const { t, locale } = useI18n();
     const { activeProviderId, activeProvider, selectedModel } = useAppSettings();
     const [showSummary, setShowSummary] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
@@ -102,18 +107,22 @@ export function NewsPageAiSummaryTooltip({
                 activeProvider?.baseUrl,
                 selectedModel,
                 [
-                    { role: "system", content: SUMMARY_SYSTEM_PROMPT },
+                    {
+                        role: "system",
+                        content:
+                            locale === "vi"
+                                ? SUMMARY_SYSTEM_PROMPT_VI
+                                : SUMMARY_SYSTEM_PROMPT_EN,
+                    },
                     {
                         role: "user",
-                        content: `Title: ${article.title}\nContent: ${article.description || "Không có thêm nội dung."}`,
+                        content: `Title: ${article.title}\nContent: ${article.description || t("newsTooltip.noExtraContent")}`,
                     },
                 ],
             );
-            setSummary(text || "(Không có nội dung tóm tắt.)");
+            setSummary(text || t("newsTooltip.noSummary"));
         } catch (err) {
-            setError(
-                err instanceof Error ? err.message : "Lỗi khi tóm tắt",
-            );
+            setError(err instanceof Error ? err.message : t("newsTooltip.summaryError"));
         } finally {
             setIsSummarizing(false);
         }
@@ -171,8 +180,8 @@ export function NewsPageAiSummaryTooltip({
                 ref={buttonRef}
                 type="button"
                 onClick={toggle}
-                title="Tóm tắt AI"
-                aria-label="Mở tóm tắt AI"
+                title={t("newsTooltip.aiSummary")}
+                aria-label={t("newsTooltip.openAiSummary")}
                 className={cn(
                     "p-1 rounded border border-black/25 bg-white/60 hover:bg-black hover:text-white transition-colors",
                     "news-font-mono",
@@ -213,7 +222,7 @@ export function NewsPageAiSummaryTooltip({
                                 <div className="flex items-start justify-between gap-2 mb-2 border-b border-black/15 pb-2">
                                     <div className="min-w-0 flex-1">
                                         <p className="text-[10px] uppercase tracking-wide text-gray-600/90 news-font-mono">
-                                            Tóm tắt AI · {article.source}
+                                            {t("newsTooltip.aiSummary")} · {article.source}
                                         </p>
                                         <p className="text-[9px] text-gray-500 news-font-mono mt-0.5">
                                             {article.relativeTime} · {hostFromUrl(article.url)}
@@ -224,7 +233,7 @@ export function NewsPageAiSummaryTooltip({
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="shrink-0 p-1.5 border border-black/20 hover:bg-black hover:text-white transition-colors rounded"
-                                        title="Đọc bài gốc"
+                                        title={t("newsTooltip.readOriginal")}
                                     >
                                         <ExternalLink size={12} />
                                     </a>
@@ -244,7 +253,7 @@ export function NewsPageAiSummaryTooltip({
                                                     href="/settings"
                                                     className="underline font-semibold"
                                                 >
-                                                    Mở Settings
+                                                    {t("newsTooltip.openSettings")}
                                                 </Link>
                                             </>
                                         )}
@@ -257,7 +266,7 @@ export function NewsPageAiSummaryTooltip({
                                             size={14}
                                             className="animate-spin shrink-0"
                                         />
-                                        Đang tóm tắt…
+                                        {t("newsTooltip.summarizing")}
                                     </div>
                                 )}
 

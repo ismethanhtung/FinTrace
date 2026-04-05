@@ -5,20 +5,26 @@ import { ArrowLeftRight } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useUniverse } from "../../context/UniverseContext";
 import type { AssetUniverse } from "../../lib/marketUniverse";
+import { useI18n } from "../../context/I18nContext";
+import { type TranslationKey } from "../../i18n/translate";
 
-const OPTIONS: { value: AssetUniverse; label: string }[] = [
-    { value: "coin", label: "Coin" },
-    { value: "stock", label: "Stock" },
+const OPTIONS: { value: AssetUniverse; labelKey: TranslationKey }[] = [
+    { value: "coin", labelKey: "common.coin" },
+    { value: "stock", labelKey: "common.stock" },
 ];
 
 export const WorldSwitch = () => {
+    const { t } = useI18n();
     const { universe, routeSwitch, isMockUniverse } = useUniverse();
     const primaryOption = OPTIONS[0];
     const secondaryOption = OPTIONS[1];
 
-    const renderOption = (option: { value: AssetUniverse; label: string }) => {
+    const renderOption = (
+        option: { value: AssetUniverse; labelKey: TranslationKey },
+    ) => {
         const active = option.value === universe;
         const isStock = option.value === "stock";
+        const label = t(option.labelKey);
 
         const buttonClass = cn(
             "h-6 px-2.5 rounded border text-[9px] font-semibold uppercase tracking-wider transition-colors",
@@ -34,9 +40,9 @@ export const WorldSwitch = () => {
                 key={option.value}
                 onClick={() => routeSwitch(option.value)}
                 className={buttonClass}
-                aria-label={`Switch to ${option.label}`}
+                aria-label={t("common.switchTo", { label })}
             >
-                {option.label}
+                {label}
             </button>
         );
     };
@@ -52,7 +58,7 @@ export const WorldSwitch = () => {
             </div>
             {isMockUniverse && (
                 <span className="px-1.5 py-0.5 rounded text-amber-400 text-[9px] font-bold uppercase tracking-wide">
-                    Beta
+                    {t("common.beta")}
                 </span>
             )}
         </div>

@@ -25,6 +25,7 @@ import { AppTopBar } from "../../components/shell/AppTopBar";
 import { cn } from "../../lib/utils";
 import { useMarket } from "../../context/MarketContext";
 import { useTransactions } from "../../hooks/useTransactions";
+import { useI18n } from "../../context/I18nContext";
 
 const tradePriceFmt = (v: number) =>
     v < 0.001
@@ -47,6 +48,7 @@ const TRADES_GRID =
 type FilterKind = "all" | "buy" | "sell";
 
 export default function TransactionsPage() {
+    const { t } = useI18n();
     const { assets, selectedSymbol, setSelectedSymbol, marketType, universe } =
         useMarket();
     const isStock = universe === "stock";
@@ -143,11 +145,15 @@ export default function TransactionsPage() {
         const buyDominance = totalQuote > 0 ? (buyQuote / totalQuote) * 100 : 0;
 
         const sizeBuckets = [
-            { label: "Micro (<$1K)", min: 0, max: 1_000 },
-            { label: "Small ($1K-$10K)", min: 1_000, max: 10_000 },
-            { label: "Medium ($10K-$100K)", min: 10_000, max: 100_000 },
+            { label: t("transactionsPage.bucketMicro"), min: 0, max: 1_000 },
+            { label: t("transactionsPage.bucketSmall"), min: 1_000, max: 10_000 },
             {
-                label: "Large (>$100K)",
+                label: t("transactionsPage.bucketMedium"),
+                min: 10_000,
+                max: 100_000,
+            },
+            {
+                label: t("transactionsPage.bucketLarge"),
                 min: 100_000,
                 max: Number.POSITIVE_INFINITY,
             },
@@ -191,7 +197,7 @@ export default function TransactionsPage() {
             sizeBuckets,
             bigPrints,
         };
-    }, [filtered]);
+    }, [filtered, t]);
 
     const showFullLoading = tradesLoading && txList.length === 0 && !tradeError;
 
@@ -200,8 +206,8 @@ export default function TransactionsPage() {
             <AppTopBar
                 onRefresh={refetch}
                 isRefreshing={isRefreshing}
-                refreshTitle="Reload transactions"
-                refreshAriaLabel="Reload transactions"
+                refreshTitle={t("transactionsPage.reloadTransactions")}
+                refreshAriaLabel={t("transactionsPage.reloadTransactions")}
                 headerClassName="sticky top-0"
             />
 
@@ -211,29 +217,31 @@ export default function TransactionsPage() {
                 </div>
 
                 <section className="min-h-0 min-w-0 flex flex-col border-r border-main bg-main">
-                    <div className="px-4 py-3 border-b border-main bg-gradient-to-r from-secondary/25 via-secondary/10 to-transparent shrink-0 flex items-center justify-between gap-3">
+                    <div className="px-4 border-b border-main bg-gradient-to-r from-secondary/25 via-secondary/10 to-transparent shrink-0 h-[56px] flex items-center justify-between gap-3">
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-main">
                                     {isStock
-                                        ? "Matched Trades"
-                                        : "Market Trades"}
+                                        ? t("transactionsPage.matchedTrades")
+                                        : t("transactionsPage.marketTrades")}
                                 </span>
                                 <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                             </div>
-                            <div className="text-[11px] text-muted font-mono">
+                            <div className="text-[11px] text-muted font-mono whitespace-nowrap">
                                 {selectedSymbol} ·{" "}
-                                {isStock ? "STOCK" : marketType.toUpperCase()} ·{" "}
-                                {filtered.length} rows
+                                {isStock
+                                    ? t("transactionsPage.stock")
+                                    : marketType.toUpperCase()}{" "}
+                                · {t("transactionsPage.rows", { count: filtered.length })}
                                 {tradeError && txList.length > 0 ? (
                                     <span className="text-amber-500 ml-2">
-                                        • Poll lỗi, đang giữ dữ liệu cũ
+                                        • {t("transactionsPage.pollErrorKeepOldData")}
                                     </span>
                                 ) : null}
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 shrink-0">
                             {(["all", "buy", "sell"] as const).map((kind) => (
                                 <button
                                     key={kind}
@@ -246,7 +254,11 @@ export default function TransactionsPage() {
                                             : "border-transparent text-muted hover:text-main hover:bg-secondary",
                                     )}
                                 >
-                                    {kind}
+                                    {kind === "all"
+                                        ? t("transactionsPage.filterAll")
+                                        : kind === "buy"
+                                          ? t("transactionsPage.filterBuy")
+                                          : t("transactionsPage.filterSell")}
                                 </button>
                             ))}
                         </div>
@@ -258,14 +270,14 @@ export default function TransactionsPage() {
                             "py-2 text-[9px] font-semibold uppercase tracking-wider text-muted border-b border-main bg-secondary/10 shrink-0",
                         )}
                     >
-                        <span className="text-left">Type</span>
-                        <span className="text-right">ID</span>
+                        <span className="text-left">{t("transactionsPage.type")}</span>
+                        <span className="text-right">{t("transactionsPage.id")}</span>
                         <span className="text-right">
-                            Price ({isStock ? "VND" : "USDT"})
+                            {t("transactionsPage.price")} ({isStock ? "VND" : "USDT"})
                         </span>
-                        <span className="text-right">Qty</span>
-                        <span className="text-right">Notional</span>
-                        <span className="text-right">Time</span>
+                        <span className="text-right">{t("transactionsPage.qty")}</span>
+                        <span className="text-right">{t("transactionsPage.notional")}</span>
+                        <span className="text-right">{t("transactionsPage.time")}</span>
                     </div>
 
                     <div className="flex-1 min-h-0 overflow-x-auto">
@@ -291,12 +303,12 @@ export default function TransactionsPage() {
                                 </div>
                             ) : filtered.length === 0 ? (
                                 <div className="h-full flex items-center justify-center text-[11px] text-muted">
-                                    Không có dữ liệu trades.
+                                    {t("transactionsPage.noTradeData")}
                                 </div>
                             ) : (
-                                filtered.map((t) => (
+                                filtered.map((tx) => (
                                     <div
-                                        key={`${t.pair}-${t.id}-${t.timeMs}`}
+                                        key={`${tx.pair}-${tx.id}-${tx.timeMs}`}
                                         className={cn(
                                             TRADES_GRID,
                                             "py-[4px] border-b border-main last:border-0 hover:bg-secondary/40 transition-colors",
@@ -306,12 +318,12 @@ export default function TransactionsPage() {
                                             <span
                                                 className={cn(
                                                     "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-bold font-mono tabular-nums",
-                                                    t.isBuy
+                                                    tx.isBuy
                                                         ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                                                         : "bg-rose-500/10 text-rose-500 border-rose-500/20",
                                                 )}
                                             >
-                                                {t.isBuy ? (
+                                                {tx.isBuy ? (
                                                     <ArrowDownLeft
                                                         size={12}
                                                         className="shrink-0"
@@ -322,31 +334,33 @@ export default function TransactionsPage() {
                                                         className="shrink-0"
                                                     />
                                                 )}
-                                                {t.isBuy ? "BUY" : "SELL"}
+                                                {tx.isBuy
+                                                    ? t("transactionsPage.buy")
+                                                    : t("transactionsPage.sell")}
                                             </span>
                                         </div>
                                         <span className="text-right text-[10px] font-mono tabular-nums text-muted truncate">
-                                            {t.id}
+                                            {tx.id}
                                         </span>
                                         <span className="text-right text-[10px] font-mono font-semibold tabular-nums text-main">
-                                            {tradePriceFmt(t.price)}
+                                            {tradePriceFmt(tx.price)}
                                         </span>
                                         <span className="text-right text-[10px] font-mono tabular-nums text-muted">
                                             {isStock
-                                                ? t.qty.toLocaleString(
+                                                ? tx.qty.toLocaleString(
                                                       "en-US",
                                                       {
                                                           maximumFractionDigits: 0,
                                                       },
                                                   )
-                                                : t.qty.toFixed(4)}
+                                                : tx.qty.toFixed(4)}
                                         </span>
                                         <span className="text-right text-[10px] font-mono font-semibold tabular-nums text-main">
                                             {isStock ? "" : "$"}
-                                            {compactUsdFmt.format(t.quoteQty)}
+                                            {compactUsdFmt.format(tx.quoteQty)}
                                         </span>
                                         <span className="text-right text-[10px] font-mono tabular-nums text-muted whitespace-nowrap">
-                                            {t.timeLabel}
+                                            {tx.timeLabel}
                                         </span>
                                     </div>
                                 ))
@@ -356,25 +370,26 @@ export default function TransactionsPage() {
                 </section>
 
                 <aside className="min-h-0 bg-main flex flex-col">
-                    <div className="px-4 py-3 border-b border-main shrink-0">
+                    <div className="px-4 border-b border-main shrink-0 h-[56px] flex flex-col justify-center">
                         <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-main">
-                            Tóm tắt tape (All / Buy / Sell)
+                            {t("transactionsPage.tapeSummary")}
                         </div>
-                        <div className="text-[10px] text-muted mt-1">
-                            Khai thác trực tiếp từ luồng {selectedSymbol}{" "}
-                            realtime
+                        <div className="text-[10px] text-muted mt-1 whitespace-nowrap">
+                            {t("transactionsPage.tapeSummaryHint", {
+                                symbol: selectedSymbol,
+                            })}
                         </div>
                     </div>
 
                     <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar p-4 space-y-4">
                         <div className="grid grid-cols-2 gap-2">
                             <StatCard
-                                label="Total Notional"
+                                label={t("transactionsPage.totalNotional")}
                                 value={`${isStock ? "" : "$"}${compactUsdFmt.format(stats.totalQuote)}`}
                                 icon={<Sigma size={12} />}
                             />
                             <StatCard
-                                label="VWAP"
+                                label={t("transactionsPage.vwap")}
                                 value={
                                     stats.vwap
                                         ? `${isStock ? "" : "$"}${tradePriceFmt(stats.vwap)}`
@@ -383,12 +398,12 @@ export default function TransactionsPage() {
                                 icon={<BarChart3 size={12} />}
                             />
                             <StatCard
-                                label="Last 60s"
+                                label={t("transactionsPage.last60s")}
                                 value={`${isStock ? "" : "$"}${compactUsdFmt.format(stats.recentNotional)}`}
                                 icon={<Gauge size={12} />}
                             />
                             <StatCard
-                                label="Flow Imbalance"
+                                label={t("transactionsPage.flowImbalance")}
                                 value={`${stats.imbalancePct >= 0 ? "+" : ""}${stats.imbalancePct.toFixed(2)}%`}
                                 accent={
                                     stats.imbalancePct >= 0
@@ -407,9 +422,10 @@ export default function TransactionsPage() {
 
                         <div className="rounded-lg border border-main bg-secondary/10 p-3 space-y-2">
                             <div className="flex items-center justify-between text-[10px] uppercase tracking-wider font-bold text-muted">
-                                <span>Buy/Sell Dominance</span>
+                                <span>{t("transactionsPage.buySellDominance")}</span>
                                 <span>
-                                    {stats.buyDominance.toFixed(1)}% Buy
+                                    {stats.buyDominance.toFixed(1)}%{" "}
+                                    {t("transactionsPage.buy")}
                                 </span>
                             </div>
                             <div className="h-2 rounded-full overflow-hidden bg-secondary">
@@ -420,16 +436,16 @@ export default function TransactionsPage() {
                             </div>
                             <div className="flex items-center justify-between text-[10px] font-mono">
                                 <span className="text-emerald-500">
-                                    Buy {isStock ? "" : "$"}
+                                    {t("transactionsPage.buy")} {isStock ? "" : "$"}
                                     {compactUsdFmt.format(stats.buyQuote)}
                                 </span>
                                 <span className="text-rose-500">
-                                    Sell {isStock ? "" : "$"}
+                                    {t("transactionsPage.sell")} {isStock ? "" : "$"}
                                     {compactUsdFmt.format(stats.sellQuote)}
                                 </span>
                             </div>
                             <div className="text-[10px] text-muted font-mono">
-                                Trades:{" "}
+                                {t("transactionsPage.trades")}:{" "}
                                 <span className="text-emerald-500">
                                     {stats.buyCount}B
                                 </span>{" "}
@@ -444,7 +460,7 @@ export default function TransactionsPage() {
                         <div className="rounded-lg border border-main bg-secondary/10 p-3 space-y-2">
                             <div className="flex items-center justify-between">
                                 <div className="text-[10px] uppercase tracking-wider font-bold text-muted">
-                                    Price Action
+                                    {t("transactionsPage.priceAction")}
                                 </div>
                                 <div
                                     className={cn(
@@ -501,7 +517,9 @@ export default function TransactionsPage() {
                                                 name,
                                             ) => [
                                                 `${isStock ? "" : "$"}${tradePriceFmt(value)}`,
-                                                name === "v" ? "Price" : "MA20",
+                                                name === "v"
+                                                    ? t("transactionsPage.price")
+                                                    : t("transactionsPage.ma20"),
                                             ]}
                                             labelFormatter={(label) => {
                                                 const point =
@@ -509,8 +527,8 @@ export default function TransactionsPage() {
                                                         Number(label) - 1
                                                     ];
                                                 return point
-                                                    ? `Tick ${label} · ${point.timeLabel}`
-                                                    : `Tick ${label}`;
+                                                    ? `${t("transactionsPage.tick")} ${label} · ${point.timeLabel}`
+                                                    : `${t("transactionsPage.tick")} ${label}`;
                                             }}
                                         />
                                         <Line
@@ -537,17 +555,18 @@ export default function TransactionsPage() {
                                 )}
                             </SizedChartContainer>
                             <div className="text-[10px] text-muted font-mono">
-                                Range:{" "}
+                                {t("transactionsPage.range")}:{" "}
                                 {stats.len
                                     ? `${isStock ? "" : "$"}${tradePriceFmt(stats.low)} - ${isStock ? "" : "$"}${tradePriceFmt(stats.high)}`
                                     : "--"}{" "}
-                                · Points: {stats.chartPoints}
+                                · {t("transactionsPage.points")}:{" "}
+                                {stats.chartPoints}
                             </div>
                         </div>
 
                         <div className="rounded-lg border border-main bg-secondary/10 p-3 space-y-2">
                             <div className="text-[10px] uppercase tracking-wider font-bold text-muted">
-                                Size Distribution
+                                {t("transactionsPage.sizeDistribution")}
                             </div>
                             <div className="space-y-2">
                                 {stats.sizeBuckets.map((bucket) => (
@@ -582,39 +601,41 @@ export default function TransactionsPage() {
 
                         <div className="rounded-lg border border-main bg-secondary/10 p-3">
                             <div className="text-[10px] uppercase tracking-wider font-bold text-muted mb-2">
-                                Top Big Prints
+                                {t("transactionsPage.topBigPrints")}
                             </div>
                             <div className="max-h-64 overflow-y-auto thin-scrollbar space-y-1">
                                 {stats.bigPrints.length === 0 ? (
                                     <div className="text-[10px] text-muted">
-                                        No large prints yet.
+                                        {t("transactionsPage.noLargePrints")}
                                     </div>
                                 ) : (
-                                    stats.bigPrints.map((t) => (
+                                    stats.bigPrints.map((tx) => (
                                         <div
-                                            key={`big-${t.id}-${t.timeMs}`}
+                                            key={`big-${tx.id}-${tx.timeMs}`}
                                             className="flex items-center justify-between text-[10px] font-mono border-b border-main pb-1"
                                         >
                                             <span
                                                 className={
-                                                    t.isBuy
+                                                    tx.isBuy
                                                         ? "text-emerald-500"
                                                         : "text-rose-500"
                                                 }
                                             >
-                                                {t.isBuy ? "BUY" : "SELL"}
+                                                {tx.isBuy
+                                                    ? t("transactionsPage.buy")
+                                                    : t("transactionsPage.sell")}
                                             </span>
                                             <span className="text-main">
                                                 {isStock ? "" : "$"}
                                                 {compactUsdFmt.format(
-                                                    t.quoteQty,
+                                                    tx.quoteQty,
                                                 )}
                                             </span>
                                             <span className="text-muted">
-                                                {tradePriceFmt(t.price)}
+                                                {tradePriceFmt(tx.price)}
                                             </span>
                                             <span className="text-muted">
-                                                {t.timeLabel}
+                                                {tx.timeLabel}
                                             </span>
                                         </div>
                                     ))

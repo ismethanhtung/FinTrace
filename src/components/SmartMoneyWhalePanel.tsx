@@ -50,7 +50,8 @@ function pxFmt(v: number): string {
 
 function qtyFmt(v: number): string {
     if (!Number.isFinite(v)) return "--";
-    if (v >= 1000) return v.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    if (v >= 1000)
+        return v.toLocaleString("en-US", { maximumFractionDigits: 2 });
     if (v >= 1) return v.toLocaleString("en-US", { maximumFractionDigits: 4 });
     return v.toLocaleString("en-US", { maximumFractionDigits: 8 });
 }
@@ -179,8 +180,7 @@ export function SmartMoneyWhalePanel() {
         <div className="flex-1 min-h-0 flex flex-col bg-main">
             <div className="px-4 py-3 border-b border-main bg-secondary/10 space-y-3 shrink-0">
                 <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <Waves size={14} className="text-accent" />
+                    <div className="flex flex-col gap-2">
                         <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-main">
                             Smart Money Signals
                         </div>
@@ -230,7 +230,12 @@ export function SmartMoneyWhalePanel() {
                         )}
                     >
                         <Radio size={11} />
-                        <span className={cn("h-1.5 w-1.5 rounded-full", statusMeta.dot)} />
+                        <span
+                            className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                statusMeta.dot,
+                            )}
+                        />
                         {statusMeta.label}
                     </div>
 
@@ -267,7 +272,8 @@ export function SmartMoneyWhalePanel() {
 
                     {rows.length === 0 ? (
                         <div className="min-h-[280px] flex items-center justify-center px-4 text-center text-[12px] text-muted">
-                            Chưa có whale trade nào vượt ngưỡng {usdFmt(thresholdUsd)}.
+                            Chưa có whale trade nào vượt ngưỡng{" "}
+                            {usdFmt(thresholdUsd)}.
                         </div>
                     ) : (
                         rows.map((row) => (

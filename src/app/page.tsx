@@ -7,12 +7,14 @@ import { LeftSidebar } from "../components/LeftSidebar";
 import { OrderBook } from "../components/OrderBook";
 import { TickerBar } from "../components/TickerBar";
 import { AppTopBar } from "../components/shell/AppTopBar";
+import { useI18n } from "../context/I18nContext";
 
 const BOTTOM_MIN = 100;
 const BOTTOM_MAX = 460;
 const BOTTOM_DEFAULT = 240;
 
 export default function App() {
+    const { t } = useI18n();
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [bottomHeight, setBottomHeight] = useState(BOTTOM_DEFAULT);
 
@@ -69,8 +71,8 @@ export default function App() {
             <AppTopBar
                 onRefresh={handleRefresh}
                 isRefreshing={isRefreshing}
-                refreshTitle="Refresh"
-                refreshAriaLabel="Refresh"
+                refreshTitle={t("common.refresh")}
+                refreshAriaLabel={t("common.refresh")}
             />
 
             {/* ── Main Layout ── */}

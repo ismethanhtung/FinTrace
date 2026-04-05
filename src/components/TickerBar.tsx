@@ -7,6 +7,7 @@ import { TokenAvatar } from "./TokenAvatar";
 import { Check, Settings2, Wifi } from "lucide-react";
 import type { Asset } from "../services/binanceService";
 import { usePathname, useRouter } from "next/navigation";
+import { useI18n } from "../context/I18nContext";
 
 type TickerMode = "hot" | "gainers" | "favorites";
 const TICKER_MAX_ITEMS = 96;
@@ -25,28 +26,8 @@ const priceFmt = (v: number) =>
                     maximumFractionDigits: 2,
                 });
 
-const modeMeta: Record<
-    TickerMode,
-    { label: string; description: string; implemented: boolean }
-> = {
-    hot: {
-        label: "Asset hot",
-        description: "Ưu tiên các tài sản có volume giao dịch cao nhất.",
-        implemented: true,
-    },
-    gainers: {
-        label: "Top gainers",
-        description: "Ưu tiên các tài sản tăng giá mạnh nhất trong 24h.",
-        implemented: true,
-    },
-    favorites: {
-        label: "Favorites",
-        description: "Sẽ hiện thực ở bước tiếp theo.",
-        implemented: false,
-    },
-};
-
 export const TickerBar = () => {
+    const { t } = useI18n();
     const router = useRouter();
     const pathname = usePathname();
     const {
@@ -68,6 +49,26 @@ export const TickerBar = () => {
         "good" | "weak" | "offline"
     >("good");
     const [stableOrderIds, setStableOrderIds] = useState<string[]>([]);
+    const modeMeta: Record<
+        TickerMode,
+        { label: string; description: string; implemented: boolean }
+    > = {
+        hot: {
+            label: t("ticker.hotLabel"),
+            description: t("ticker.hotDescription"),
+            implemented: true,
+        },
+        gainers: {
+            label: t("ticker.gainersLabel"),
+            description: t("ticker.gainersDescription"),
+            implemented: true,
+        },
+        favorites: {
+            label: t("ticker.favoritesLabel"),
+            description: t("ticker.favoritesDescription"),
+            implemented: false,
+        },
+    };
     const modeKeyRef = useRef<string>(`${tickerMode}:${marketType}`);
     const settingsRef = useRef<HTMLDivElement>(null);
     const streamStatus =
@@ -266,7 +267,7 @@ export const TickerBar = () => {
                             ? "border-accent/40 bg-accent/10 text-main"
                             : "border-main text-muted hover:text-main hover:bg-secondary",
                     )}
-                    aria-label="Mo cai dat ticker"
+                    aria-label={t("ticker.openSettings")}
                     aria-expanded={isSettingsOpen}
                 >
                     <Settings2 size={12} />
@@ -279,10 +280,10 @@ export const TickerBar = () => {
                     <div className="absolute left-2 bottom-full mb-2 w-64 rounded-lg border border-main bg-main shadow-2xl p-2 z-50">
                         <div className="px-2 py-1.5 border-b border-main">
                             <div className="text-[11px] font-semibold">
-                                Ticker Settings
+                                {t("ticker.settingsTitle")}
                             </div>
                             <div className="text-[10px] text-muted mt-0.5">
-                                Chọn loại asset hiển thị trên bottom bar.
+                                {t("ticker.settingsDesc")}
                             </div>
                         </div>
 
@@ -332,7 +333,7 @@ export const TickerBar = () => {
                                                 </span>
                                                 {disabled && (
                                                     <span className="text-[8px] uppercase tracking-wide px-1 py-px rounded border border-main text-muted">
-                                                        Soon
+                                                        {t("ticker.soon")}
                                                     </span>
                                                 )}
                                             </span>
@@ -358,8 +359,7 @@ export const TickerBar = () => {
                     />
                 ) : (
                     <div className="h-full flex items-center px-4 text-[10px] text-muted">
-                        Danh sach asset yeu thich se duoc bo sung o buoc tiep
-                        theo.
+                        {t("ticker.favoritesEmpty")}
                     </div>
                 )}
             </div>
@@ -389,6 +389,7 @@ const TickerStatusBadge = React.memo(function TickerStatusBadge({
     streamStatus: "connecting" | "connected" | "disconnected" | "error";
     lastUpdateAt: number | null;
 }) {
+    const { t, locale } = useI18n();
     const [nowMs, setNowMs] = useState(() => Date.now());
 
     useEffect(() => {
@@ -404,18 +405,18 @@ const TickerStatusBadge = React.memo(function TickerStatusBadge({
         staleMs < 10_000 &&
         isOnline;
     const statusLabel = !isOnline
-        ? "Offline"
+        ? t("ticker.offline")
         : networkQuality === "weak"
-          ? "Weak network"
+          ? t("ticker.weakNetwork")
           : isLikelyLive
-            ? "Stable"
+            ? t("ticker.stable")
             : streamStatus === "connecting"
-              ? "Connecting"
+              ? t("ticker.connecting")
               : streamStatus === "error"
-                ? "Stream error"
+                ? t("ticker.streamError")
                 : streamStatus === "connected"
-                  ? "Stale"
-                  : "Reconnecting";
+                  ? t("ticker.stale")
+                  : t("ticker.reconnecting");
     const statusTone = !isOnline
         ? "text-rose-500"
         : networkQuality === "weak"
@@ -449,11 +450,14 @@ const TickerStatusBadge = React.memo(function TickerStatusBadge({
             />
             <span className="text-[9px] text-muted tabular-nums">
                 {lastUpdateAt
-                    ? new Date(lastUpdateAt).toLocaleTimeString("en-US", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                      })
+                    ? new Date(lastUpdateAt).toLocaleTimeString(
+                          locale === "vi" ? "vi-VN" : "en-US",
+                          {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                          },
+                      )
                     : "--:--:--"}
             </span>
         </div>

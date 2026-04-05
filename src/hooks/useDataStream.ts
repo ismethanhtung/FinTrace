@@ -29,8 +29,9 @@ const DEFAULT_CONFIG: DataStreamConfig = {
     showSell: true,
     showFunding: true,
     showHighlightOnly: false,
-    maxRecords: 100,
+    maxRecords: 250,
 };
+const SNAPSHOT_TRADE_LIMIT = 1000;
 
 function tokenFromPair(pair: string): string {
     const upper = pair.toUpperCase();
@@ -218,7 +219,10 @@ export function useDataStream() {
                     ? binanceService.getFuturesRecentTrades.bind(binanceService)
                     : binanceService.getRecentTrades.bind(binanceService);
 
-            const raw = await getRecentTrades(resolvedSelectedSymbol, 1000);
+            const raw = await getRecentTrades(
+                resolvedSelectedSymbol,
+                SNAPSHOT_TRADE_LIMIT,
+            );
             if (!mountedRef.current) return;
             if (attemptId !== connectionAttemptIdRef.current) return;
 
@@ -490,6 +494,8 @@ export function useDataStream() {
             toggleSoundEnabled: soundToggle,
             selectedSymbol: resolvedSelectedSymbol ?? selectedSymbol,
             marketType: marketType,
+            snapshotTradeLimit: SNAPSHOT_TRADE_LIMIT,
+            maxRecords: config.maxRecords,
         }),
         [
             config,
@@ -509,6 +515,7 @@ export function useDataStream() {
             resolvedSelectedSymbol,
             selectedSymbol,
             marketType,
+            config.maxRecords,
         ],
     );
 }

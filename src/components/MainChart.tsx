@@ -34,6 +34,7 @@ import {
 import { FlowPanel } from "./FlowPanel";
 import { TokenAvatar } from "./TokenAvatar";
 import { FuturesLiquidationPanel } from "./FuturesLiquidationPanel";
+import { useI18n } from "../context/I18nContext";
 
 // ─── Price formatter ─────────────────────────────────────────────────────────
 const priceFmt = (v: number) => {
@@ -71,20 +72,32 @@ const plainNumberFmt = (v: number | null | undefined) => {
     });
 };
 
-const timestampFmt = (ms: number | null | undefined) => {
+const timestampFmt = (
+    ms: number | null | undefined,
+    locale: "vi" | "en",
+) => {
     if (!Number.isFinite(ms as number) || Number(ms) <= 0) return "—";
-    return new Date(Number(ms)).toLocaleString("vi-VN");
+    return new Date(Number(ms)).toLocaleString(
+        locale === "vi" ? "vi-VN" : "en-US",
+    );
 };
 
-const yesNoFmt = (v: boolean | null | undefined) => {
+const yesNoFmt = (
+    v: boolean | null | undefined,
+    yesLabel: string,
+    noLabel: string,
+) => {
     if (v == null) return "—";
-    return v ? "Yes" : "No";
+    return v ? yesLabel : noLabel;
 };
 
-const textValueFmt = (v: string | null | undefined) => {
+const textValueFmt = (
+    v: string | null | undefined,
+    emptyLabel: string,
+) => {
     if (v == null) return "—";
     const trimmed = v.trim();
-    if (!trimmed) return "(empty)";
+    if (!trimmed) return emptyLabel;
     return trimmed;
 };
 
@@ -100,6 +113,7 @@ function msToCountdown(ms: number): string {
 
 // ─── Coin Info Panel ──────────────────────────────────────────────────────────
 const CoinInfoPanel = () => {
+    const { t, locale } = useI18n();
     const { assets, selectedSymbol, marketType, universe } = useMarket();
     const asset = assets.find((a) => a.id === selectedSymbol);
     const {
@@ -128,7 +142,7 @@ const CoinInfoPanel = () => {
     if (!asset)
         return (
             <div className="flex-1 flex items-center justify-center text-muted text-[12px]">
-                Loading...
+                {t("mainChart.loading")}
             </div>
         );
 
@@ -140,51 +154,51 @@ const CoinInfoPanel = () => {
 
     const spotRows = [
         {
-            label: "Last Price",
+            label: t("mainChart.lastPrice"),
             value: isStock
                 ? priceFmt(asset.price)
                 : `$${priceFmt(asset.price)}`,
         },
         {
-            label: "24h Change",
+            label: t("mainChart.change24h"),
             value: `${asset.changePercent >= 0 ? "+" : ""}${asset.changePercent.toFixed(2)}%`,
             color:
                 asset.changePercent >= 0 ? "text-emerald-500" : "text-rose-500",
         },
         {
-            label: "24h High",
+            label: t("mainChart.high24h"),
             value: isStock
                 ? priceFmt(asset.high24h ?? 0)
                 : `$${priceFmt(asset.high24h ?? 0)}`,
         },
         {
-            label: "24h Low",
+            label: t("mainChart.low24h"),
             value: isStock
                 ? priceFmt(asset.low24h ?? 0)
                 : `$${priceFmt(asset.low24h ?? 0)}`,
         },
-        { label: "24h Volume", value: asset.volume24h },
-        { label: "Market Cap", value: asset.marketCap },
+        { label: t("mainChart.volume"), value: asset.volume24h },
+        { label: t("mainChart.marketCap"), value: asset.marketCap },
     ];
     const stockRows = [
         ...spotRows,
-        { label: "Company", value: asset.stockProfile?.organName || "—" },
+        { label: t("mainChart.company"), value: asset.stockProfile?.organName || "—" },
         {
-            label: "Short Name",
+            label: t("mainChart.shortName"),
             value: asset.stockProfile?.organShortName || "—",
         },
-        { label: "Exchange", value: asset.stockProfile?.exchange || "—" },
-        { label: "Sector", value: asset.stockProfile?.sector || "—" },
-        { label: "Industry", value: asset.stockProfile?.industry || "—" },
-        { label: "Group", value: asset.stockProfile?.group || "—" },
-        { label: "Subgroup", value: asset.stockProfile?.subgroup || "—" },
-        { label: "ICB", value: asset.stockProfile?.icbName || "—" },
+        { label: t("mainChart.exchange"), value: asset.stockProfile?.exchange || "—" },
+        { label: t("mainChart.sector"), value: asset.stockProfile?.sector || "—" },
+        { label: t("mainChart.industry"), value: asset.stockProfile?.industry || "—" },
+        { label: t("mainChart.group"), value: asset.stockProfile?.group || "—" },
+        { label: t("mainChart.subgroup"), value: asset.stockProfile?.subgroup || "—" },
+        { label: t("mainChart.icb"), value: asset.stockProfile?.icbName || "—" },
         {
-            label: "ICB Path",
+            label: t("mainChart.icbPath"),
             value: asset.stockProfile?.icbNamePath || "—",
         },
         {
-            label: "Indices",
+            label: t("mainChart.indices"),
             value: asset.stockProfile?.indexMembership?.length
                 ? asset.stockProfile.indexMembership.join(", ")
                 : "—",
@@ -192,9 +206,9 @@ const CoinInfoPanel = () => {
     ];
 
     const futuresRows = [
-        { label: "Last Price", value: `$${priceFmt(asset.price)}` },
+        { label: t("mainChart.lastPrice"), value: `$${priceFmt(asset.price)}` },
         {
-            label: "Mark Price",
+            label: t("mainChart.markPrice"),
             value: premiumLoading
                 ? "..."
                 : premiumData
@@ -202,7 +216,7 @@ const CoinInfoPanel = () => {
                   : "—",
         },
         {
-            label: "Index Price",
+            label: t("mainChart.indexPrice"),
             value: premiumLoading
                 ? "..."
                 : premiumData
@@ -210,16 +224,16 @@ const CoinInfoPanel = () => {
                   : "—",
         },
         {
-            label: "24h Change",
+            label: t("mainChart.change24h"),
             value: `${asset.changePercent >= 0 ? "+" : ""}${asset.changePercent.toFixed(2)}%`,
             color:
                 asset.changePercent >= 0 ? "text-emerald-500" : "text-rose-500",
         },
-        { label: "24h High", value: `$${priceFmt(asset.high24h ?? 0)}` },
-        { label: "24h Low", value: `$${priceFmt(asset.low24h ?? 0)}` },
-        { label: "24h Volume", value: asset.volume24h },
+        { label: t("mainChart.high24h"), value: `$${priceFmt(asset.high24h ?? 0)}` },
+        { label: t("mainChart.low24h"), value: `$${priceFmt(asset.low24h ?? 0)}` },
+        { label: t("mainChart.volume"), value: asset.volume24h },
         {
-            label: "Funding Rate",
+            label: t("mainChart.fundingRate"),
             value: premiumLoading ? "..." : (fundingRatePct ?? "—"),
             color: !premiumData
                 ? undefined
@@ -230,7 +244,7 @@ const CoinInfoPanel = () => {
                 "Funding rate (annualised ~3×/day). Positive = longs pay shorts.",
         },
         {
-            label: "Next Funding",
+            label: t("mainChart.nextFunding"),
             value: countdown,
         },
     ];
@@ -247,133 +261,192 @@ const CoinInfoPanel = () => {
             ? []
             : [
                   {
-                      title: "Identity",
+                      title: t("mainChart.identity"),
                       rows: [
                           {
-                              label: "Asset Code",
+                              label: t("mainChart.assetCode"),
                               value:
-                                  textValueFmt(assetInfo.assetCode) ===
-                                  "(empty)"
+                                  textValueFmt(
+                                      assetInfo.assetCode,
+                                      t("mainChart.empty"),
+                                  ) === t("mainChart.empty")
                                       ? asset.symbol
-                                      : textValueFmt(assetInfo.assetCode),
+                                      : textValueFmt(
+                                            assetInfo.assetCode,
+                                            t("mainChart.empty"),
+                                        ),
                           },
                           {
-                              label: "Asset Name",
+                              label: t("mainChart.assetName"),
                               value:
-                                  textValueFmt(assetInfo.assetName) ===
-                                  "(empty)"
+                                  textValueFmt(
+                                      assetInfo.assetName,
+                                      t("mainChart.empty"),
+                                  ) === t("mainChart.empty")
                                       ? asset.name
-                                      : textValueFmt(assetInfo.assetName),
+                                      : textValueFmt(
+                                            assetInfo.assetName,
+                                            t("mainChart.empty"),
+                                        ),
                           },
 
                           {
-                              label: "Create Time",
-                              value: timestampFmt(assetInfo.createTime),
+                              label: t("mainChart.createTime"),
+                              value: timestampFmt(assetInfo.createTime, locale),
                           },
                           {
-                              label: "Seq Num",
-                              value: textValueFmt(assetInfo.seqNum),
+                              label: t("mainChart.seqNum"),
+                              value: textValueFmt(
+                                  assetInfo.seqNum,
+                                  t("mainChart.empty"),
+                              ),
                           },
                       ],
                   },
                   {
-                      title: "Classification",
+                      title: t("mainChart.classification"),
                       rows: [
                           {
-                              label: "Plate Type",
-                              value: textValueFmt(assetInfo.plateType),
+                              label: t("mainChart.plateType"),
+                              value: textValueFmt(
+                                  assetInfo.plateType,
+                                  t("mainChart.empty"),
+                              ),
                           },
-                          { label: "Tags", value: tagList.join(", ") || "—" },
-                          { label: "ETF", value: yesNoFmt(assetInfo.etf) },
                           {
-                              label: "Support Market",
+                              label: t("mainChart.tags"),
+                              value: tagList.join(", ") || "—",
+                          },
+                          {
+                              label: t("mainChart.etf"),
+                              value: yesNoFmt(
+                                  assetInfo.etf,
+                                  t("mainChart.yes"),
+                                  t("mainChart.no"),
+                              ),
+                          },
+                          {
+                              label: t("mainChart.supportMarket"),
                               value: assetInfo.supportMarket?.join(", ") || "—",
                           },
                       ],
                   },
                   {
-                      title: "Status",
+                      title: t("mainChart.status"),
                       rows: [
                           {
-                              label: "Trading",
-                              value: yesNoFmt(assetInfo.trading),
+                              label: t("mainChart.trading"),
+                              value: yesNoFmt(
+                                  assetInfo.trading,
+                                  t("mainChart.yes"),
+                                  t("mainChart.no"),
+                              ),
                           },
                           {
-                              label: "Delisted",
-                              value: yesNoFmt(assetInfo.delisted),
+                              label: t("mainChart.delisted"),
+                              value: yesNoFmt(
+                                  assetInfo.delisted,
+                                  t("mainChart.yes"),
+                                  t("mainChart.no"),
+                              ),
                           },
                           {
-                              label: "Pre Delist",
-                              value: yesNoFmt(assetInfo.preDelist),
+                              label: t("mainChart.preDelist"),
+                              value: yesNoFmt(
+                                  assetInfo.preDelist,
+                                  t("mainChart.yes"),
+                                  t("mainChart.no"),
+                              ),
                           },
                           {
-                              label: "Testnet",
-                              value: yesNoFmt(assetInfo.test === 1),
+                              label: t("mainChart.testnet"),
+                              value: yesNoFmt(
+                                  assetInfo.test === 1,
+                                  t("mainChart.yes"),
+                                  t("mainChart.no"),
+                              ),
                           },
                           {
-                              label: "Ledger Only",
-                              value: yesNoFmt(assetInfo.isLedgerOnly),
+                              label: t("mainChart.ledgerOnly"),
+                              value: yesNoFmt(
+                                  assetInfo.isLedgerOnly,
+                                  t("mainChart.yes"),
+                                  t("mainChart.no"),
+                              ),
                           },
                           {
-                              label: "Legal Money",
-                              value: yesNoFmt(assetInfo.isLegalMoney),
+                              label: t("mainChart.legalMoney"),
+                              value: yesNoFmt(
+                                  assetInfo.isLegalMoney,
+                                  t("mainChart.yes"),
+                                  t("mainChart.no"),
+                              ),
                           },
                       ],
                   },
                   {
-                      title: "Technical",
+                      title: t("mainChart.technical"),
                       rows: [
                           {
-                              label: "Asset Digit",
+                              label: t("mainChart.assetDigit"),
                               value: plainNumberFmt(assetInfo.assetDigit),
                           },
                           {
-                              label: "Fee Digit",
+                              label: t("mainChart.feeDigit"),
                               value: plainNumberFmt(assetInfo.feeDigit),
                           },
                           {
-                              label: "Tag Bits",
-                              value: textValueFmt(assetInfo.tagBits),
+                              label: t("mainChart.tagBits"),
+                              value: textValueFmt(
+                                  assetInfo.tagBits,
+                                  t("mainChart.empty"),
+                              ),
                           },
                           {
-                              label: "Fee Ref Asset",
-                              value: textValueFmt(assetInfo.feeReferenceAsset),
+                              label: t("mainChart.feeRefAsset"),
+                              value: textValueFmt(
+                                  assetInfo.feeReferenceAsset,
+                                  t("mainChart.empty"),
+                              ),
                           },
                           {
-                              label: "Fee Rate",
+                              label: t("mainChart.feeRate"),
                               value: plainNumberFmt(assetInfo.feeRate),
                           },
                           {
-                              label: "Unit",
-                              value: textValueFmt(assetInfo.unit),
+                              label: t("mainChart.unit"),
+                              value: textValueFmt(
+                                  assetInfo.unit,
+                                  t("mainChart.empty"),
+                              ),
                           },
                       ],
                   },
                   {
-                      title: "Financial",
+                      title: t("mainChart.financial"),
                       rows: [
                           {
-                              label: "Commission Rate",
+                              label: t("mainChart.commissionRate"),
                               value: plainNumberFmt(assetInfo.commissionRate),
                           },
                           {
-                              label: "Gas",
+                              label: t("mainChart.gas"),
                               value: plainNumberFmt(assetInfo.gas),
                           },
                           {
-                              label: "Free Audit Withdraw Amt",
+                              label: t("mainChart.freeAuditWithdrawAmt"),
                               value: plainNumberFmt(
                                   assetInfo.freeAuditWithdrawAmt,
                               ),
                           },
                           {
-                              label: "Free User Charge Amount",
+                              label: t("mainChart.freeUserChargeAmount"),
                               value: plainNumberFmt(
                                   assetInfo.freeUserChargeAmount,
                               ),
                           },
                           {
-                              label: "Reconciliation Amount",
+                              label: t("mainChart.reconciliationAmount"),
                               value: plainNumberFmt(
                                   assetInfo.reconciliationAmount,
                               ),
@@ -381,56 +454,83 @@ const CoinInfoPanel = () => {
                       ],
                   },
                   {
-                      title: "Delist Info",
+                      title: t("mainChart.delistInfo"),
                       rows: [
                           {
-                              label: "Trade Deadline",
-                              value: timestampFmt(assetInfo.pdTradeDeadline),
+                              label: t("mainChart.tradeDeadline"),
+                              value: timestampFmt(
+                                  assetInfo.pdTradeDeadline,
+                                  locale,
+                              ),
                           },
                           {
-                              label: "Deposit Deadline",
-                              value: timestampFmt(assetInfo.pdDepositDeadline),
+                              label: t("mainChart.depositDeadline"),
+                              value: timestampFmt(
+                                  assetInfo.pdDepositDeadline,
+                                  locale,
+                              ),
                           },
                           {
-                              label: "Announce URL",
-                              value: textValueFmt(assetInfo.pdAnnounceUrl),
+                              label: t("mainChart.announceUrl"),
+                              value: textValueFmt(
+                                  assetInfo.pdAnnounceUrl,
+                                  t("mainChart.empty"),
+                              ),
                               href: assetInfo.pdAnnounceUrl || undefined,
                           },
                       ],
                   },
                   {
-                      title: "Swap / Migration",
+                      title: t("mainChart.swapMigration"),
                       rows: [
                           {
-                              label: "Old Asset Code",
-                              value: textValueFmt(assetInfo.oldAssetCode),
+                              label: t("mainChart.oldAssetCode"),
+                              value: textValueFmt(
+                                  assetInfo.oldAssetCode,
+                                  t("mainChart.empty"),
+                              ),
                           },
                           {
-                              label: "New Asset Code",
-                              value: textValueFmt(assetInfo.newAssetCode),
+                              label: t("mainChart.newAssetCode"),
+                              value: textValueFmt(
+                                  assetInfo.newAssetCode,
+                                  t("mainChart.empty"),
+                              ),
                           },
                           {
-                              label: "Swap Tag",
-                              value: textValueFmt(assetInfo.swapTag),
+                              label: t("mainChart.swapTag"),
+                              value: textValueFmt(
+                                  assetInfo.swapTag,
+                                  t("mainChart.empty"),
+                              ),
                           },
                           {
-                              label: "Swap Announce URL",
-                              value: textValueFmt(assetInfo.swapAnnounceUrl),
+                              label: t("mainChart.swapAnnounceUrl"),
+                              value: textValueFmt(
+                                  assetInfo.swapAnnounceUrl,
+                                  t("mainChart.empty"),
+                              ),
                               href: assetInfo.swapAnnounceUrl || undefined,
                           },
                       ],
                   },
                   {
-                      title: "Reference",
+                      title: t("mainChart.reference"),
                       rows: [
                           {
-                              label: "CN Link",
-                              value: textValueFmt(assetInfo.cnLink),
+                              label: t("mainChart.cnLink"),
+                              value: textValueFmt(
+                                  assetInfo.cnLink,
+                                  t("mainChart.empty"),
+                              ),
                               href: assetInfo.cnLink || undefined,
                           },
                           {
-                              label: "EN Link",
-                              value: textValueFmt(assetInfo.enLink),
+                              label: t("mainChart.enLink"),
+                              value: textValueFmt(
+                                  assetInfo.enLink,
+                                  t("mainChart.empty"),
+                              ),
                               href: assetInfo.enLink || undefined,
                           },
                       ],
@@ -473,10 +573,10 @@ const CoinInfoPanel = () => {
                     <div className="text-muted text-[11px]">
                         {asset.id} ·{" "}
                         {universe === "stock"
-                            ? "VN Stock Feed"
+                            ? t("mainChart.stockFeed")
                             : isFutures
-                              ? "Binance Futures"
-                              : "Binance"}
+                              ? t("mainChart.binanceFutures")
+                              : t("mainChart.binance")}
                     </div>
                 </div>
             </div>
@@ -486,7 +586,7 @@ const CoinInfoPanel = () => {
                     <div className="flex items-center justify-between text-[10px]">
                         <span className="text-muted flex items-center gap-1">
                             <Clock size={10} />
-                            Đến kỳ thanh toán
+                            {t("mainChart.fundingCountdown")}
                         </span>
                         <span className="font-mono text-main">{countdown}</span>
                     </div>
@@ -516,8 +616,8 @@ const CoinInfoPanel = () => {
                         </strong>
                         :&nbsp;
                         {fundingRateNum >= 0
-                            ? "Longs đang trả shorts."
-                            : "Shorts đang trả longs."}
+                            ? t("mainChart.longsPayShorts")
+                            : t("mainChart.shortsPayLongs")}
                     </p>
                 </div>
             )}
@@ -554,7 +654,7 @@ const CoinInfoPanel = () => {
             {coinInfoSections.length > 0 && (
                 <div className="space-y-2">
                     <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">
-                        Binance Asset Metadata
+                        {t("mainChart.assetMetadata")}
                     </div>
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
                         {coinInfoSections.map((section) => (
@@ -599,21 +699,19 @@ const CoinInfoPanel = () => {
 
             <div className="space-y-1">
                 <div className="text-[11px] font-semibold text-muted uppercase tracking-wider">
-                    About {asset.symbol}
+                    {t("mainChart.aboutAsset", { symbol: asset.symbol })}
                 </div>
                 <p className="text-[12px] text-muted leading-relaxed">
-                    {asset.symbol} là{" "}
                     {universe === "stock"
-                        ? "một mã cổ phiếu được lấy từ nguồn dữ liệu thị trường Việt Nam."
-                        : "tài sản kỹ thuật số giao dịch trên Binance."}{" "}
-                    Dữ liệu{" "}
+                        ? t("mainChart.stockAbout", { symbol: asset.symbol })
+                        : t("mainChart.coinAbout", { symbol: asset.symbol })}{" "}
                     {universe === "stock"
-                        ? "giá và khối lượng từ stock feed."
-                        : `giá và khối lượng thời gian thực từ ${
-                              isFutures
+                        ? t("mainChart.stockDataSource")
+                        : t("mainChart.coinDataSource", {
+                              source: isFutures
                                   ? "Binance Futures REST API"
-                                  : "Binance REST API"
-                          }.`}
+                                  : "Binance REST API",
+                          })}
                 </p>
             </div>
         </div>
@@ -622,6 +720,7 @@ const CoinInfoPanel = () => {
 
 // ─── Main Chart ───────────────────────────────────────────────────────────────
 export const MainChart = () => {
+    const { t } = useI18n();
     const router = useRouter();
     const { selectedSymbol, assets, marketType, universe } = useMarket();
     const {
@@ -671,35 +770,35 @@ export const MainChart = () => {
     > = useMemo(
         () => ({
             chart: {
-                label: "CHART",
+                label: t("navigation.chart").toUpperCase(),
                 icon: <BarChart2 size={11} />,
                 activeClass:
                     "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
                 iconClass: "text-blue-400",
             },
             info: {
-                label: "INFO",
+                label: t("mainChart.infoTab").toUpperCase(),
                 icon: <Info size={11} />,
                 activeClass:
                     "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
                 iconClass: "text-blue-400",
             },
             flow: {
-                label: "FLOW",
+                label: t("mainChart.flowTab").toUpperCase(),
                 icon: <Waves size={11} />,
                 activeClass:
                     "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
                 iconClass: "text-blue-400",
             },
             liquidation: {
-                label: "LIQUIDATION",
+                label: t("navigation.liquidation").toUpperCase(),
                 icon: <AlertTriangle size={11} />,
                 activeClass:
                     "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
                 iconClass: "text-blue-400",
             },
         }),
-        [],
+        [t],
     );
 
     useEffect(() => {
@@ -1137,25 +1236,25 @@ export const MainChart = () => {
     const sessionStats = [
         {
             key: "O",
-            label: "Open",
+            label: t("mainChart.open"),
             value: displayedLastPoint ? priceFmt(displayedLastPoint.open) : "—",
             valueClass: "text-main",
         },
         {
             key: "H",
-            label: "High",
+            label: t("mainChart.high"),
             value: displayedLastPoint ? priceFmt(displayedLastPoint.high) : "—",
             valueClass: "text-emerald-500",
         },
         {
             key: "L",
-            label: "Low",
+            label: t("mainChart.low"),
             value: displayedLastPoint ? priceFmt(displayedLastPoint.low) : "—",
             valueClass: "text-rose-500",
         },
         {
             key: "C",
-            label: "Close",
+            label: t("mainChart.close"),
             value: displayedLastPoint
                 ? priceFmt(displayedLastPoint.close)
                 : "—",
@@ -1167,7 +1266,7 @@ export const MainChart = () => {
         },
         {
             key: "V",
-            label: "Vol",
+            label: t("mainChart.volume"),
             value: displayedLastPoint ? volFmt(displayedLastPoint.volume) : "—",
             valueClass: "text-accent",
         },
@@ -1176,21 +1275,21 @@ export const MainChart = () => {
         ? [
               {
                   key: "chg",
-                  label: "24h Chg",
+                  label: t("mainChart.change24h"),
                   value: `${isPositive ? "+" : ""}${priceFmt(currentAsset.change)}`,
                   sub: `(${isPositive ? "+" : ""}${currentAsset.changePercent.toFixed(2)}%)`,
                   valueClass: isPositive ? "text-emerald-500" : "text-rose-500",
               },
               {
                   key: "h",
-                  label: "24h High",
+                  label: t("mainChart.high24h"),
                   value: priceFmt(currentAsset.high24h ?? 0),
                   sub: "",
                   valueClass: "text-emerald-500",
               },
               {
                   key: "l",
-                  label: "24h Low",
+                  label: t("mainChart.low24h"),
                   value: priceFmt(currentAsset.low24h ?? 0),
                   sub: "",
                   valueClass: "text-rose-500",
@@ -1339,7 +1438,7 @@ export const MainChart = () => {
                         {currentTags.length > 0 && (
                             <div className="flex items-center gap-2 whitespace-nowrap text-[10px] overflow-x-auto thin-scrollbar">
                                 <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
-                                    Tags
+                                    {t("mainChart.tags")}
                                 </span>
                                 {currentTags.map((tag) => (
                                     <button
@@ -1416,7 +1515,7 @@ export const MainChart = () => {
                     {currentTags.length > 0 && (
                         <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap thin-scrollbar text-[10px] pb-0.5">
                             <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
-                                Tags
+                                {t("mainChart.tags")}
                             </span>
                             {currentTags.map((tag) => (
                                 <button
@@ -1463,7 +1562,7 @@ export const MainChart = () => {
                                         className="flex items-center space-x-1 px-2 py-0.5 rounded border border-accent/40 text-accent text-[10px] font-medium hover:bg-accent/10 transition-colors"
                                     >
                                         <ChevronsRight size={11} />
-                                        <span>Latest</span>
+                                        <span>{t("mainChart.latest")}</span>
                                     </button>
                                 )}
 
@@ -1479,7 +1578,7 @@ export const MainChart = () => {
                                         onClick={() =>
                                             setChartType("candlestick")
                                         }
-                                        title="Candlestick"
+                                        title={t("mainChart.candlestick")}
                                         className={cn(
                                             "p-1 rounded transition-all",
                                             chartType === "candlestick"
@@ -1491,7 +1590,7 @@ export const MainChart = () => {
                                     </button>
                                     <button
                                         onClick={() => setChartType("area")}
-                                        title="Area"
+                                        title={t("mainChart.area")}
                                         className={cn(
                                             "p-1 rounded transition-all",
                                             chartType === "area"

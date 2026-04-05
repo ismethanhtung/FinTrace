@@ -3,8 +3,10 @@
 import React from "react";
 import { cn } from "../../lib/utils";
 import { QuestionTooltip } from "../ui/QuestionTooltip";
+import { useI18n } from "../../context/I18nContext";
 
 export function SpeedMeter({ eventRate10s }: { eventRate10s: number }) {
+    const { t } = useI18n();
     const speed = Math.max(0, eventRate10s);
     const pct = Math.min(100, (speed / 40) * 100); // saturate at 40 events/sec
     const hot = speed >= 20;
@@ -13,8 +15,8 @@ export function SpeedMeter({ eventRate10s }: { eventRate10s: number }) {
         <div className="rounded-lg border border-main bg-main/50 p-3">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-[10px] text-muted uppercase tracking-widest font-bold">
-                    Speed
-                    <QuestionTooltip text="Số sự kiện trade (bao gồm highlight) mỗi giây trong ~10 giây gần nhất. Cao => thị trường biến động nhanh. " />
+                    {t("dataStream.speed.title")}
+                    <QuestionTooltip text={t("dataStream.speed.tooltip")} />
                 </div>
                 <div
                     className={cn(
@@ -37,7 +39,11 @@ export function SpeedMeter({ eventRate10s }: { eventRate10s: number }) {
             </div>
 
             <div className="mt-1 text-[9px] text-muted">
-                {hot ? "Bốc hỏa" : speed >= 8 ? "Đang nóng" : "Ổn định"}
+                {hot
+                    ? t("dataStream.speed.stateFire")
+                    : speed >= 8
+                      ? t("dataStream.speed.stateHot")
+                      : t("dataStream.speed.stateStable")}
             </div>
         </div>
     );

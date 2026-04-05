@@ -12,6 +12,7 @@ import {
 } from "../hooks/useOrderBook";
 import { useRecentTrades } from "../hooks/useRecentTrades";
 import { Download, Share2, MoreHorizontal, Loader2 } from "lucide-react";
+import { useI18n } from "../context/I18nContext";
 
 const tradePriceFmt = (v: number) =>
     v < 0.001
@@ -49,6 +50,7 @@ const RecentTrades = ({
     marketType: "spot" | "futures";
     isStock: boolean;
 }) => {
+    const { t, locale } = useI18n();
     const { trades, isLoading, error, connectionStatus } = useRecentTrades(
         symbol,
         marketType,
@@ -60,7 +62,9 @@ const RecentTrades = ({
             {/* Header */}
             <div className={`${PANEL_HEADER_CLASS} justify-between`}>
                 <span className="text-[10px] font-bold uppercase tracking-widest leading-none text-main">
-                    {isStock ? "Matched Trades" : "Market Trades"}
+                    {isStock
+                        ? t("orderBook.matchedTrades")
+                        : t("orderBook.marketTrades")}
                 </span>
                 <div className="flex items-center gap-2 shrink-0">
                     <span
@@ -78,17 +82,19 @@ const RecentTrades = ({
                         href="/transactions"
                         className="px-2 py-1 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-semibold"
                     >
-                        View details
+                        {t("orderBook.viewDetails")}
                     </Link>
                 </div>
             </div>
             {/* Column headers */}
             <div className="grid grid-cols-3 px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-muted border-b border-main bg-secondary/10 shrink-0">
-                <span>{isStock ? "Price (VND)" : "Price (USDT)"}</span>
-                <span className="text-center">
-                    {isStock ? "Volume" : "Qty"}
+                <span>
+                    {isStock ? t("orderBook.priceVnd") : t("orderBook.priceUsdt")}
                 </span>
-                <span className="text-right">Time</span>
+                <span className="text-center">
+                    {isStock ? t("orderBook.volume") : t("orderBook.qty")}
+                </span>
+                <span className="text-right">{t("orderBook.time")}</span>
             </div>
             {/* Rows */}
             <div className="flex-1 overflow-y-auto thin-scrollbar">
@@ -102,7 +108,7 @@ const RecentTrades = ({
                     </div>
                 ) : trades.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-[11px] text-muted">
-                        Không có dữ liệu trades.
+                        {t("orderBook.noTrades")}
                     </div>
                 ) : (
                     trades.map((t) => (
@@ -128,11 +134,14 @@ const RecentTrades = ({
                                     : t.qty.toFixed(4)}
                             </span>
                             <span className="text-right  text-[10px] font-mono tabular-nums text-muted">
-                                {new Date(t.time).toLocaleTimeString("en", {
+                                {new Date(t.time).toLocaleTimeString(
+                                    locale === "vi" ? "vi-VN" : "en-US",
+                                    {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                     second: "2-digit",
-                                })}
+                                    },
+                                )}
                             </span>
                         </div>
                     ))
@@ -166,6 +175,20 @@ const qtyFmt = (v: number): string => {
     if (v >= 100) return v.toFixed(2);
     if (v >= 1) return v.toFixed(4);
     return v.toFixed(6);
+};
+const stockDepthPriceFmt = (v: number): string =>
+    v.toLocaleString("en-US", {
+        minimumFractionDigits: v < 1000 ? 2 : 0,
+        maximumFractionDigits: v < 1000 ? 2 : 0,
+    });
+const stockDepthQtyFmt = (v: number): string =>
+    Math.round(v).toLocaleString("en-US");
+const stockDepthQtyCompactFmt = (v: number): string => {
+    const abs = Math.abs(v);
+    if (abs >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)}B`;
+    if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
+    if (abs >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+    return Math.round(v).toString();
 };
 
 const topOfBookPriceFmt = (v: number): string => {
@@ -203,6 +226,7 @@ interface OrderRowProps {
     depth: number;
     side: "bid" | "ask";
     grouping: Grouping;
+    isStock: boolean;
 }
 
 const OrderRow = ({
@@ -212,6 +236,7 @@ const OrderRow = ({
     depth,
     side,
     grouping,
+    isStock,
 }: OrderRowProps) => (
     <div className="relative flex items-center px-3 py-[3px] hover:bg-secondary/60 cursor-pointer group">
         {/* Depth bar background */}
@@ -230,34 +255,38 @@ const OrderRow = ({
                 side === "ask" ? "text-rose-500" : "text-emerald-500",
             )}
         >
-            {priceFmt(price, grouping)}
+            {isStock ? stockDepthPriceFmt(price) : priceFmt(price, grouping)}
         </span>
         <span className="flex-1 text-right text-[11px] font-mono relative z-10 text-main">
-            {qtyFmt(quantity)}
+            {isStock ? stockDepthQtyFmt(quantity) : qtyFmt(quantity)}
         </span>
         <span className="flex-1 text-right text-[11px] font-mono relative z-10 text-muted">
-            {qtyFmt(total)}
+            {isStock ? stockDepthQtyFmt(total) : qtyFmt(total)}
         </span>
     </div>
 );
 
 // ─── Column Header ────────────────────────────────────────────────────────────
-const ColHeader = ({ baseSymbol }: { baseSymbol: string }) => (
-    <div className="flex items-center px-3 py-1 text-muted bg-secondary/20 border-b border-main">
-        <span className="flex-1 text-[9px] font-bold uppercase tracking-wider">
-            Price
-        </span>
-        <span className="flex-1 text-right text-[9px] font-bold uppercase tracking-wider">
-            Qty ({baseSymbol})
-        </span>
-        <span className="flex-1 text-right text-[9px] font-bold uppercase tracking-wider">
-            Total
-        </span>
-    </div>
-);
+const ColHeader = ({ baseSymbol }: { baseSymbol: string }) => {
+    const { t } = useI18n();
+    return (
+        <div className="flex items-center px-3 py-1 text-muted bg-secondary/20 border-b border-main">
+            <span className="flex-1 text-[9px] font-bold uppercase tracking-wider">
+                {t("orderBook.price")}
+            </span>
+            <span className="flex-1 text-right text-[9px] font-bold uppercase tracking-wider">
+                {t("orderBook.qty")} ({baseSymbol})
+            </span>
+            <span className="flex-1 text-right text-[9px] font-bold uppercase tracking-wider">
+                {t("orderBook.total")}
+            </span>
+        </div>
+    );
+};
 
 // ─── OrderBook Component ──────────────────────────────────────────────────────
 export const OrderBook = () => {
+    const { t, locale } = useI18n();
     const { selectedSymbol, assets, marketType, universe } = useMarket();
     const isStock = universe === "stock";
     const currentAsset = assets.find((a) => a.id === selectedSymbol);
@@ -291,6 +320,7 @@ export const OrderBook = () => {
         connectionStatus,
         lastUpdatedAt,
         refetch,
+        stockForeignStats,
     } = useOrderBook(selectedSymbol, grouping, marketType);
 
     const asksReversed = data ? [...data.asks].reverse() : [];
@@ -304,7 +334,7 @@ export const OrderBook = () => {
 
     const handleDownload = useCallback(() => {
         if (!data) {
-            setActionMessage("No data to download");
+            setActionMessage(t("orderBook.noDataToDownload"));
             return;
         }
         const nowIso = new Date().toISOString();
@@ -365,8 +395,8 @@ export const OrderBook = () => {
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
-        setActionMessage("Downloaded");
-    }, [data, grouping, marketType, selectedSymbol]);
+        setActionMessage(t("orderBook.downloaded"));
+    }, [data, grouping, marketType, selectedSymbol, t]);
 
     const copyTextToClipboard = useCallback(async (text: string) => {
         if (navigator?.clipboard?.writeText) {
@@ -391,11 +421,11 @@ export const OrderBook = () => {
             url.searchParams.set("marketType", marketType);
             url.searchParams.set("grouping", grouping.toString());
             await copyTextToClipboard(url.toString());
-            setActionMessage("Link copied");
+            setActionMessage(t("orderBook.linkCopied"));
         } catch {
-            setActionMessage("Copy failed");
+            setActionMessage(t("orderBook.copyFailed"));
         }
-    }, [copyTextToClipboard, grouping, marketType, selectedSymbol]);
+    }, [copyTextToClipboard, grouping, marketType, selectedSymbol, t]);
 
     return (
         <div className="h-full flex flex-col border-t border-main">
@@ -414,29 +444,33 @@ export const OrderBook = () => {
                     <div className={`${PANEL_HEADER_CLASS} justify-between`}>
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-bold uppercase tracking-widest leading-none text-main">
-                                {isStock ? "Stock Order Book" : "Order Book"}
+                                {isStock
+                                    ? t("orderBook.stockOrderBook")
+                                    : t("orderBook.orderBook")}
                             </span>
                         </div>
                         <div className="flex items-center space-x-2">
-                            <div className="flex items-center space-x-0.5 rounded-md bg-secondary/20 p-0.5">
-                                {GROUPING_OPTIONS.map((g) => (
-                                    <button
-                                        key={g}
-                                        onClick={() => {
-                                            setIsUserGrouping(true);
-                                            setGrouping(g);
-                                        }}
-                                        className={cn(
-                                            "h-5 rounded px-1.5 text-[9px] font-mono font-semibold tracking-wide transition-colors",
-                                            grouping === g
-                                                ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
-                                                : "text-muted hover:text-main hover:bg-secondary",
-                                        )}
-                                    >
-                                        {g}
-                                    </button>
-                                ))}
-                            </div>
+                            {!isStock && (
+                                <div className="flex items-center space-x-0.5 rounded-md bg-secondary/20 p-0.5">
+                                    {GROUPING_OPTIONS.map((g) => (
+                                        <button
+                                            key={g}
+                                            onClick={() => {
+                                                setIsUserGrouping(true);
+                                                setGrouping(g);
+                                            }}
+                                            className={cn(
+                                                "h-5 rounded px-1.5 text-[9px] font-mono font-semibold tracking-wide transition-colors",
+                                                grouping === g
+                                                    ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+                                                    : "text-muted hover:text-main hover:bg-secondary",
+                                            )}
+                                        >
+                                            {g}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <button
                                 onClick={handleDownload}
                                 disabled={!canExport}
@@ -445,14 +479,14 @@ export const OrderBook = () => {
                                     !canExport &&
                                         "opacity-50 cursor-not-allowed",
                                 )}
-                                title="Download"
+                                title={t("common.download")}
                             >
                                 <Download size={11} />
                             </button>
                             <button
                                 onClick={() => void handleShare()}
                                 className="p-1 text-muted hover:text-main"
-                                title="Share"
+                                title={t("common.share")}
                             >
                                 <Share2 size={11} />
                             </button>
@@ -469,11 +503,103 @@ export const OrderBook = () => {
                     <ColHeader baseSymbol={isStock ? "CP" : baseSymbol} />
 
                     {isStock ? (
-                        <div className="flex-1 flex items-center justify-center p-4">
-                            <div className="text-[10px] uppercase tracking-widest font-bold text-amber-400">
-                                Soon
+                        isLoading && !data ? (
+                            <div className="flex-1 flex items-center justify-center">
+                                <Loader2
+                                    size={12}
+                                    className="text-muted animate-spin"
+                                />
                             </div>
-                        </div>
+                        ) : !data && error ? (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                                <div className="text-[11px] text-rose-500">
+                                    {error}
+                                </div>
+                                <button
+                                    onClick={() => void refetch()}
+                                    className="px-2 py-1 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-semibold"
+                                >
+                                    {t("common.retry")}
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex-1 overflow-y-auto thin-scrollbar flex flex-col">
+                                <div className="flex-1 flex flex-col justify-end">
+                                    {asksReversed.map((ask) => (
+                                        <OrderRow
+                                            key={ask.price}
+                                            {...ask}
+                                            side="ask"
+                                            grouping={grouping}
+                                            isStock={isStock}
+                                        />
+                                    ))}
+                                </div>
+
+                                <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/50 border-y border-main shrink-0">
+                                    <div className="flex items-center space-x-2">
+                                        <span
+                                            className={cn(
+                                                "text-[14px] font-mono font-semibold",
+                                                (currentAsset?.changePercent ??
+                                                    0) >= 0
+                                                    ? "text-emerald-500"
+                                                    : "text-rose-500",
+                                            )}
+                                        >
+                                            {currentAsset?.price
+                                                ? stockDepthPriceFmt(
+                                                      currentAsset.price,
+                                                  )
+                                                : "—"}
+                                        </span>
+                                        {(currentAsset?.changePercent ?? 0) >=
+                                        0 ? (
+                                            <span className="text-emerald-500 text-[10px]">
+                                                ↑
+                                            </span>
+                                        ) : (
+                                            <span className="text-rose-500 text-[10px]">
+                                                ↓
+                                            </span>
+                                        )}
+                                    </div>
+                                    {data && (
+                                        <span className="text-[9px] text-muted font-mono">
+                                            {t("orderBook.spread")}:{" "}
+                                            {stockDepthPriceFmt(data.spread)} (
+                                            {data.spreadPercent.toFixed(3)}%)
+                                        </span>
+                                    )}
+                                    {lastUpdatedAt && (
+                                        <span className="text-[9px] text-muted font-mono">
+                                            {new Date(
+                                                lastUpdatedAt,
+                                            ).toLocaleTimeString(
+                                                locale === "vi" ? "vi-VN" : "en-US",
+                                                {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                                second: "2-digit",
+                                                },
+                                            )}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col">
+                                    {(data?.bids ?? []).map((bid) => (
+                                        <OrderRow
+                                            key={bid.price}
+                                            {...bid}
+                                            side="bid"
+                                            grouping={grouping}
+                                            isStock={isStock}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )
                     ) : isLoading && !data ? (
                         <div className="flex-1 flex items-center justify-center">
                             <Loader2
@@ -490,7 +616,7 @@ export const OrderBook = () => {
                                 onClick={() => void refetch()}
                                 className="px-2 py-1 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-semibold"
                             >
-                                Retry
+                                {t("common.retry")}
                             </button>
                         </div>
                     ) : (
@@ -502,6 +628,7 @@ export const OrderBook = () => {
                                         {...ask}
                                         side="ask"
                                         grouping={grouping}
+                                        isStock={isStock}
                                     />
                                 ))}
                             </div>
@@ -536,7 +663,7 @@ export const OrderBook = () => {
                                 </div>
                                 {data && (
                                     <span className="text-[9px] text-muted font-mono">
-                                        Spread:{" "}
+                                        {t("orderBook.spread")}:{" "}
                                         {priceFmt(data.spread, grouping)} (
                                         {data.spreadPercent.toFixed(3)}%)
                                     </span>
@@ -545,11 +672,14 @@ export const OrderBook = () => {
                                     <span className="text-[9px] text-muted font-mono">
                                         {new Date(
                                             lastUpdatedAt,
-                                        ).toLocaleTimeString("en-US", {
+                                        ).toLocaleTimeString(
+                                            locale === "vi" ? "vi-VN" : "en-US",
+                                            {
                                             hour: "2-digit",
                                             minute: "2-digit",
                                             second: "2-digit",
-                                        })}
+                                            },
+                                        )}
                                     </span>
                                 )}
                             </div>
@@ -561,6 +691,7 @@ export const OrderBook = () => {
                                         {...bid}
                                         side="bid"
                                         grouping={grouping}
+                                        isStock={isStock}
                                     />
                                 ))}
                             </div>
@@ -573,23 +704,149 @@ export const OrderBook = () => {
                     <div className={`${PANEL_HEADER_CLASS} justify-center`}>
                         <span className="text-[10px] font-bold uppercase tracking-widest leading-none text-main">
                             {isStock
-                                ? `${baseSymbol} VN Depth`
-                                : `${baseSymbol} Depth`}
+                                ? t("orderBook.stockDepthTitle", {
+                                      symbol: baseSymbol,
+                                  })
+                                : t("orderBook.depthTitle", {
+                                      symbol: baseSymbol,
+                                  })}
                         </span>
                     </div>
                     <div className="flex-1 min-h-0 p-3 overflow-y-auto thin-scrollbar">
                         {isStock ? (
-                            <div className="h-full flex items-center justify-center">
-                                <div className="text-[10px] uppercase tracking-widest font-bold text-amber-400">
-                                    Soon
+                            data && metrics ? (
+                                <div className="space-y-3">
+                                    <div className="rounded-lg border border-main bg-main/40 p-3">
+                                        <div className="text-[9px] uppercase tracking-widest text-muted mb-2">
+                                            {t("orderBook.depthChart")}
+                                        </div>
+                                        <div className="space-y-2">
+                                            {Array.from(
+                                                { length: 3 },
+                                                (_, i) => {
+                                                    const bid = data.bids[i];
+                                                    const ask = data.asks[i];
+                                                    const maxTotal = Math.max(
+                                                        1,
+                                                        ...data.bids
+                                                            .slice(0, 3)
+                                                            .map(
+                                                                (x) => x.total,
+                                                            ),
+                                                        ...data.asks
+                                                            .slice(0, 3)
+                                                            .map(
+                                                                (x) => x.total,
+                                                            ),
+                                                    );
+                                                    return (
+                                                        <div
+                                                            key={`depth-chart-${i}`}
+                                                            className="space-y-1"
+                                                        >
+                                                            <div className="flex items-center justify-between text-[9px] font-mono text-muted">
+                                                                <span>
+                                                                    {bid
+                                                                        ? stockDepthPriceFmt(
+                                                                              bid.price,
+                                                                          )
+                                                                        : "—"}
+                                                                </span>
+                                                                <span>
+                                                                    {ask
+                                                                        ? stockDepthPriceFmt(
+                                                                              ask.price,
+                                                                          )
+                                                                        : "—"}
+                                                                </span>
+                                                            </div>
+                                                            <div className="h-2 rounded-full bg-secondary/40 overflow-hidden flex">
+                                                                <div
+                                                                    className="h-full bg-emerald-500/80"
+                                                                    style={{
+                                                                        width: `${bid ? (bid.total / maxTotal) * 50 : 0}%`,
+                                                                    }}
+                                                                />
+                                                                <div className="h-full flex-1" />
+                                                                <div
+                                                                    className="h-full bg-rose-500/80"
+                                                                    style={{
+                                                                        width: `${ask ? (ask.total / maxTotal) * 50 : 0}%`,
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                },
+                                            )}
+                                        </div>
+                                        <div className="mt-2 grid grid-cols-2 gap-3 text-[9px] text-muted font-mono">
+                                            <span className="text-left">
+                                                {t("orderBook.totalBuy", {
+                                                    value: stockDepthQtyFmt(
+                                                        metrics.bidVolume,
+                                                    ),
+                                                })}
+                                            </span>
+                                            <span className="text-left">
+                                                {t("orderBook.totalSell", {
+                                                    value: stockDepthQtyFmt(
+                                                        metrics.askVolume,
+                                                    ),
+                                                })}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-lg border border-main bg-main/40 p-3">
+                                        <div className="text-[9px] uppercase tracking-widest text-muted mb-2">
+                                            {t("orderBook.foreign")}
+                                        </div>
+                                        <div className="space-y-1.5 text-[9px]">
+                                            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 flex items-center justify-between gap-2">
+                                                <span className="text-emerald-400 uppercase tracking-wider">
+                                                    {t("orderBook.foreignBuy")}
+                                                </span>
+                                                <span className="text-[11px] font-mono text-emerald-500 text-right">
+                                                    {stockForeignStats?.buy ??
+                                                        0}
+                                                </span>
+                                            </div>
+                                            <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 flex items-center justify-between gap-2">
+                                                <span className="text-rose-400 uppercase tracking-wider">
+                                                    {t("orderBook.foreignSell")}
+                                                </span>
+                                                <span className="text-[11px] font-mono text-rose-500 text-right">
+                                                    {stockForeignStats?.sell ??
+                                                        0}
+                                                </span>
+                                            </div>
+                                            <div className="rounded-md border border-main bg-main/20 px-2 py-1.5 flex items-center justify-between gap-2">
+                                                <span className="text-muted uppercase tracking-wider">
+                                                    {t("orderBook.room")}
+                                                </span>
+                                                <span className="text-[11px] font-mono text-main text-right">
+                                                    {stockForeignStats?.room ??
+                                                        0}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-[11px] text-muted">
+                                    <Loader2
+                                        size={12}
+                                        className="animate-spin"
+                                    />
+                                </div>
+                            )
                         ) : data && metrics ? (
                             <div className="space-y-3">
                                 <div className="rounded-lg border border-main bg-main/40 p-3">
                                     <div className="flex items-center justify-between min-w-0">
                                         <span className="text-[9px] uppercase tracking-widest text-muted">
-                                            Total Depth
+                                            {t("orderBook.totalDepth")}
                                         </span>
                                         <span className="text-[9px] text-muted font-mono truncate max-w-[55%]">
                                             {qtyFmt(
@@ -601,7 +858,7 @@ export const OrderBook = () => {
                                     <div className="mt-2 grid grid-cols-2 gap-2">
                                         <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-left min-w-0">
                                             <div className="text-[9px] uppercase tracking-wider text-emerald-400">
-                                                Bids
+                                                {t("orderBook.bids")}
                                             </div>
                                             <div className="text-[12px] font-mono font-semibold text-emerald-500 truncate">
                                                 {qtyFmt(metrics.bidVolume)}
@@ -609,7 +866,7 @@ export const OrderBook = () => {
                                         </div>
                                         <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-left min-w-0">
                                             <div className="text-[9px] uppercase tracking-wider text-rose-400">
-                                                Asks
+                                                {t("orderBook.asks")}
                                             </div>
                                             <div className="text-[12px] font-mono font-semibold text-rose-500 truncate">
                                                 {qtyFmt(metrics.askVolume)}
@@ -643,7 +900,7 @@ export const OrderBook = () => {
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="rounded-md border border-main bg-main/20 px-2 py-1.5 text-left">
                                         <div className="text-[9px] text-muted">
-                                            Bid Qty
+                                            {t("orderBook.bidQty")}
                                         </div>
                                         <div className="text-[11px] font-mono text-main">
                                             {qtyFmt(metrics.bestBidQty)}
@@ -651,7 +908,7 @@ export const OrderBook = () => {
                                     </div>
                                     <div className="rounded-md border border-main bg-main/20 px-2 py-1.5 text-left">
                                         <div className="text-[9px] text-muted">
-                                            Ask Qty
+                                            {t("orderBook.askQty")}
                                         </div>
                                         <div className="text-[11px] font-mono text-main">
                                             {qtyFmt(metrics.bestAskQty)}
@@ -662,7 +919,7 @@ export const OrderBook = () => {
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="rounded-md border border-main bg-main/20 px-2 py-1.5 text-left">
                                         <div className="text-[9px] text-muted">
-                                            Spread (bps)
+                                            {t("orderBook.spreadBps")}
                                         </div>
                                         <div className="text-[11px] font-mono text-main">
                                             {metrics.spreadBps.toFixed(2)}
@@ -670,7 +927,7 @@ export const OrderBook = () => {
                                     </div>
                                     <div className="rounded-md border border-main bg-main/20 px-2 py-1.5 text-left">
                                         <div className="text-[9px] text-muted">
-                                            Depth tick/s
+                                            {t("orderBook.depthTick")}
                                         </div>
                                         <div className="text-[11px] font-mono text-main">
                                             {metrics.updatesPerSec10s.toFixed(
@@ -683,7 +940,7 @@ export const OrderBook = () => {
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="rounded-md border border-main bg-main/30 px-2 py-1.5 text-left">
                                         <div className="text-[9px] text-muted">
-                                            Best Bid
+                                            {t("orderBook.bestBid")}
                                         </div>
                                         <div className="text-[12px] font-mono font-semibold text-emerald-500">
                                             {topOfBookPriceFmt(metrics.bestBid)}
@@ -691,7 +948,7 @@ export const OrderBook = () => {
                                     </div>
                                     <div className="rounded-md border border-main bg-main/30 px-2 py-1.5 text-left">
                                         <div className="text-[9px] text-muted">
-                                            Best Ask
+                                            {t("orderBook.bestAsk")}
                                         </div>
                                         <div className="text-[12px] font-mono font-semibold text-rose-500">
                                             {topOfBookPriceFmt(metrics.bestAsk)}
@@ -702,7 +959,7 @@ export const OrderBook = () => {
                                 <div className="rounded-md border border-main bg-main/30 px-2 py-1.5 flex items-center justify-between">
                                     <div>
                                         <div className="text-[9px] text-muted">
-                                            Imbalance
+                                            {t("orderBook.imbalance")}
                                         </div>
                                         <div
                                             className={cn(
@@ -727,8 +984,8 @@ export const OrderBook = () => {
                                         )}
                                     >
                                         {metrics.imbalancePct >= 0
-                                            ? "Bid"
-                                            : "Ask"}
+                                            ? t("orderBook.bid")
+                                            : t("orderBook.ask")}
                                     </div>
                                 </div>
                             </div>

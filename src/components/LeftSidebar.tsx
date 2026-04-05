@@ -24,6 +24,7 @@ import {
     X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useI18n } from "../context/I18nContext";
 
 const STOCK_DNSE_PRICE_SCALE = 1000;
 const TONE_EPS = 1e-6;
@@ -120,6 +121,21 @@ function nextSortMode(current: SortMode): SortMode {
     return "volume";
 }
 
+function matchesSidebarSearch(asset: Asset, query: string): boolean {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+
+    return (
+        asset.symbol.toLowerCase().includes(q) ||
+        asset.id.toLowerCase().includes(q) ||
+        asset.name.toLowerCase().includes(q) ||
+        asset.stockProfile?.organName?.toLowerCase().includes(q) ||
+        asset.stockProfile?.organShortName?.toLowerCase().includes(q) ||
+        asset.binanceAssetInfo?.assetName?.toLowerCase().includes(q) ||
+        false
+    );
+}
+
 function stockTooltipText(asset: Asset): string {
     const profile = asset.stockProfile;
     if (!profile) return "";
@@ -174,40 +190,60 @@ const AssetInfoTooltip = ({
 }) => {
     const [open, setOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
-    const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+    const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
 
     useEffect(() => {
         setMounted(true);
     }, []);
 
+    const computePos = useCallback(() => {
+        const trigger = triggerRef.current;
+        if (!trigger) return null;
+
+        const rect = trigger.getBoundingClientRect();
+        const width = 240;
+        const viewportPadding = 10;
+
+        let left = rect.right + 10;
+        if (left + width > window.innerWidth - viewportPadding) {
+            left = Math.max(viewportPadding, rect.left - width - 10);
+        }
+
+        const top = Math.min(
+            Math.max(viewportPadding, rect.top + rect.height / 2),
+            window.innerHeight - viewportPadding,
+        );
+
+        return { top, left };
+    }, []);
+
+    const openTooltip = useCallback(() => {
+        const nextPos = computePos();
+        if (nextPos) setTooltipPos(nextPos);
+        setOpen(true);
+    }, [computePos]);
+
+    const closeTooltip = useCallback(() => {
+        setOpen(false);
+        setTooltipPos(null);
+    }, []);
+
     useEffect(() => {
         if (!open) return;
-        const computePos = () => {
-            const trigger = triggerRef.current;
-            if (!trigger) return;
-            const rect = trigger.getBoundingClientRect();
-            const width = 240;
-            const viewportPadding = 10;
-            let left = rect.right + 10;
-            if (left + width > window.innerWidth - viewportPadding) {
-                left = Math.max(viewportPadding, rect.left - width - 10);
-            }
-            const top = Math.min(
-                Math.max(viewportPadding, rect.top + rect.height / 2),
-                window.innerHeight - viewportPadding,
-            );
-            setTooltipPos({ top, left });
+        const syncPos = () => {
+            const nextPos = computePos();
+            if (nextPos) setTooltipPos(nextPos);
         };
 
-        computePos();
-        window.addEventListener("resize", computePos);
-        window.addEventListener("scroll", computePos, true);
+        syncPos();
+        window.addEventListener("resize", syncPos);
+        window.addEventListener("scroll", syncPos, true);
         return () => {
-            window.removeEventListener("resize", computePos);
-            window.removeEventListener("scroll", computePos, true);
+            window.removeEventListener("resize", syncPos);
+            window.removeEventListener("scroll", syncPos, true);
         };
-    }, [open]);
+    }, [computePos, open]);
 
     return (
         <>
@@ -215,16 +251,17 @@ const AssetInfoTooltip = ({
                 ref={triggerRef}
                 type="button"
                 aria-label={ariaLabel}
-                onMouseEnter={() => setOpen(true)}
-                onMouseLeave={() => setOpen(false)}
-                onFocus={() => setOpen(true)}
-                onBlur={() => setOpen(false)}
-                className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full  text-muted hover:text-main transition-colors"
+                onMouseEnter={openTooltip}
+                onMouseLeave={closeTooltip}
+                onFocus={openTooltip}
+                onBlur={closeTooltip}
+                className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-muted hover:text-main transition-colors"
             >
                 <Info size={11} />
             </button>
             {mounted &&
                 open &&
+                tooltipPos &&
                 createPortal(
                     <div
                         className="pointer-events-none fixed z-[9999] w-60 -translate-y-1/2 whitespace-pre-line rounded-md border border-main bg-main p-2 text-[9px] leading-relaxed text-muted shadow-2xl"
@@ -253,6 +290,7 @@ const CoinRow = ({
     onClick: () => void;
     stockToneClass?: string;
 }) => {
+    const { t } = useI18n();
     const isFutures = asset.marketType === "futures";
     const fundingRate = asset.fundingRate;
     const infoHint = asset.stockProfile
@@ -291,7 +329,7 @@ const CoinRow = ({
                         {infoHint && (
                             <AssetInfoTooltip
                                 text={infoHint}
-                                ariaLabel="Asset info"
+                                ariaLabel={t("leftSidebar.assetInfo")}
                             />
                         )}
                         {isFutures && (
@@ -372,6 +410,7 @@ const LeftSidebarSkeleton = ({ rows = 10 }: { rows?: number }) => {
 
 // ─── Market bar: status + Spot ↔ Futures toggle ───────────────────────────────
 const MarketBar = () => {
+    const { t } = useI18n();
     const {
         marketType,
         setMarketType,
@@ -385,17 +424,23 @@ const MarketBar = () => {
     const isFutures = marketType === "futures";
     const loading = isFutures ? isFuturesLoading : isLoading;
     const streamStatus = isFutures ? futuresStreamStatus : spotStreamStatus;
-    const primaryButtonLabel = universe === "stock" ? "Primary" : "Spot";
-    const secondaryButtonLabel = universe === "stock" ? "Derivatives" : "Futures";
+    const primaryButtonLabel =
+        universe === "stock"
+            ? t("leftSidebar.marketPrimaryButton")
+            : t("leftSidebar.marketSpotButton");
+    const secondaryButtonLabel =
+        universe === "stock"
+            ? t("leftSidebar.marketDerivativesButton")
+            : t("leftSidebar.marketFuturesButton");
 
     const label =
         universe === "stock"
             ? isFutures
-                ? "Derivatives · Stock Feed"
-                : "Primary Market · Stock Feed"
+                ? t("leftSidebar.marketDerivatives")
+                : t("leftSidebar.marketPrimary")
             : isFutures
-              ? "Futures · Binance Futures"
-              : "Spot · Binance";
+              ? t("leftSidebar.marketFutures")
+              : t("leftSidebar.marketSpot");
 
     return (
         <div className="px-2 py-1.5 border-b border-main bg-secondary/10 shrink-0 space-y-1.5">
@@ -415,15 +460,17 @@ const MarketBar = () => {
                 <span className="text-[9px] text-muted truncate flex-1">
                     {label} ·{" "}
                     {streamStatus === "connected"
-                        ? "Live"
+                        ? t("leftSidebar.live")
                         : streamStatus === "connecting"
-                          ? "Syncing"
+                          ? t("leftSidebar.syncing")
                           : streamStatus === "error"
-                            ? "Error"
-                            : "Reconnecting"}
+                            ? t("leftSidebar.error")
+                            : t("leftSidebar.reconnecting")}
                 </span>
                 <span className="text-[9px] text-muted tabular-nums">
-                    {assets.length.toLocaleString("en-US")} assets
+                    {t("leftSidebar.assetsCount", {
+                        count: assets.length.toLocaleString("en-US"),
+                    })}
                 </span>
             </div>
 
@@ -439,8 +486,8 @@ const MarketBar = () => {
                     )}
                     title={
                         universe === "stock"
-                            ? "Hiển thị dữ liệu thị trường cơ sở"
-                            : "Hiển thị dữ liệu Spot"
+                            ? t("leftSidebar.marketPrimaryTitle")
+                            : t("leftSidebar.marketSpotTitle")
                     }
                 >
                     {primaryButtonLabel}
@@ -460,8 +507,8 @@ const MarketBar = () => {
                     )}
                     title={
                         universe === "stock"
-                            ? "Hiển thị dữ liệu phái sinh"
-                            : "Hiển thị dữ liệu Futures"
+                            ? t("leftSidebar.marketDerivativesTitle")
+                            : t("leftSidebar.marketFuturesTitle")
                     }
                 >
                     {secondaryButtonLabel}
@@ -495,6 +542,7 @@ export type LeftSidebarProps = {
 };
 
 export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
+    const { t } = useI18n();
     const {
         assets: baseAssets,
         selectedSymbol,
@@ -641,10 +689,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                         a.stockProfile?.indexMembership,
                     );
                     const tagValues = normalizeFilterList(a.tags);
-                    const nameMatch = (a.name ?? "")
-                        .toLowerCase()
-                        .includes(q);
-                    const searchMatched = q ? nameMatch : true;
+                    const searchMatched = matchesSidebarSearch(a, q);
 
                     if (!searchMatched) return false;
                     if (universe === "coin") {
@@ -842,9 +887,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                     />
                     <input
                         type="text"
-                        placeholder={
-                            "Search token name..."
-                        }
+                        placeholder={t("leftSidebar.searchPlaceholder")}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className={cn(
@@ -870,8 +913,8 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                         ? "border-sky-500/40 bg-sky-500/15 text-sky-400 focus:ring-sky-500/40"
                                         : "border-main bg-main text-muted hover:text-main focus:ring-accent/30",
                                 )}
-                                title="Filter stock"
-                                aria-label="Open stock filter"
+                                title={t("leftSidebar.filterStock")}
+                                aria-label={t("leftSidebar.openStockFilter")}
                             >
                                 <Funnel size={11} />
                             </button>
@@ -894,7 +937,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                     >
                                         <div className="flex items-center justify-between border-b border-main px-3 py-1.5">
                                             <span className="text-[9px] font-semibold uppercase tracking-wider text-muted">
-                                                Filter Stocks
+                                                {t("leftSidebar.filterStocks")}
                                             </span>
                                             <button
                                                 type="button"
@@ -908,10 +951,10 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                         ? "text-sky-400 hover:bg-sky-500/10"
                                                         : "text-muted hover:bg-secondary",
                                                 )}
-                                                title="Clear filter"
+                                                title={t("common.clear")}
                                             >
                                                 <X size={10} />
-                                                Clear
+                                                {t("common.clear")}
                                             </button>
                                         </div>
 
@@ -919,14 +962,14 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div className="rounded border border-main bg-secondary/10 p-1.5">
                                                     <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
-                                                        Sàn
+                                                        {t("leftSidebar.exchange")}
                                                     </div>
                                                     <div className="max-h-36 overflow-y-auto thin-scrollbar space-y-1 pr-0.5">
                                                         {stockFilterOptions
                                                             .exchanges
                                                             .length === 0 ? (
                                                             <div className="px-1 py-1 text-[9px] text-muted">
-                                                                Không có sàn
+                                                                {t("leftSidebar.noExchange")}
                                                             </div>
                                                         ) : (
                                                             stockFilterOptions.exchanges.map(
@@ -988,14 +1031,14 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
 
                                                 <div className="rounded border border-main bg-secondary/10 p-1.5">
                                                     <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
-                                                        Index
+                                                        {t("leftSidebar.index")}
                                                     </div>
                                                     <div className="max-h-36 overflow-y-auto thin-scrollbar space-y-1 pr-0.5">
                                                         {stockFilterOptions
                                                             .indexes.length ===
                                                         0 ? (
                                                             <div className="px-1 py-1 text-[9px] text-muted">
-                                                                Không có index
+                                                                {t("leftSidebar.noIndex")}
                                                             </div>
                                                         ) : (
                                                             stockFilterOptions.indexes.map(
@@ -1059,7 +1102,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                 selectedIndexes.length > 0) && (
                                                 <div className="rounded border border-main bg-secondary/10 p-1.5">
                                                     <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
-                                                        Selected
+                                                        {t("common.selected")}
                                                     </div>
                                                     <div className="flex flex-wrap gap-1">
                                                         {selectedExchanges.map(
@@ -1082,7 +1125,9 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                                         )
                                                                     }
                                                                     className="inline-flex items-center gap-1 rounded border border-sky-500/35 bg-sky-500/10 px-1.5 py-1 text-[9px] font-semibold text-sky-400"
-                                                                    title={`Remove exchange ${exchange}`}
+                                                                    title={t("leftSidebar.removeExchange", {
+                                                                        value: exchange,
+                                                                    })}
                                                                 >
                                                                     {exchange}
                                                                     <X
@@ -1111,7 +1156,9 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                                         )
                                                                     }
                                                                     className="inline-flex items-center gap-1 rounded border border-sky-500/35 bg-sky-500/10 px-1.5 py-1 text-[9px] font-semibold text-sky-400"
-                                                                    title={`Remove index ${indexName}`}
+                                                                    title={t("leftSidebar.removeIndex", {
+                                                                        value: indexName,
+                                                                    })}
                                                                 >
                                                                     {indexName}
                                                                     <X
@@ -1143,8 +1190,8 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                         ? "border-sky-500/40 bg-sky-500/15 text-sky-400 focus:ring-sky-500/40"
                                         : "border-main bg-main text-muted hover:text-main focus:ring-accent/30",
                                 )}
-                                title="Filter tags"
-                                aria-label="Open coin tag filter"
+                                title={t("leftSidebar.filterTags")}
+                                aria-label={t("leftSidebar.openCoinTagFilter")}
                             >
                                 <Funnel size={11} />
                             </button>
@@ -1167,7 +1214,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                     >
                                         <div className="flex items-center justify-between border-b border-main px-3 py-1.5">
                                             <span className="text-[9px] font-semibold uppercase tracking-wider text-muted">
-                                                Filter Tags
+                                                {t("leftSidebar.filterTags")}
                                             </span>
                                             <button
                                                 type="button"
@@ -1180,23 +1227,23 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                         ? "text-sky-400 hover:bg-sky-500/10"
                                                         : "text-muted hover:bg-secondary",
                                                 )}
-                                                title="Clear tags"
+                                                title={t("common.clear")}
                                             >
                                                 <X size={10} />
-                                                Clear
+                                                {t("common.clear")}
                                             </button>
                                         </div>
 
                                         <div className="p-2 space-y-2">
                                             <div className="rounded border border-main bg-secondary/10 p-1.5">
                                                 <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
-                                                    Tags
+                                                    {t("leftSidebar.tags")}
                                                 </div>
                                                 <div className="max-h-48 overflow-y-auto thin-scrollbar space-y-1 pr-0.5">
                                                     {coinFilterOptions.length ===
                                                     0 ? (
                                                         <div className="px-1 py-1 text-[9px] text-muted">
-                                                            Không có tags
+                                                            {t("leftSidebar.noTags")}
                                                         </div>
                                                     ) : (
                                                         coinFilterOptions.map(
@@ -1256,7 +1303,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                             {selectedCoinTags.length > 0 && (
                                                 <div className="rounded border border-main bg-secondary/10 p-1.5">
                                                     <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
-                                                        Selected
+                                                        {t("common.selected")}
                                                     </div>
                                                     <div className="flex flex-wrap gap-1">
                                                         {selectedCoinTags.map(
@@ -1279,7 +1326,9 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                                         )
                                                                     }
                                                                     className="inline-flex items-center gap-1 rounded border border-sky-500/35 bg-sky-500/10 px-1.5 py-1 text-[9px] font-semibold text-sky-400"
-                                                                    title={`Remove tag ${tag}`}
+                                                                    title={t("leftSidebar.removeTag", {
+                                                                        value: tag,
+                                                                    })}
                                                                 >
                                                                     {tag}
                                                                     <X
@@ -1302,19 +1351,19 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
 
             {/* Column headers — "Price / 24h" is clickable to sort */}
             <div className="px-3 py-1.5 grid grid-cols-2 text-[9px] font-semibold text-muted uppercase tracking-wider border-b border-main bg-secondary/30 shrink-0">
-                <span>Symbol</span>
+                <span>{t("leftSidebar.symbol")}</span>
                 <button
                     onClick={() => setSortMode(nextSortMode(sortMode))}
                     className="flex items-center justify-end gap-1 hover:text-main transition-colors"
                     title={
                         sortMode === "volume"
-                            ? "Sort by 24h Change ↓"
+                            ? t("leftSidebar.sortChangeDesc")
                             : sortMode === "change_desc"
-                              ? "Sort by 24h Change ↑"
-                              : "Back to Volume sort"
+                              ? t("leftSidebar.sortChangeAsc")
+                              : t("leftSidebar.sortVolume")
                     }
                 >
-                    Price / 24h
+                    {t("leftSidebar.price24h")}
                     <SortIcon mode={sortMode} />
                 </button>
             </div>
@@ -1329,7 +1378,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                     <LeftSidebarSkeleton rows={18} />
                 ) : displayAssets.length === 0 ? (
                     <div className="p-6 text-center text-muted text-[11px]">
-                        No assets found
+                        {t("leftSidebar.noAssets")}
                     </div>
                 ) : (
                     visibleAssets.map((asset) => (

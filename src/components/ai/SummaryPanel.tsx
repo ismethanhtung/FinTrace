@@ -14,8 +14,10 @@ import { useAppSettings } from "../../context/AppSettingsContext";
 import { useCoinNews } from "../../hooks/useCoinNews";
 import ReactMarkdown from "react-markdown";
 import { aiProviderService } from "../../services/aiProviderService";
+import { useI18n } from "../../context/I18nContext";
 
 export const SummaryPanel = () => {
+    const { t } = useI18n();
     const { selectedSymbol, assets } = useMarket();
     const { activeProviderId, activeProvider, selectedModel } =
         useAppSettings();
@@ -84,7 +86,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
             );
             setAiReport(report);
         } catch (err: any) {
-            setError(err.message || "Lỗi tạo báo cáo");
+            setError(err.message || t("summaryPanel.reportError"));
         } finally {
             setIsGenerating(false);
         }
@@ -96,7 +98,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
             <div className="px-4 py-3 bg-secondary/30 border-b border-main flex justify-between items-end">
                 <div>
                     <div className="text-[10px] text-muted font-semibold uppercase tracking-wider mb-0.5">
-                        Base Asset
+                        {t("summaryPanel.baseAsset")}
                     </div>
                     <div className="text-[16px] font-bold text-main">
                         {baseSymbol}
@@ -104,7 +106,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
                 </div>
                 <div className="text-right">
                     <div className="text-[10px] text-muted font-semibold uppercase tracking-wider mb-0.5">
-                        24h Change
+                        {t("summaryPanel.change24h")}
                     </div>
                     <div
                         className={cn(
@@ -128,7 +130,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-1.5">
                         <span className="text-[11px] font-bold text-main uppercase">
-                            AI Executive Report
+                            {t("summaryPanel.aiExecutiveReport")}
                         </span>
                     </div>
                     {!aiReport && (
@@ -137,7 +139,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
                             disabled={isGenerating}
                             className="px-2 py-1 bg-accent/10 hover:bg-accent/20 text-accent text-[9px] font-bold uppercase rounded transition-colors disabled:opacity-50 flex items-center gap-1"
                         >
-                            Generate
+                            {t("summaryPanel.generate")}
                             {isGenerating ? (
                                 <Loader2 size={12} className="animate-spin" />
                             ) : null}
@@ -158,8 +160,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
                 )}
                 {!aiReport && !isGenerating && !error && (
                     <div className="text-[10.5px] text-muted italic leading-relaxed">
-                        Nhấn Generate để AI tổng hợp toàn bộ số liệu 24h và tin
-                        tức mới nhất thành một Báo cáo phân tích.
+                        {t("summaryPanel.noReportHint")}
                     </div>
                 )}
             </div>
@@ -168,15 +169,19 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
             <div className="p-4 border-b border-main">
                 <div className="flex items-center space-x-1.5 mb-2.5">
                     <span className="text-[11px] font-bold text-main uppercase">
-                        Intraday Momentum Bias
+                        {t("summaryPanel.intradayMomentumBias")}
                     </span>
                 </div>
 
                 <div className="flex items-center gap-4">
                     <div className="flex-1">
                         <div className="flex justify-between text-[10px] mb-1.5 font-mono">
-                            <span className="text-rose-500">BEAR</span>
-                            <span className="text-emerald-500">BULL</span>
+                            <span className="text-rose-500">
+                                {t("summaryPanel.bear")}
+                            </span>
+                            <span className="text-emerald-500">
+                                {t("summaryPanel.bull")}
+                            </span>
                         </div>
                         <div className="h-1.5 w-full bg-main rounded-full overflow-hidden flex">
                             {currentAsset?.low24h &&
@@ -241,7 +246,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
                                             {bullPct.toFixed(0)}%
                                         </div>
                                         <div className="text-[9px] text-muted uppercase mt-0.5">
-                                            Strength
+                                            {t("summaryPanel.strength")}
                                         </div>
                                     </>
                                 );
@@ -252,7 +257,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
                                     50%
                                 </div>
                                 <div className="text-[9px] text-muted uppercase mt-0.5">
-                                    Neutral
+                                    {t("summaryPanel.neutral")}
                                 </div>
                             </>
                         )}
@@ -264,39 +269,45 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
             <div className="flex flex-col">
                 <div className="px-4 py-2 bg-secondary/20 border-b border-main flex items-center space-x-1.5">
                     <span className="text-[11px] font-bold text-main uppercase">
-                        Exact Price Metrics (24H)
+                        {t("summaryPanel.exactPriceMetrics")}
                     </span>
                 </div>
 
                 <div className="border-b border-main text-[11px]">
                     {[
                         {
-                            ind: "Est. VWAP",
+                            ind: t("summaryPanel.estVwap"),
                             val: `$${vwapEst.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`,
                             sig:
                                 currentAsset.price > vwapEst
-                                    ? "Bullish"
-                                    : "Bearish",
+                                    ? t("summaryPanel.bullish")
+                                    : t("summaryPanel.bearish"),
                         },
                         {
-                            ind: "Volatility Spread",
+                            ind: t("summaryPanel.volatilitySpread"),
                             val: `${spreadPct.toFixed(2)}%`,
                             sig:
                                 spreadPct > 5
-                                    ? "High"
+                                    ? t("summaryPanel.high")
                                     : spreadPct > 2
-                                      ? "Normal"
-                                      : "Low",
+                                      ? t("summaryPanel.normal")
+                                      : t("summaryPanel.low"),
                         },
                         {
-                            ind: "Dist. to 24H High",
+                            ind: t("summaryPanel.distToHigh"),
                             val: `-${distToHigh.toFixed(2)}%`,
-                            sig: distToHigh < 2 ? "Near Top" : "Mid/Low",
+                            sig:
+                                distToHigh < 2
+                                    ? t("summaryPanel.nearTop")
+                                    : t("summaryPanel.midLow"),
                         },
                         {
-                            ind: "Dist. to 24H Low",
+                            ind: t("summaryPanel.distToLow"),
                             val: `+${distToLow.toFixed(2)}%`,
-                            sig: distToLow < 2 ? "Near Bottom" : "Mid/High",
+                            sig:
+                                distToLow < 2
+                                    ? t("summaryPanel.nearBottom")
+                                    : t("summaryPanel.midHigh"),
                         },
                     ].map((row, i, arr) => (
                         <div
@@ -315,11 +326,15 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
                             <div
                                 className={cn(
                                     "flex-1 text-right font-medium",
-                                    ["Bullish", "Near Bottom"].includes(row.sig)
+                                    [
+                                        t("summaryPanel.bullish"),
+                                        t("summaryPanel.nearBottom"),
+                                    ].includes(row.sig)
                                         ? "text-emerald-500"
-                                        : ["Bearish", "Near Top"].includes(
-                                                row.sig,
-                                            )
+                                        : [
+                                              t("summaryPanel.bearish"),
+                                              t("summaryPanel.nearTop"),
+                                          ].includes(row.sig)
                                           ? "text-rose-500"
                                           : "text-amber-500",
                                 )}
@@ -335,7 +350,7 @@ Tin tức nổi bật: ${news.map((n) => n.title).join("; ")}
             <div className="flex flex-col mb-6">
                 <div className="px-4 py-2 bg-secondary/20 border-b border-main flex items-center space-x-1.5">
                     <span className="text-[11px] font-bold text-main uppercase">
-                        Volume & Liquidity Profile
+                        {t("summaryPanel.volumeLiquidity")}
                     </span>
                 </div>
 
