@@ -169,8 +169,6 @@ export default function RedisExplorerPage() {
             <AppTopBar />
 
             <main className="flex-1 min-h-0 flex overflow-hidden">
-                <LeftSidebar />
-
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-main">
                     <div className="px-3 border-b border-main bg-secondary/30 shrink-0">
                         <div className="h-[56px] flex items-center justify-between gap-3">
@@ -188,7 +186,9 @@ export default function RedisExplorerPage() {
                                     </div>
                                     <div className="text-[12px] text-muted font-mono truncate">
                                         {entries.length} keys
-                                        {hasMoreHint ? " · còn trang tiếp theo" : ""}
+                                        {hasMoreHint
+                                            ? " · còn trang tiếp theo"
+                                            : ""}
                                         {fetchedAt ? ` · ${fetchedAt}` : ""}
                                     </div>
                                 </div>
@@ -202,7 +202,8 @@ export default function RedisExplorerPage() {
                                             setPatternDraft(e.target.value)
                                         }
                                         onKeyDown={(e) => {
-                                            if (e.key === "Enter") applyPattern();
+                                            if (e.key === "Enter")
+                                                applyPattern();
                                         }}
                                         placeholder="MATCH pattern (vd board:*)"
                                         className="h-8 w-[220px] max-w-[40vw] rounded-lg border border-main bg-secondary px-2 text-[12px] font-mono text-main placeholder:text-muted/70 focus:outline-none focus:ring-1 focus:ring-accent/50"
@@ -272,7 +273,9 @@ export default function RedisExplorerPage() {
                         <div className="sm:hidden pb-3 flex gap-2">
                             <input
                                 value={patternDraft}
-                                onChange={(e) => setPatternDraft(e.target.value)}
+                                onChange={(e) =>
+                                    setPatternDraft(e.target.value)
+                                }
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter") applyPattern();
                                 }}
@@ -337,9 +340,7 @@ export default function RedisExplorerPage() {
                                                 {open ? (
                                                     <ChevronDown size={16} />
                                                 ) : (
-                                                    <ChevronRight
-                                                        size={16}
-                                                    />
+                                                    <ChevronRight size={16} />
                                                 )}
                                             </span>
                                             <div className="flex-1 min-w-0 space-y-1">
@@ -351,8 +352,7 @@ export default function RedisExplorerPage() {
                                                         {row.type}
                                                     </span>
                                                     <span className="text-[10px] font-mono text-muted">
-                                                        TTL{" "}
-                                                        {formatTtl(row.ttl)}
+                                                        TTL {formatTtl(row.ttl)}
                                                     </span>
                                                     {row.truncated ? (
                                                         <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
@@ -385,8 +385,6 @@ export default function RedisExplorerPage() {
                             })}
                         </div>
                     </div>
-
-                    <TickerBar />
                 </div>
             </main>
         </div>

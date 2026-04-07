@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Redis from "ioredis";
-import { getRedis, redisConfigured } from "../../../../lib/redis/server";
+import {
+    connectRedisOrThrow,
+    redisConfigured,
+} from "../../../../lib/redis/server";
 
 export const runtime = "nodejs";
 
@@ -177,7 +180,7 @@ export async function GET(req: NextRequest) {
         : MAX_KEYS_PER_REQUEST;
 
     try {
-        const redis = getRedis();
+        const redis = await connectRedisOrThrow();
         const { keys, nextCursor } = await collectKeys(
             redis,
             cursor,

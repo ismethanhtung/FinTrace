@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
+import WebSocket from "ws";
 
 export const runtime = "nodejs";
 
@@ -127,6 +128,24 @@ function subscribeMessage(channel: string, symbols: string[]): JsonRecord {
     };
 }
 
+function wsRawToParseInput(data: WebSocket.RawData): string | ArrayBuffer {
+    if (typeof data === "string") return data;
+    if (data instanceof ArrayBuffer) return data;
+    const buf = Buffer.isBuffer(data)
+        ? data
+        : Array.isArray(data)
+          ? Buffer.concat(data)
+          : Buffer.from(new Uint8Array(data));
+    return new Uint8Array(buf).buffer;
+}
+
+function wsRawAsUtf8PingCheck(data: WebSocket.RawData): string | null {
+    if (typeof data === "string") return data;
+    if (Buffer.isBuffer(data)) return data.toString("utf8");
+    if (Array.isArray(data)) return Buffer.concat(data).toString("utf8");
+    return null;
+}
+
 async function parseIncoming(data: unknown): Promise<JsonRecord | null> {
     if (typeof data === "string") {
         try {
@@ -205,7 +224,7 @@ export async function GET(request: Request) {
     );
 
     const encoder = new TextEncoder();
-    let ws: WebSocket | null = null;
+    let ws: InstanceType<typeof WebSocket> | null = null;
     let isClosed = false;
     let isAuthed = false;
     let proactivePongTimer: ReturnType<typeof setInterval> | null = null;
@@ -274,25 +293,27 @@ export async function GET(request: Request) {
 
             ws = new WebSocket(wsUrl);
 
-            ws.onopen = () => {
+            ws.on("open", () => {
                 push("info", {
                     type: "ws_open",
                     at: new Date().toISOString(),
                 });
                 const msg = authMessage(apiKey, apiSecret);
                 ws?.send(JSON.stringify(msg));
-            };
+            });
 
-            ws.onmessage = async (event) => {
+            ws.on("message", async (rawData) => {
+                const pingProbe = wsRawAsUtf8PingCheck(rawData);
                 if (
-                    typeof event.data === "string" &&
-                    event.data.trim().toUpperCase() === "PING"
+                    pingProbe !== null &&
+                    pingProbe.trim().toUpperCase() === "PING"
                 ) {
                     sendPong();
                     return;
                 }
 
-                const data = await parseIncoming(event.data);
+                const incoming = wsRawToParseInput(rawData);
+                const data = await parseIncoming(incoming);
                 if (!data) return;
 
                 const action = readString(
@@ -342,23 +363,26 @@ export async function GET(request: Request) {
                     receivedAt: new Date().toISOString(),
                     data,
                 });
-            };
+            });
 
-            ws.onerror = () => {
+            ws.on("error", () => {
                 push("error", {
                     type: "ws_error",
                     message: "DNSE websocket error",
                 });
-            };
+            });
 
-            ws.onclose = (event) => {
+            ws.on("close", (code, reasonBuf) => {
                 push("info", {
                     type: "ws_close",
-                    code: event.code,
-                    reason: event.reason || "closed",
+                    code,
+                    reason:
+                        (reasonBuf && reasonBuf.length
+                            ? reasonBuf.toString("utf8")
+                            : "") || "closed",
                 });
                 cleanup();
-            };
+            });
         },
     });
 
