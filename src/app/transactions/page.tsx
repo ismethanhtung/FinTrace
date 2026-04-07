@@ -146,7 +146,11 @@ export default function TransactionsPage() {
 
         const sizeBuckets = [
             { label: t("transactionsPage.bucketMicro"), min: 0, max: 1_000 },
-            { label: t("transactionsPage.bucketSmall"), min: 1_000, max: 10_000 },
+            {
+                label: t("transactionsPage.bucketSmall"),
+                min: 1_000,
+                max: 10_000,
+            },
             {
                 label: t("transactionsPage.bucketMedium"),
                 min: 10_000,
@@ -232,26 +236,41 @@ export default function TransactionsPage() {
                                 {isStock
                                     ? t("transactionsPage.stock")
                                     : marketType.toUpperCase()}{" "}
-                                · {t("transactionsPage.rows", { count: filtered.length })}
+                                ·{" "}
+                                {t("transactionsPage.rows", {
+                                    count: filtered.length,
+                                })}
                                 {tradeError && txList.length > 0 ? (
                                     <span className="text-amber-500 ml-2">
-                                        • {t("transactionsPage.pollErrorKeepOldData")}
+                                        •{" "}
+                                        {t(
+                                            "transactionsPage.pollErrorKeepOldData",
+                                        )}
                                     </span>
                                 ) : null}
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center shrink-0 rounded-md bg-secondary/20 p-0.5">
                             {(["all", "buy", "sell"] as const).map((kind) => (
                                 <button
                                     key={kind}
                                     type="button"
                                     onClick={() => setFilter(kind)}
+                                    aria-pressed={filter === kind}
                                     className={cn(
-                                        "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border transition-colors",
-                                        filter === kind
-                                            ? "bg-accent/15 text-accent border-accent/30"
-                                            : "border-transparent text-muted hover:text-main hover:bg-secondary",
+                                        "inline-flex min-w-[54px] items-center justify-center rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] border transition-colors",
+                                        filter !== kind &&
+                                            "border-transparent text-muted hover:text-main hover:bg-secondary/70",
+                                        filter === kind &&
+                                            kind === "all" &&
+                                            "border-main bg-main text-main shadow-sm",
+                                        filter === kind &&
+                                            kind === "buy" &&
+                                            "border-emerald-500/35 bg-emerald-500/15 text-emerald-400 shadow-sm",
+                                        filter === kind &&
+                                            kind === "sell" &&
+                                            "border-rose-500/35 bg-rose-500/15 text-rose-400 shadow-sm",
                                     )}
                                 >
                                     {kind === "all"
@@ -270,14 +289,25 @@ export default function TransactionsPage() {
                             "py-2 text-[9px] font-semibold uppercase tracking-wider text-muted border-b border-main bg-secondary/10 shrink-0",
                         )}
                     >
-                        <span className="text-left">{t("transactionsPage.type")}</span>
-                        <span className="text-right">{t("transactionsPage.id")}</span>
-                        <span className="text-right">
-                            {t("transactionsPage.price")} ({isStock ? "VND" : "USDT"})
+                        <span className="text-left">
+                            {t("transactionsPage.type")}
                         </span>
-                        <span className="text-right">{t("transactionsPage.qty")}</span>
-                        <span className="text-right">{t("transactionsPage.notional")}</span>
-                        <span className="text-right">{t("transactionsPage.time")}</span>
+                        <span className="text-right">
+                            {t("transactionsPage.id")}
+                        </span>
+                        <span className="text-right">
+                            {t("transactionsPage.price")} (
+                            {isStock ? "VND" : "USDT"})
+                        </span>
+                        <span className="text-right">
+                            {t("transactionsPage.qty")}
+                        </span>
+                        <span className="text-right">
+                            {t("transactionsPage.notional")}
+                        </span>
+                        <span className="text-right">
+                            {t("transactionsPage.time")}
+                        </span>
                     </div>
 
                     <div className="flex-1 min-h-0 overflow-x-auto">
@@ -336,7 +366,9 @@ export default function TransactionsPage() {
                                                 )}
                                                 {tx.isBuy
                                                     ? t("transactionsPage.buy")
-                                                    : t("transactionsPage.sell")}
+                                                    : t(
+                                                          "transactionsPage.sell",
+                                                      )}
                                             </span>
                                         </div>
                                         <span className="text-right text-[10px] font-mono tabular-nums text-muted truncate">
@@ -422,7 +454,9 @@ export default function TransactionsPage() {
 
                         <div className="rounded-lg border border-main bg-secondary/10 p-3 space-y-2">
                             <div className="flex items-center justify-between text-[10px] uppercase tracking-wider font-bold text-muted">
-                                <span>{t("transactionsPage.buySellDominance")}</span>
+                                <span>
+                                    {t("transactionsPage.buySellDominance")}
+                                </span>
                                 <span>
                                     {stats.buyDominance.toFixed(1)}%{" "}
                                     {t("transactionsPage.buy")}
@@ -436,11 +470,13 @@ export default function TransactionsPage() {
                             </div>
                             <div className="flex items-center justify-between text-[10px] font-mono">
                                 <span className="text-emerald-500">
-                                    {t("transactionsPage.buy")} {isStock ? "" : "$"}
+                                    {t("transactionsPage.buy")}{" "}
+                                    {isStock ? "" : "$"}
                                     {compactUsdFmt.format(stats.buyQuote)}
                                 </span>
                                 <span className="text-rose-500">
-                                    {t("transactionsPage.sell")} {isStock ? "" : "$"}
+                                    {t("transactionsPage.sell")}{" "}
+                                    {isStock ? "" : "$"}
                                     {compactUsdFmt.format(stats.sellQuote)}
                                 </span>
                             </div>
@@ -518,8 +554,12 @@ export default function TransactionsPage() {
                                             ) => [
                                                 `${isStock ? "" : "$"}${tradePriceFmt(value)}`,
                                                 name === "v"
-                                                    ? t("transactionsPage.price")
-                                                    : t("transactionsPage.ma20"),
+                                                    ? t(
+                                                          "transactionsPage.price",
+                                                      )
+                                                    : t(
+                                                          "transactionsPage.ma20",
+                                                      ),
                                             ]}
                                             labelFormatter={(label) => {
                                                 const point =
@@ -623,7 +663,9 @@ export default function TransactionsPage() {
                                             >
                                                 {tx.isBuy
                                                     ? t("transactionsPage.buy")
-                                                    : t("transactionsPage.sell")}
+                                                    : t(
+                                                          "transactionsPage.sell",
+                                                      )}
                                             </span>
                                             <span className="text-main">
                                                 {isStock ? "" : "$"}

@@ -22,10 +22,10 @@ const THEME_SET = new Set<AppThemePreference>([
 ]);
 
 export function normalizeTheme(value: unknown): AppThemePreference {
-    if (typeof value !== "string") return "dark1";
+    if (typeof value !== "string") return "light";
     return THEME_SET.has(value as AppThemePreference)
         ? (value as AppThemePreference)
-        : "dark1";
+        : "light";
 }
 
 export function persistClientPreferenceCookie(

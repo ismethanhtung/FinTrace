@@ -257,7 +257,7 @@ const AppSettingsContext = createContext<AppSettingsValue | null>(null);
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export const AppSettingsProvider = ({
     children,
-    initialTheme = "dark1",
+    initialTheme = "light",
 }: {
     children: React.ReactNode;
     initialTheme?: AppTheme;

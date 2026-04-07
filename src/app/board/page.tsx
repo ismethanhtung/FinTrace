@@ -956,7 +956,7 @@ export default function BoardPage() {
     }, [symbols, vietcapGroupsBySymbol, vietcapSnapshotBySymbol]);
     const searchResults = useMemo(() => {
         if (!isSearchOpen || !q) return [];
-        return tabFilteredSymbols
+        return symbols
             .map((symbol) => searchMetaBySymbol.get(symbol))
             .filter((meta): meta is BoardSearchMeta => Boolean(meta))
             .filter((meta) => {
@@ -971,7 +971,7 @@ export default function BoardPage() {
             })
             .slice(0, 12)
             .map((meta) => ({ ...meta }));
-    }, [isSearchOpen, q, searchMetaBySymbol, tabFilteredSymbols]);
+    }, [isSearchOpen, q, searchMetaBySymbol, symbols]);
     const recentSearchResults = useMemo(
         () =>
             recentSymbols
@@ -993,7 +993,7 @@ export default function BoardPage() {
         (rawQuery: string): string | null => {
             const normalizedQuery = rawQuery.trim().toLowerCase();
             if (!normalizedQuery) return null;
-            for (const symbol of tabFilteredSymbols) {
+            for (const symbol of symbols) {
                 const meta = searchMetaBySymbol.get(symbol);
                 if (!meta) continue;
                 const symbolText = meta.symbol.toLowerCase();
@@ -1009,7 +1009,7 @@ export default function BoardPage() {
             }
             return null;
         },
-        [searchMetaBySymbol, tabFilteredSymbols],
+        [searchMetaBySymbol, symbols],
     );
 
     const streamSymbols = useMemo(
