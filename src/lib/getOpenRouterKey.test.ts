@@ -13,16 +13,18 @@ describe("getOpenRouterApiKey", () => {
         await expect(mod.getOpenRouterApiKey()).resolves.toBe("sk-or-v1-real-key");
     });
 
-    it("rejects when env and AWS region are missing", async () => {
+    it("rejects when env key is missing", async () => {
         const mod = await import("./getOpenRouterKey");
         await expect(mod.getOpenRouterApiKey()).rejects.toThrow(
             "OPENROUTER_FALLBACK_API_KEY is not set",
         );
     });
 
-    it("ignores placeholder env values and still rejects without AWS", async () => {
+    it("ignores placeholder env values", async () => {
         process.env.OPENROUTER_FALLBACK_API_KEY = "YOUR_KEY_HERE";
         const mod = await import("./getOpenRouterKey");
-        await expect(mod.getOpenRouterApiKey()).rejects.toThrow("AWS_REGION");
+        await expect(mod.getOpenRouterApiKey()).rejects.toThrow(
+            "OPENROUTER_FALLBACK_API_KEY is not set",
+        );
     });
 });

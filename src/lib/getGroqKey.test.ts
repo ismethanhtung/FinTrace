@@ -13,7 +13,7 @@ describe("getGroqApiKey", () => {
         await expect(mod.getGroqApiKey()).resolves.toBe("gsk_live_key");
     });
 
-    it("rejects when env and AWS region are missing", async () => {
+    it("rejects when env key is missing", async () => {
         const mod = await import("./getGroqKey");
         await expect(mod.getGroqApiKey()).rejects.toThrow("GROQ_API_KEY is not set");
     });
@@ -21,6 +21,6 @@ describe("getGroqApiKey", () => {
     it("rejects placeholder env keys", async () => {
         process.env.GROQ_API_KEY = "MY_GROQ_KEY";
         const mod = await import("./getGroqKey");
-        await expect(mod.getGroqApiKey()).rejects.toThrow("AWS_REGION");
+        await expect(mod.getGroqApiKey()).rejects.toThrow("GROQ_API_KEY is not set");
     });
 });

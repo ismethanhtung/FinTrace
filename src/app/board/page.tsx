@@ -1911,6 +1911,13 @@ export default function BoardPage() {
             : streamStatus === "error"
               ? t("boardPage.socketError")
               : t("boardPage.socketConnecting");
+    useEffect(() => {
+        if (!streamError) return;
+        console.error("[Board stream] status/error", {
+            streamStatus,
+            streamError,
+        });
+    }, [streamError, streamStatus]);
     const snapshotStatusClass =
         isVietcapSnapshotLoading && vietcapSnapshotCount === 0
             ? "border-amber-500/30 bg-amber-500/10 text-amber-500"

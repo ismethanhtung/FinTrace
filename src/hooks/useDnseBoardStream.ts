@@ -24,6 +24,7 @@ type DnseInfoEvent = {
 
 const MAX_STREAM_SYMBOLS = 300;
 const DEFAULT_CHANNEL_BOARDS = ["G1", "G2", "G3"] as const;
+const DEBUG_PREFIX = "[DNSE SSE]";
 
 function normalizeSymbol(raw: string): string | null {
     const symbol = raw.trim().toUpperCase();
@@ -167,6 +168,16 @@ export function useDnseBoardStream(
             `/api/dnse/realtime/stream?${qs.toString()}`,
         );
         eventSourceRef.current = es;
+        let hasLoggedFirstMarketEvent = false;
+        console.info(DEBUG_PREFIX, "stream_init", {
+            url: `/api/dnse/realtime/stream?${qs.toString()}`,
+            symbolCount: symbolsForStream.length,
+            board,
+            boards: boardsForChannels,
+            marketIndexes,
+            resolution,
+            channels,
+        });
 
         es.addEventListener("info", (event) => {
             try {
@@ -174,6 +185,9 @@ export function useDnseBoardStream(
                     (event as MessageEvent).data,
                 ) as DnseInfoEvent;
                 const type = String(payload.type || "").toLowerCase();
+                if (type !== "sse_heartbeat") {
+                    console.info(DEBUG_PREFIX, "info", payload);
+                }
                 if (
                     type === "ws_open" ||
                     type === "auth_success" ||
@@ -195,6 +209,10 @@ export function useDnseBoardStream(
                 const payload = JSON.parse((event as MessageEvent).data) as {
                     data?: unknown;
                 };
+                if (!hasLoggedFirstMarketEvent) {
+                    hasLoggedFirstMarketEvent = true;
+                    console.info(DEBUG_PREFIX, "first_market_payload", payload);
+                }
                 const patches = extractDnseBoardPatches(
                     payload.data ?? payload,
                 );
@@ -235,6 +253,9 @@ export function useDnseBoardStream(
                 typeof asMessageEvent.data !== "string" ||
                 !asMessageEvent.data.trim()
             ) {
+                console.warn(DEBUG_PREFIX, "eventsource_transport_error", {
+                    readyState: es.readyState,
+                });
                 if (es.readyState === EventSource.CONNECTING) {
                     setStatus((prev) =>
                         prev === "connected" ? "disconnected" : "connecting",
@@ -254,11 +275,19 @@ export function useDnseBoardStream(
                     message?: string;
                     type?: string;
                     error?: string;
+                    code?: string;
+                    errno?: string | number;
+                    syscall?: string;
+                    address?: string;
+                    port?: number;
+                    stack?: string;
                 };
+                console.error(DEBUG_PREFIX, "stream_error_event", payload);
                 message =
                     payload.message || payload.error || payload.type || message;
             } catch {
                 // keep default message if payload is not valid json
+                console.error(DEBUG_PREFIX, "stream_error_raw", asMessageEvent.data);
             }
 
             setError(message);
@@ -266,6 +295,7 @@ export function useDnseBoardStream(
         });
 
         return () => {
+            console.info(DEBUG_PREFIX, "stream_cleanup");
             es.close();
             if (eventSourceRef.current === es) {
                 eventSourceRef.current = null;

@@ -99,6 +99,33 @@ function createSse(event: string, data: unknown): string {
     return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
+function serializeWsError(err: unknown): JsonRecord {
+    if (!(err instanceof Error)) {
+        return {
+            message: "Unknown websocket error",
+            raw: String(err),
+        };
+    }
+
+    const netErr = err as Error & {
+        code?: string;
+        errno?: string | number;
+        syscall?: string;
+        address?: string;
+        port?: number;
+    };
+    return {
+        message: err.message || "DNSE websocket error",
+        name: err.name || "Error",
+        code: netErr.code ?? null,
+        errno: netErr.errno ?? null,
+        syscall: netErr.syscall ?? null,
+        address: netErr.address ?? null,
+        port: netErr.port ?? null,
+        stack: err.stack ?? null,
+    };
+}
+
 function authMessage(apiKey: string, apiSecret: string): JsonRecord {
     const timestamp = Math.floor(Date.now() / 1000);
     const nonce = String(Date.now() * 1000);
@@ -235,7 +262,11 @@ export async function GET(request: Request) {
         start(controller) {
             const push = (event: string, payload: unknown) => {
                 if (isClosed) return;
-                controller.enqueue(encoder.encode(createSse(event, payload)));
+                try {
+                    controller.enqueue(encoder.encode(createSse(event, payload)));
+                } catch {
+                    isClosed = true;
+                }
             };
 
             const cleanup = () => {
@@ -303,8 +334,24 @@ export async function GET(request: Request) {
                 encoding,
                 channels,
             });
+            push("info", {
+                type: "ws_connecting",
+                at: new Date().toISOString(),
+                wsUrl,
+            });
 
-            ws = new WebSocket(wsUrl);
+            try {
+                ws = new WebSocket(wsUrl);
+            } catch (err) {
+                const detail = serializeWsError(err);
+                console.error("[DNSE stream] ws constructor error", detail);
+                push("error", {
+                    type: "ws_constructor_error",
+                    ...detail,
+                });
+                cleanup();
+                return;
+            }
 
             ws.on("open", () => {
                 push("info", {
@@ -313,6 +360,10 @@ export async function GET(request: Request) {
                 });
                 const msg = authMessage(apiKey, apiSecret);
                 ws?.send(JSON.stringify(msg));
+                push("info", {
+                    type: "auth_sent",
+                    at: new Date().toISOString(),
+                });
             });
 
             ws.on("message", async (rawData) => {
@@ -379,12 +430,11 @@ export async function GET(request: Request) {
             });
 
             ws.on("error", (err) => {
+                const detail = serializeWsError(err);
+                console.error("[DNSE stream] ws error", detail);
                 push("error", {
                     type: "ws_error",
-                    message:
-                        err instanceof Error && err.message
-                            ? err.message
-                            : "DNSE websocket error",
+                    ...detail,
                 });
             });
 
