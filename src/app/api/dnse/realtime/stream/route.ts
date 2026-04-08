@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 type JsonRecord = Record<string, unknown>;
 const MAX_SYMBOLS = 300;
 const PROACTIVE_PONG_INTERVAL_MS = 2 * 60 * 1000;
+const SSE_HEARTBEAT_INTERVAL_MS = 15 * 1000;
 const DEFAULT_WS_BASE_URL = "wss://ws-openapi.dnse.com.vn/v1/stream";
 
 function asRecord(value: unknown): JsonRecord | null {
@@ -228,6 +229,7 @@ export async function GET(request: Request) {
     let isClosed = false;
     let isAuthed = false;
     let proactivePongTimer: ReturnType<typeof setInterval> | null = null;
+    let sseHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
     const stream = new ReadableStream<Uint8Array>({
         start(controller) {
@@ -242,6 +244,10 @@ export async function GET(request: Request) {
                 if (proactivePongTimer) {
                     clearInterval(proactivePongTimer);
                     proactivePongTimer = null;
+                }
+                if (sseHeartbeatTimer) {
+                    clearInterval(sseHeartbeatTimer);
+                    sseHeartbeatTimer = null;
                 }
                 if (ws) {
                     try {
@@ -259,6 +265,13 @@ export async function GET(request: Request) {
             };
 
             request.signal.addEventListener("abort", cleanup);
+
+            sseHeartbeatTimer = setInterval(() => {
+                push("info", {
+                    type: "sse_heartbeat",
+                    at: new Date().toISOString(),
+                });
+            }, SSE_HEARTBEAT_INTERVAL_MS);
 
             const sendPong = () => {
                 if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -365,10 +378,13 @@ export async function GET(request: Request) {
                 });
             });
 
-            ws.on("error", () => {
+            ws.on("error", (err) => {
                 push("error", {
                     type: "ws_error",
-                    message: "DNSE websocket error",
+                    message:
+                        err instanceof Error && err.message
+                            ? err.message
+                            : "DNSE websocket error",
                 });
             });
 
@@ -388,8 +404,9 @@ export async function GET(request: Request) {
 
     const headers = new Headers();
     headers.set("content-type", "text/event-stream; charset=utf-8");
-    headers.set("cache-control", "no-cache, no-transform");
+    headers.set("cache-control", "no-cache, no-store, no-transform");
     headers.set("connection", "keep-alive");
+    headers.set("x-accel-buffering", "no");
 
     return new Response(stream, { status: 200, headers });
 }

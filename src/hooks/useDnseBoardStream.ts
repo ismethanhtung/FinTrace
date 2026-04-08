@@ -228,9 +228,29 @@ export function useDnseBoardStream(
         });
 
         es.addEventListener("error", (event) => {
+            const asMessageEvent =
+                event instanceof MessageEvent ? event : null;
+            if (
+                !asMessageEvent ||
+                typeof asMessageEvent.data !== "string" ||
+                !asMessageEvent.data.trim()
+            ) {
+                if (es.readyState === EventSource.CONNECTING) {
+                    setStatus((prev) =>
+                        prev === "connected" ? "disconnected" : "connecting",
+                    );
+                    return;
+                }
+                if (es.readyState === EventSource.CLOSED) {
+                    setStatus("disconnected");
+                    return;
+                }
+                return;
+            }
+
             let message = "DNSE stream error";
             try {
-                const payload = JSON.parse((event as MessageEvent).data) as {
+                const payload = JSON.parse(asMessageEvent.data) as {
                     message?: string;
                     type?: string;
                     error?: string;
@@ -238,8 +258,9 @@ export function useDnseBoardStream(
                 message =
                     payload.message || payload.error || payload.type || message;
             } catch {
-                // ignore parse error, keep generic message
+                // keep default message if payload is not valid json
             }
+
             setError(message);
             setStatus("error");
         });
