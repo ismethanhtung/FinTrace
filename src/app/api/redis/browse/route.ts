@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type Redis from "ioredis";
 import {
     connectRedisOrThrow,
+    getConfiguredRedisDb,
     redisConfigured,
 } from "../../../../lib/redis/server";
 
@@ -26,6 +27,7 @@ type Entry = {
     value: unknown;
     truncated: boolean;
 };
+type RedisReply<T> = [Error | null, T];
 
 async function collectKeys(
     redis: Redis,
@@ -72,91 +74,166 @@ function tryParseJsonString(raw: string): unknown {
     return raw;
 }
 
-async function readKeyPayload(
-    redis: Redis,
-    key: string,
-    type: string,
-): Promise<{ value: unknown; truncated: boolean }> {
-    switch (type) {
-        case "string": {
-            const buf = await redis.getBuffer(key);
+function replyValue<T>(reply: RedisReply<T> | undefined): T | null {
+    if (!reply) return null;
+    const [err, value] = reply;
+    if (err) return null;
+    return value;
+}
+
+async function readEntriesBatched(redis: Redis, keys: string[]): Promise<Entry[]> {
+    if (!keys.length) return [];
+
+    const metaPipe = redis.pipeline();
+    for (const key of keys) {
+        metaPipe.type(key);
+        metaPipe.ttl(key);
+    }
+    const metaReplies = (await metaPipe.exec()) as RedisReply<string | number>[];
+
+    const entries: Entry[] = keys.map((key, idx) => {
+        const type = String(replyValue(metaReplies[idx * 2]) ?? "none");
+        const ttlRaw = Number(replyValue(metaReplies[idx * 2 + 1]) ?? -2);
+        return {
+            key,
+            type,
+            ttl: Number.isFinite(ttlRaw) ? ttlRaw : -2,
+            value: null,
+            truncated: false,
+        };
+    });
+
+    const byType = new Map<string, number[]>();
+    for (let i = 0; i < entries.length; i += 1) {
+        const type = entries[i]!.type;
+        if (!byType.has(type)) byType.set(type, []);
+        byType.get(type)!.push(i);
+    }
+
+    const fillString = async (indexes: number[]) => {
+        const p = redis.pipeline();
+        for (const i of indexes) p.getBuffer(entries[i]!.key);
+        const replies = (await p.exec()) as RedisReply<Buffer | null>[];
+        indexes.forEach((entryIdx, rIdx) => {
+            const buf = replyValue(replies[rIdx]);
             if (!buf) {
-                return { value: null, truncated: false };
+                entries[entryIdx]!.value = null;
+                return;
             }
             if (buf.length > MAX_STRING_BYTES) {
                 const sliced = buf.subarray(0, MAX_STRING_BYTES).toString("utf8");
-                return {
-                    value: `${sliced}\n… [truncated ${buf.length - MAX_STRING_BYTES} bytes]`,
-                    truncated: true,
-                };
+                entries[entryIdx]!.value =
+                    `${sliced}\n… [truncated ${buf.length - MAX_STRING_BYTES} bytes]`;
+                entries[entryIdx]!.truncated = true;
+                return;
             }
-            const raw = buf.toString("utf8");
-            return { value: tryParseJsonString(raw), truncated: false };
-        }
-        case "hash": {
-            const all = await redis.hgetall(key);
-            const keys = Object.keys(all);
-            if (keys.length > MAX_HASH_FIELDS) {
+            entries[entryIdx]!.value = tryParseJsonString(buf.toString("utf8"));
+        });
+    };
+
+    const fillHash = async (indexes: number[]) => {
+        const p = redis.pipeline();
+        for (const i of indexes) p.hgetall(entries[i]!.key);
+        const replies = (await p.exec()) as RedisReply<Record<string, string>>[];
+        indexes.forEach((entryIdx, rIdx) => {
+            const all = replyValue(replies[rIdx]) ?? {};
+            const ks = Object.keys(all);
+            if (ks.length > MAX_HASH_FIELDS) {
                 const slice: Record<string, string> = {};
-                for (const k of keys.slice(0, MAX_HASH_FIELDS)) {
-                    slice[k] = all[k]!;
-                }
-                return { value: slice, truncated: true };
+                for (const k of ks.slice(0, MAX_HASH_FIELDS)) slice[k] = all[k]!;
+                entries[entryIdx]!.value = slice;
+                entries[entryIdx]!.truncated = true;
+                return;
             }
-            return { value: all, truncated: false };
+            entries[entryIdx]!.value = all;
+        });
+    };
+
+    const fillList = async (indexes: number[]) => {
+        const p = redis.pipeline();
+        for (const i of indexes) {
+            p.llen(entries[i]!.key);
+            p.lrange(entries[i]!.key, 0, MAX_LIST_ELEMENTS - 1);
         }
-        case "list": {
-            const len = await redis.llen(key);
-            const slice = await redis.lrange(key, 0, MAX_LIST_ELEMENTS - 1);
-            return {
-                value: slice,
-                truncated: len > MAX_LIST_ELEMENTS,
-            };
-        }
-        case "set": {
-            const mem = await redis.smembers(key);
-            mem.sort((a, b) => a.localeCompare(b));
-            if (mem.length > MAX_SET_MEMBERS) {
-                return {
-                    value: mem.slice(0, MAX_SET_MEMBERS),
-                    truncated: true,
-                };
+        const replies = (await p.exec()) as RedisReply<number | string[]>[];
+        indexes.forEach((entryIdx, rIdx) => {
+            const len = Number(replyValue(replies[rIdx * 2]) ?? 0);
+            const slice = (replyValue(replies[rIdx * 2 + 1]) ?? []) as string[];
+            entries[entryIdx]!.value = slice;
+            entries[entryIdx]!.truncated = len > MAX_LIST_ELEMENTS;
+        });
+    };
+
+    const fillSet = async (indexes: number[]) => {
+        const p = redis.pipeline();
+        for (const i of indexes) p.smembers(entries[i]!.key);
+        const replies = (await p.exec()) as RedisReply<string[]>[];
+        indexes.forEach((entryIdx, rIdx) => {
+            const members = [...((replyValue(replies[rIdx]) ?? []) as string[])];
+            members.sort((a, b) => a.localeCompare(b));
+            if (members.length > MAX_SET_MEMBERS) {
+                entries[entryIdx]!.value = members.slice(0, MAX_SET_MEMBERS);
+                entries[entryIdx]!.truncated = true;
+                return;
             }
-            return { value: mem, truncated: false };
+            entries[entryIdx]!.value = members;
+        });
+    };
+
+    const fillZSet = async (indexes: number[]) => {
+        const p = redis.pipeline();
+        for (const i of indexes) {
+            p.zcard(entries[i]!.key);
+            p.zrange(entries[i]!.key, 0, MAX_ZSET_MEMBERS - 1, "WITHSCORES");
         }
-        case "zset": {
-            const len = await redis.zcard(key);
-            const flat = await redis.zrange(
-                key,
-                0,
-                MAX_ZSET_MEMBERS - 1,
-                "WITHSCORES",
-            );
+        const replies = (await p.exec()) as RedisReply<number | string[]>[];
+        indexes.forEach((entryIdx, rIdx) => {
+            const len = Number(replyValue(replies[rIdx * 2]) ?? 0);
+            const flat = (replyValue(replies[rIdx * 2 + 1]) ?? []) as string[];
             const rows: { member: string; score: number }[] = [];
             for (let i = 0; i < flat.length; i += 2) {
-                rows.push({
-                    member: flat[i]!,
-                    score: Number(flat[i + 1]!),
-                });
+                rows.push({ member: flat[i]!, score: Number(flat[i + 1]!) });
             }
-            return { value: rows, truncated: len > MAX_ZSET_MEMBERS };
+            entries[entryIdx]!.value = rows;
+            entries[entryIdx]!.truncated = len > MAX_ZSET_MEMBERS;
+        });
+    };
+
+    const fillStream = async (indexes: number[]) => {
+        const p = redis.pipeline();
+        for (const i of indexes) {
+            p.xrevrange(entries[i]!.key, "+", "-", "COUNT", MAX_STREAM_ENTRIES);
         }
-        case "stream": {
-            const rows = await redis.xrevrange(
-                key,
-                "+",
-                "-",
-                "COUNT",
-                MAX_STREAM_ENTRIES,
-            );
-            return { value: rows, truncated: false };
+        const replies = (await p.exec()) as RedisReply<unknown[]>[];
+        indexes.forEach((entryIdx, rIdx) => {
+            entries[entryIdx]!.value = replyValue(replies[rIdx]) ?? [];
+        });
+    };
+
+    await Promise.all([
+        byType.get("string")?.length ? fillString(byType.get("string")!) : null,
+        byType.get("hash")?.length ? fillHash(byType.get("hash")!) : null,
+        byType.get("list")?.length ? fillList(byType.get("list")!) : null,
+        byType.get("set")?.length ? fillSet(byType.get("set")!) : null,
+        byType.get("zset")?.length ? fillZSet(byType.get("zset")!) : null,
+        byType.get("stream")?.length ? fillStream(byType.get("stream")!) : null,
+    ]);
+
+    for (const e of entries) {
+        if (e.value !== null) continue;
+        if (
+            e.type !== "string" &&
+            e.type !== "hash" &&
+            e.type !== "list" &&
+            e.type !== "set" &&
+            e.type !== "zset" &&
+            e.type !== "stream"
+        ) {
+            e.value = `[unsupported type: ${e.type}]`;
         }
-        default:
-            return {
-                value: `[unsupported type: ${type}]`,
-                truncated: false,
-            };
     }
+
+    return entries;
 }
 
 export async function GET(req: NextRequest) {
@@ -181,6 +258,8 @@ export async function GET(req: NextRequest) {
 
     try {
         const redis = await connectRedisOrThrow();
+        // Force selected DB per request to avoid shared-connection DB drift.
+        await redis.select(getConfiguredRedisDb());
         const { keys, nextCursor } = await collectKeys(
             redis,
             cursor,
@@ -188,13 +267,7 @@ export async function GET(req: NextRequest) {
             limit,
         );
 
-        const entries: Entry[] = [];
-        for (const key of keys) {
-            const type = await redis.type(key);
-            const ttl = await redis.ttl(key);
-            const { value, truncated } = await readKeyPayload(redis, key, type);
-            entries.push({ key, type, ttl, value, truncated });
-        }
+        const entries = await readEntriesBatched(redis, keys);
 
         entries.sort((a, b) => a.key.localeCompare(b.key));
 

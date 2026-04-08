@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 
 const g = globalThis as unknown as { __fintraceRedis?: Redis };
+const DEFAULT_REDIS_DB = 0;
 
 function requireRedisUrl(): string {
     const url = process.env.REDIS_URL?.trim();
@@ -16,7 +17,8 @@ function redisFriendlyError(err: unknown): string {
         return [
             "DNS không resolve được host trong REDIS_URL (ENOTFOUND).",
             "Tên `redis` chỉ tồn tại trong Docker Compose.",
-            "Chạy Next trên máy thật: mở cổng Redis ra host (ports: \"6379:6379\") và dùng redis://:mk@127.0.0.1:6379, hoặc SSH tunnel / IP máy chủ tương ứng.",
+            "Chạy Next trên máy thật: dùng IP/domain thật của Redis, ví dụ redis://:mk@127.0.0.1:6379 hoặc redis://:mk@52.77.72.207:6379.",
+            "Lưu ý: Redis không dùng https://; chỉ dùng redis:// hoặc rediss:// (TLS).",
         ].join(" ");
     }
     if (msg.includes("ECONNREFUSED")) {
@@ -81,4 +83,13 @@ export async function connectRedisOrThrow(): Promise<Redis> {
 
 export function redisConfigured(): boolean {
     return Boolean(process.env.REDIS_URL?.trim());
+}
+
+export function getConfiguredRedisDb(): number {
+    const raw = process.env.REDIS_DB?.trim();
+    const parsed = Number(raw);
+    if (!raw || !Number.isFinite(parsed) || parsed < 0) {
+        return DEFAULT_REDIS_DB;
+    }
+    return Math.floor(parsed);
 }

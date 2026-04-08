@@ -13,6 +13,7 @@ import { useMarket } from "../context/MarketContext";
 import { Asset } from "../services/binanceService";
 import { TokenAvatar } from "./TokenAvatar";
 import { useDnseBoardStream } from "../hooks/useDnseBoardStream";
+import { useVietcapBoardSnapshot } from "../hooks/useVietcapBoardSnapshot";
 import {
     Search,
     ArrowLeftRight,
@@ -358,17 +359,19 @@ const CoinRow = ({
                 </div>
             </div>
             <div className="text-right shrink-0 ml-2">
-                <div className="text-[11px] font-mono">
+                <div className={cn("text-[11px] font-mono", stockToneClass)}>
                     {hasValidPrice ? priceFmt(asset.price) : "--"}
                 </div>
                 <div
                     className={cn(
                         "text-[10px] font-medium",
-                        !hasValidChange
-                            ? "text-muted"
-                            : asset.changePercent >= 0
-                              ? "text-emerald-500"
-                              : "text-rose-500",
+                        stockToneClass
+                            ? stockToneClass
+                            : !hasValidChange
+                              ? "text-muted"
+                              : asset.changePercent >= 0
+                                ? "text-emerald-500"
+                                : "text-rose-500",
                     )}
                 >
                     {hasValidChange
@@ -565,6 +568,17 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         boards: ["G1", "G2", "G3"],
         resolution: "1",
     });
+    const vietcapSnapshotGroups = useMemo(
+        () => ["VN30", "HNX30", "HOSE", "HNX", "UPCOM"],
+        [],
+    );
+    const { snapshotBySymbol: vietcapSnapshotBySymbol } = useVietcapBoardSnapshot(
+        {
+            enabled: universe === "stock",
+            groups: vietcapSnapshotGroups,
+            refreshIntervalMs: 45_000,
+        },
+    );
     const assets = useMemo<Asset[]>(
         () =>
             baseAssets.map((asset) => {
@@ -602,17 +616,38 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         for (const asset of assets) {
             const symbol = asset.symbol.trim().toUpperCase();
             const stream = dnseBySymbol[symbol];
+            const snapshot = vietcapSnapshotBySymbol[symbol];
+            const scaledPrice = Number.isFinite(stream?.price)
+                ? stream!.price * STOCK_DNSE_PRICE_SCALE
+                : Number.isFinite(snapshot?.price)
+                  ? snapshot!.price
+                  : Number.NaN;
+            const scaledRef = Number.isFinite(stream?.ref)
+                ? stream!.ref * STOCK_DNSE_PRICE_SCALE
+                : Number.isFinite(snapshot?.ref)
+                  ? snapshot!.ref
+                  : Number.NaN;
+            const scaledCeiling = Number.isFinite(stream?.ceiling)
+                ? stream!.ceiling * STOCK_DNSE_PRICE_SCALE
+                : Number.isFinite(snapshot?.ceiling)
+                  ? snapshot!.ceiling
+                  : Number.NaN;
+            const scaledFloor = Number.isFinite(stream?.floor)
+                ? stream!.floor * STOCK_DNSE_PRICE_SCALE
+                : Number.isFinite(snapshot?.floor)
+                  ? snapshot!.floor
+                  : Number.NaN;
             const tone = resolveStockTone(
-                Number.isFinite(stream?.price) ? stream!.price : Number.NaN,
-                Number.isFinite(stream?.ref) ? stream!.ref : Number.NaN,
-                Number.isFinite(stream?.ceiling) ? stream!.ceiling : Number.NaN,
-                Number.isFinite(stream?.floor) ? stream!.floor : Number.NaN,
+                scaledPrice,
+                scaledRef,
+                scaledCeiling,
+                scaledFloor,
                 asset.changePercent,
             );
             out[symbol] = toneClassForStock(tone);
         }
         return out;
-    }, [assets, dnseBySymbol, universe]);
+    }, [assets, dnseBySymbol, universe, vietcapSnapshotBySymbol]);
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [search, setSearch] = useState("");
     const [sortMode, setSortMode] = useState<SortMode>("volume");

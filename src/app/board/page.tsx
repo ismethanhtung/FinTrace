@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import React, {
     useMemo,
     useState,
@@ -256,8 +256,12 @@ const BOARD_CELL_FLASH_MS = 600;
 const BOARD_MAX_FLASH_ROWS = 320;
 const STOCK_LAMBDA_URL = process.env.NEXT_PUBLIC_STOCK_LAMBDA_URL?.trim() || "";
 const BOARD_RECENTS_KEY = "fintrace_board_recent_symbols";
+const BOARD_ACTIVE_TAB_KEY = "fintrace_board_active_tab";
+const BOARD_ROWS_CACHE_KEY = "fintrace_board_rows_cache_v1";
 const BOARD_MAX_RECENTS = 8;
 const BOARD_PRICE_SCALE_FACTOR = 1000;
+const BOARD_ROWS_CACHE_MAX_TABS = 8;
+const BOARD_ROWS_CACHE_MAX_ROWS_PER_TAB = 600;
 const DNSE_SOCKET_VOLUME_MULTIPLIER = 10;
 const MINI_CHART_SESSION_START_HOUR = KB_SESSION_START_HOUR;
 const MINI_CHART_SESSION_END_HOUR = KB_SESSION_END_HOUR;
@@ -304,6 +308,7 @@ function resolveBoardStockLogoUrl(symbol: string): string {
 }
 
 function loadBoardRecentSymbols(): string[] {
+    if (typeof window === "undefined") return [];
     try {
         const raw = localStorage.getItem(BOARD_RECENTS_KEY);
         if (!raw) return [];
@@ -325,6 +330,82 @@ function loadBoardRecentSymbols(): string[] {
 function saveBoardRecentSymbols(symbols: string[]) {
     try {
         localStorage.setItem(BOARD_RECENTS_KEY, JSON.stringify(symbols));
+    } catch {
+        // localStorage unavailable
+    }
+}
+
+function loadBoardActiveTab(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+        const raw = localStorage.getItem(BOARD_ACTIVE_TAB_KEY);
+        const normalized = String(raw || "")
+            .trim()
+            .toUpperCase();
+        return normalized || null;
+    } catch {
+        return null;
+    }
+}
+
+function saveBoardActiveTab(tab: string) {
+    try {
+        localStorage.setItem(BOARD_ACTIVE_TAB_KEY, tab.trim().toUpperCase());
+    } catch {
+        // localStorage unavailable
+    }
+}
+
+function loadBoardRowsCache(): Record<string, BoardStockRow[]> {
+    if (typeof window === "undefined") return {};
+    try {
+        const raw = localStorage.getItem(BOARD_ROWS_CACHE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw) as Record<
+            string,
+            { rows?: unknown }
+        >;
+        if (!parsed || typeof parsed !== "object") return {};
+        const out: Record<string, BoardStockRow[]> = {};
+        for (const [tab, payload] of Object.entries(parsed)) {
+            const key = tab.trim().toUpperCase();
+            const rows = Array.isArray(payload?.rows)
+                ? payload.rows
+                      .filter(
+                          (item) =>
+                              item &&
+                              typeof item === "object" &&
+                              typeof (item as { id?: unknown }).id ===
+                                  "string" &&
+                              typeof (item as { ticker?: unknown }).ticker ===
+                                  "string",
+                      )
+                      .slice(0, BOARD_ROWS_CACHE_MAX_ROWS_PER_TAB)
+                : [];
+            if (!key || rows.length === 0) continue;
+            out[key] = rows as BoardStockRow[];
+        }
+        return out;
+    } catch {
+        return {};
+    }
+}
+
+function saveBoardRowsCache(cache: Record<string, BoardStockRow[]>) {
+    if (typeof window === "undefined") return;
+    try {
+        const entries = Object.entries(cache)
+            .filter(([, rows]) => Array.isArray(rows) && rows.length > 0)
+            .slice(0, BOARD_ROWS_CACHE_MAX_TABS);
+        const payload: Record<string, { savedAt: number; rows: BoardStockRow[] }> =
+            {};
+        for (const [tab, rows] of entries) {
+            payload[tab] = {
+                savedAt: Date.now(),
+                rows: rows.slice(0, BOARD_ROWS_CACHE_MAX_ROWS_PER_TAB),
+            };
+        }
+        localStorage.setItem(BOARD_ROWS_CACHE_KEY, JSON.stringify(payload));
     } catch {
         // localStorage unavailable
     }
@@ -769,11 +850,14 @@ export default function BoardPage() {
     const { universe } = useUniverse();
     const { toggleTheme, theme } = useAppSettings();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { assets, setSelectedSymbol } = useMarket();
-    const [activeTab, setActiveTab] = useState("VN30");
+    const [activeTab, setActiveTab] = useState(() => loadBoardActiveTab() ?? "VN30");
     const [search, setSearch] = useState("");
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [recentSymbols, setRecentSymbols] = useState<string[]>([]);
+    const [recentSymbols, setRecentSymbols] = useState<string[]>(() =>
+        loadBoardRecentSymbols(),
+    );
     const [highlightedSymbol, setHighlightedSymbol] = useState<string | null>(
         null,
     );
@@ -798,6 +882,13 @@ export default function BoardPage() {
     const highlightTimeoutRef = useRef<number | null>(null);
     const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
     const searchContainerRef = useRef<HTMLDivElement | null>(null);
+    const [cachedRowsByTab] = useState<Record<string, BoardStockRow[]>>(() =>
+        loadBoardRowsCache(),
+    );
+    const cachedRowsByTabRef = useRef<Record<string, BoardStockRow[]>>(
+        cachedRowsByTab,
+    );
+    const saveCacheTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (universe !== "stock") {
@@ -806,8 +897,8 @@ export default function BoardPage() {
     }, [router, universe]);
 
     useEffect(() => {
-        setRecentSymbols(loadBoardRecentSymbols());
-    }, []);
+        saveBoardActiveTab(activeTab);
+    }, [activeTab]);
 
     useEffect(() => {
         const onPointerDown = (event: MouseEvent) => {
@@ -1320,8 +1411,9 @@ export default function BoardPage() {
     );
 
     const rowsForTable = useMemo(() => {
-        const base = boardRows;
-        if (!boardRows.length || !boardSort) return base;
+        const fallbackRows = cachedRowsByTab[normalizedTab] ?? [];
+        const base = boardRows.length > 0 ? boardRows : fallbackRows;
+        if (!base.length || !boardSort) return base;
         const order = new Map(base.map((r, i) => [r.id, i]));
         return [...base].sort((a, b) => {
             const va = getBoardSortValue(a, boardSort.key);
@@ -1330,7 +1422,33 @@ export default function BoardPage() {
             if (c === 0) c = (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0);
             return boardSort.dir === "asc" ? c : -c;
         });
-    }, [boardRows, boardSort]);
+    }, [boardRows, boardSort, cachedRowsByTab, normalizedTab]);
+
+    useEffect(() => {
+        if (!boardRows.length) return;
+        const key = normalizedTab.trim().toUpperCase();
+        if (!key) return;
+        cachedRowsByTabRef.current = {
+            ...cachedRowsByTabRef.current,
+            [key]: boardRows,
+        };
+        if (saveCacheTimerRef.current !== null) {
+            window.clearTimeout(saveCacheTimerRef.current);
+        }
+        saveCacheTimerRef.current = window.setTimeout(() => {
+            saveBoardRowsCache(cachedRowsByTabRef.current);
+            saveCacheTimerRef.current = null;
+        }, 800);
+    }, [boardRows, normalizedTab]);
+
+    useEffect(() => {
+        return () => {
+            if (saveCacheTimerRef.current !== null) {
+                window.clearTimeout(saveCacheTimerRef.current);
+                saveCacheTimerRef.current = null;
+            }
+        };
+    }, []);
 
     useEffect(() => {
         const hasRows = rowsForTable.length > 0;
@@ -1744,6 +1862,33 @@ export default function BoardPage() {
         },
         [activeTab, resolveTabForSymbol],
     );
+
+    const incomingSymbolRef = useRef<string | null>(null);
+    useEffect(() => {
+        const raw = (searchParams.get("symbol") || "").trim().toUpperCase();
+        incomingSymbolRef.current = raw || null;
+    }, [searchParams]);
+
+    useEffect(() => {
+        const incoming = incomingSymbolRef.current;
+        if (!incoming) return;
+        const exists = symbols.includes(incoming);
+        if (!exists) return;
+        const targetTab = resolveTabForSymbol(incoming);
+        if (targetTab !== activeTab) {
+            setActiveTab(targetTab);
+        }
+        setRecentSymbols((prev) => {
+            const next = [incoming, ...prev.filter((item) => item !== incoming)].slice(
+                0,
+                BOARD_MAX_RECENTS,
+            );
+            saveBoardRecentSymbols(next);
+            return next;
+        });
+        setPendingHighlightSymbol(incoming);
+        incomingSymbolRef.current = null;
+    }, [activeTab, resolveTabForSymbol, symbols]);
 
     const goToHomeWithStock = useCallback(
         (assetId: string) => {

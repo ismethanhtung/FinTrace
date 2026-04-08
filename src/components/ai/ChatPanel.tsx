@@ -9,6 +9,7 @@ import { useCoinNews } from "../../hooks/useCoinNews";
 import { newsService } from "../../services/newsService";
 import { aiProviderService, ModelInfo } from "../../services/aiProviderService";
 import { getFallbackModelsForProvider } from "../../lib/aiModelDefaults";
+import { useI18n } from "../../context/I18nContext";
 import {
     Send,
     Bot,
@@ -269,6 +270,7 @@ const ModelSelector = ({
 // ─── ChatPanel ────────────────────────────────────────────────────────────────
 
 export const ChatPanel = () => {
+    const { t } = useI18n();
     const { selectedSymbol, assets } = useMarket();
     const { universe } = useUniverse();
     const {
@@ -437,6 +439,7 @@ ${
 
     const [input, setInput] = useState("");
     const [showHistory, setShowHistory] = useState(false);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const canChat = Boolean(
@@ -446,7 +449,15 @@ ${
     );
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const container = messagesContainerRef.current;
+        if (!container) return;
+        // Avoid "jumping" the panel on initial load when there are no messages yet.
+        // Only auto-stick to bottom when we actually have a conversation.
+        if (!activeSession || activeSession.messages.length === 0) {
+            container.scrollTop = 0;
+            return;
+        }
+        container.scrollTop = container.scrollHeight;
     }, [activeSession?.messages, isStreaming]);
 
     const handleSend = (e?: React.FormEvent) => {
@@ -505,7 +516,7 @@ ${
                         <div className="h-full overflow-y-auto thin-scrollbar p-3 space-y-1">
                             {sessions.length === 0 ? (
                                 <div className="text-[11px] text-muted text-center py-6">
-                                    No previous chats.
+                                    {t("rightPanel.noPreviousChats")}
                                 </div>
                             ) : (
                                 sessions
@@ -547,7 +558,10 @@ ${
                 )}
 
                 {/* ── Message Area ── */}
-                <div className="h-full overflow-y-auto thin-scrollbar p-5 space-y-5">
+                <div
+                    ref={messagesContainerRef}
+                    className="h-full overflow-y-auto thin-scrollbar p-5 space-y-5"
+                >
                     {!activeSession || activeSession.messages.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
                             <div className="w-12 h-12 rounded-full border-2 border-dashed border-main flex items-center justify-center bg-secondary/30 text-accent">
@@ -555,22 +569,17 @@ ${
                             </div>
                             <div className="space-y-1">
                                 <h3 className="text-[14px] font-bold">
-                                    FinTrace AI Analyst
+                                    {t("rightPanel.aiAnalystTitle")}
                                 </h3>
                                 <p className="text-[11px] text-muted max-w-[220px]">
-                                    Ask me to predict trends, interpret volume,
-                                    or summarize{" "}
-                                    <strong className="text-main">
-                                        {selectedSymbol.replace("USDT", "")}
-                                    </strong>{" "}
-                                    metrics.
+                                    {t("rightPanel.aiAnalystSubtitle")}
                                 </p>
                             </div>
                             <div className="pt-2 flex flex-col gap-1 w-[200px]">
                                 {[
-                                    "Is it overbought?",
-                                    "Support/Resistance levels?",
-                                    "Explain recent volume",
+                                    t("rightPanel.promptOverbought"),
+                                    t("rightPanel.promptSupportResistance"),
+                                    t("rightPanel.promptExplainVolume"),
                                 ].map((chip, i) => (
                                     <button
                                         key={i}
@@ -667,11 +676,7 @@ ${
                             4,
                             Math.max(1, input.split("\n").length),
                         )}
-                        placeholder={
-                            canChat
-                                ? `Let's cook ${selectedSymbol.replace("USDT", "")}...`
-                                : "AI is disabled — enable a provider in Settings"
-                        }
+                        placeholder={`Ask anything...`}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => {

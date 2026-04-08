@@ -80,17 +80,13 @@ export const enMessages = {
         sectionTypographyDesc:
             "Choose the interface font. Changes apply immediately.",
         sectionAppearanceTitle: "Appearance",
-        sectionAppearanceDesc:
-            "Select a color theme that suits your workflow.",
+        sectionAppearanceDesc: "Select a color theme that suits your workflow.",
         sectionNotificationsTitle: "Notifications",
-        sectionNotificationsDesc:
-            "Manage alerts and notification preferences.",
+        sectionNotificationsDesc: "Manage alerts and notification preferences.",
         sectionIntegrationsTitle: "Integrations",
-        sectionIntegrationsDesc:
-            "Connect external data providers to FinTrace.",
+        sectionIntegrationsDesc: "Connect external data providers to FinTrace.",
         sectionSecurityTitle: "Security",
-        sectionSecurityDesc:
-            "Manage account security and access settings.",
+        sectionSecurityDesc: "Manage account security and access settings.",
         sectionDataTitle: "Data & Privacy",
         sectionDataDesc: "Control how your data is stored and used.",
         sectionSupportTitle: "Support Access",
@@ -160,8 +156,7 @@ export const enMessages = {
         addProvider: "Add Provider",
         modelDefaults: "Model defaults",
         defaultModel: "Default model",
-        defaultModelDesc:
-            "Choose the default model for a provider.",
+        defaultModelDesc: "Choose the default model for a provider.",
         defaultModelDescWithProvider:
             "{provider} model used whenever this provider is selected in AI features.",
         loading: "loading…",
@@ -175,31 +170,24 @@ export const enMessages = {
         systemPromptDesc: "Injected at the start of every chat.",
         resetToDefault: "Reset to default",
         useContextPrefix: "Use",
-        useContextSuffix:
-            "to inject live market data automatically.",
+        useContextSuffix: "to inject live market data automatically.",
         cryptoPanicDesc: "Auth token for real-time crypto news.",
         getToken: "Get token",
         cryptoPanicPlaceholder: "Your free api auth token...",
         fontInterDesc: "Clean, neutral - default sans-serif for UI",
         fontOutfitDesc: "Geometric and airy - more breathing room",
-        fontPlusJakartaDesc:
-            "Modern, wider letterforms - very readable",
+        fontPlusJakartaDesc: "Modern, wider letterforms - very readable",
         fontIbmPlexDesc: "Technical, slightly wider - great for data",
-        fontSpaceGroteskDesc:
-            "Distinctive, rounded - unique personality",
+        fontSpaceGroteskDesc: "Distinctive, rounded - unique personality",
         pushNotifications: "Push notifications",
         priceAlerts: "Price alerts",
-        priceAlertsDesc:
-            "Get notified when an asset hits your target price.",
+        priceAlertsDesc: "Get notified when an asset hits your target price.",
         portfolioReports: "Portfolio reports",
-        portfolioReportsDesc:
-            "Daily performance summary of your portfolio.",
+        portfolioReportsDesc: "Daily performance summary of your portfolio.",
         breakingMarketNews: "Breaking market news",
-        breakingMarketNewsDesc:
-            "Breaking news affecting your watched assets.",
+        breakingMarketNewsDesc: "Breaking news affecting your watched assets.",
         aiInsights: "AI insights",
-        aiInsightsDesc:
-            "AI-generated signals and pattern detections.",
+        aiInsightsDesc: "AI-generated signals and pattern detections.",
         twoFactorAuthentication: "Two-factor authentication",
         twoFactorAuthenticationDesc:
             "Protect your account with an authenticator app.",
@@ -208,8 +196,7 @@ export const enMessages = {
         activeSessionsDesc: "2 devices currently logged in.",
         manageSessions: "Manage sessions",
         apiAccessTokens: "API access tokens",
-        apiAccessTokensDesc:
-            "Tokens for programmatic access to your data.",
+        apiAccessTokensDesc: "Tokens for programmatic access to your data.",
         viewTokens: "View tokens",
         analyticsTelemetry: "Analytics & telemetry",
         analyticsTelemetryDesc:
@@ -232,6 +219,13 @@ export const enMessages = {
     rightPanel: {
         aiChat: "AI Chat",
         summary: "Summary",
+        noPreviousChats: "No previous chats.",
+        aiAnalystTitle: "FinTrace AI Analyst",
+        aiAnalystSubtitle:
+            "Ask me to predict trends, interpret volume, or summarize metrics.",
+        promptOverbought: "Is it overbought?",
+        promptSupportResistance: "Support/Resistance levels?",
+        promptExplainVolume: "Explain recent volume",
     },
     assetSearch: {
         market: "Market",
@@ -295,6 +289,7 @@ export const enMessages = {
         matchedTrades: "Matched Trades",
         marketTrades: "Market Trades",
         viewDetails: "View details",
+        viewMore: "View more",
         priceVnd: "Price (VND)",
         priceUsdt: "Price (USDT)",
         volume: "Volume",
@@ -305,8 +300,8 @@ export const enMessages = {
         stockOrderBook: "Stock Order Book",
         orderBook: "Order Book",
         spread: "Spread",
-        stockDepthTitle: "{symbol} VN Depth",
-        depthTitle: "{symbol} Depth",
+        stockDepthTitle: "Depth",
+        depthTitle: "Depth",
         depthChart: "Depth Chart",
         totalBuy: "Total Buy {value}",
         totalSell: "Total Sell {value}",

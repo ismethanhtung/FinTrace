@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
     Asset,
     MarketType,
+    binanceService,
 } from "../services/binanceService";
 import {
     mergeMiniTickerArray,
@@ -12,10 +13,12 @@ import {
     type MarketStreamStatus,
 } from "../services/marketStreamService";
 import { useUniverse } from "./UniverseContext";
-import { coinMarketAdapter } from "../services/adapters/coinMarketAdapter";
 import { stockLambdaMarketAdapter } from "../services/adapters/stockLambdaMarketAdapter";
 import { stockLambdaService } from "../services/stockLambdaService";
 import { type AssetUniverse } from "../lib/marketUniverse";
+import { enrichAssetsWithLogos } from "../services/tokenLogoService";
+import { enrichAssetsWithBinanceAssetMetadata } from "../services/binanceAssetMetadataService";
+import { isLeveragedToken } from "../lib/tokenFilters";
 
 const DEFAULT_SYMBOL_BY_UNIVERSE: Record<AssetUniverse, string> = {
     coin: "BTCUSDT",
@@ -23,6 +26,8 @@ const DEFAULT_SYMBOL_BY_UNIVERSE: Record<AssetUniverse, string> = {
 };
 const STOCK_AUTO_HYDRATE_BATCH_SIZE = 25;
 const STOCK_AUTO_HYDRATE_DELAY_MS = 120;
+const COIN_BOOTSTRAP_ENRICH_TIMEOUT_MS = 2500;
+const COIN_WS_RESORT_INTERVAL_MS = 3000;
 
 interface MarketContextType {
     universe: AssetUniverse;
@@ -79,6 +84,8 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
     const hydratingStockSpotRef = useRef<Set<string>>(new Set());
     const hydratedStockFuturesRef = useRef<Set<string>>(new Set());
     const hydratingStockFuturesRef = useRef<Set<string>>(new Set());
+    const lastSpotResortAtRef = useRef(0);
+    const lastFuturesResortAtRef = useRef(0);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -91,14 +98,69 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
     const fetchSpotAssets = useCallback(async () => {
         const requestSeq = ++spotRequestSeqRef.current;
         try {
-            const adapter =
-                universe === "stock"
-                    ? stockLambdaMarketAdapter
-                    : coinMarketAdapter;
-            const next = await adapter.listAssets("spot");
+            let next: Asset[] = [];
+
+            if (universe === "stock") {
+                next = await stockLambdaMarketAdapter.listAssets("spot");
+            } else {
+                // Fast path for coins: show tickers ASAP, enrich later (don't block UI).
+                const tickers = await binanceService.getTickers();
+                next = tickers
+                    .filter(
+                        (t) =>
+                            t.symbol.endsWith("USDT") &&
+                            !isLeveragedToken(t.symbol.slice(0, -4)),
+                    )
+                    .sort(
+                        (a, b) =>
+                            parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume),
+                    )
+                    .map(binanceService.transformTicker);
+            }
+
             if (mountedRef.current && requestSeq === spotRequestSeqRef.current) {
                 setSpotAssets(next);
                 setError(null);
+            }
+
+            // Background enrich for coin universe (logos + tags/metadata).
+            if (universe !== "stock" && next.length) {
+                const enrichSeq = requestSeq;
+                const timer = window.setTimeout(() => {
+                    // Prevent long-hanging enrich from delaying subsequent fast refreshes.
+                }, COIN_BOOTSTRAP_ENRICH_TIMEOUT_MS);
+
+                Promise.resolve()
+                    .then(() => enrichAssetsWithLogos(next))
+                    .then((withLogos) =>
+                        enrichAssetsWithBinanceAssetMetadata(withLogos),
+                    )
+                    .then((enriched) => {
+                        if (
+                            mountedRef.current &&
+                            enrichSeq === spotRequestSeqRef.current
+                        ) {
+                            setSpotAssets((prev) => {
+                                // Merge enriched fields without losing fresher websocket prices.
+                                const byId = new Map(
+                                    prev.map((a) => [a.id, a] as const),
+                                );
+                                return enriched.map((a) => ({
+                                    ...a,
+                                    ...(byId.get(a.id) ?? {}),
+                                    // Ensure enriched fields win when they exist.
+                                    name: a.name,
+                                    tags: a.tags,
+                                    logoUrl: a.logoUrl,
+                                    binanceAssetInfo: a.binanceAssetInfo,
+                                }));
+                            });
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn("[MarketProvider] Coin enrich (spot) failed:", err);
+                    })
+                    .finally(() => window.clearTimeout(timer));
             }
         } catch (err) {
             console.error("[MarketProvider] Failed to fetch spot assets:", err);
@@ -120,17 +182,69 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
     const fetchFuturesAssets = useCallback(async () => {
         const requestSeq = ++futuresRequestSeqRef.current;
         try {
-            const adapter =
-                universe === "stock"
-                    ? stockLambdaMarketAdapter
-                    : coinMarketAdapter;
-            const next = await adapter.listAssets("futures");
+            let next: Asset[] = [];
+
+            if (universe === "stock") {
+                next = await stockLambdaMarketAdapter.listAssets("futures");
+            } else {
+                const tickers = await binanceService.getFuturesTickers();
+                next = tickers
+                    .filter(
+                        (t) =>
+                            t.symbol.endsWith("USDT") &&
+                            !t.symbol.includes("_") &&
+                            !isLeveragedToken(t.symbol.slice(0, -4)),
+                    )
+                    .sort(
+                        (a, b) =>
+                            parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume),
+                    )
+                    .map(binanceService.transformFuturesTicker);
+            }
             if (
                 mountedRef.current &&
                 requestSeq === futuresRequestSeqRef.current
             ) {
                 setFuturesAssets(next);
                 setError(null);
+            }
+
+            if (universe !== "stock" && next.length) {
+                const enrichSeq = requestSeq;
+                const timer = window.setTimeout(() => {}, COIN_BOOTSTRAP_ENRICH_TIMEOUT_MS);
+
+                Promise.resolve()
+                    .then(() => enrichAssetsWithLogos(next))
+                    .then((withLogos) =>
+                        enrichAssetsWithBinanceAssetMetadata(withLogos),
+                    )
+                    .then((enriched) => {
+                        if (
+                            mountedRef.current &&
+                            enrichSeq === futuresRequestSeqRef.current
+                        ) {
+                            setFuturesAssets((prev) => {
+                                const byId = new Map(
+                                    prev.map((a) => [a.id, a] as const),
+                                );
+                                return enriched.map((a) => ({
+                                    ...a,
+                                    ...(byId.get(a.id) ?? {}),
+                                    name: a.name,
+                                    tags: a.tags,
+                                    logoUrl: a.logoUrl,
+                                    binanceAssetInfo: a.binanceAssetInfo,
+                                }));
+                            });
+                        }
+                    })
+                    .catch((err) => {
+                        console.warn(
+                            "[MarketProvider] Coin enrich (futures) failed:",
+                            err,
+                        );
+                    })
+                    .finally(() => window.clearTimeout(timer));
             }
         } catch (err) {
             console.error(
@@ -239,7 +353,7 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
             parser: (raw) => (Array.isArray(raw) ? raw : null),
             onMessage: (payload) => {
                 setSpotAssets((prev) =>
-                    mergeMiniTickerArray(prev, payload, "spot"),
+                    mergeMiniTickerArray(prev, payload, "spot", { resort: false }),
                 );
                 setLastSpotStreamUpdateAt(Date.now());
             },
@@ -263,7 +377,7 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
             parser: (raw) => (Array.isArray(raw) ? raw : null),
             onMessage: (payload) => {
                 setFuturesAssets((prev) =>
-                    mergeMiniTickerArray(prev, payload, "futures"),
+                    mergeMiniTickerArray(prev, payload, "futures", { resort: false }),
                 );
                 setLastFuturesStreamUpdateAt(Date.now());
             },
@@ -297,6 +411,45 @@ export const MarketProvider = ({ children }: { children: React.ReactNode }) => {
         () => (marketType === "futures" ? futuresAssets : spotAssets),
         [marketType, spotAssets, futuresAssets],
     );
+
+    // Resort by volume at a controlled cadence to avoid heavy sort cost per WS frame.
+    useEffect(() => {
+        if (!isHydrated) return;
+        if (universe === "stock") return;
+        if (!spotAssets.length) return;
+
+        const id = window.setInterval(() => {
+            const now = Date.now();
+            if (now - lastSpotResortAtRef.current < COIN_WS_RESORT_INTERVAL_MS) return;
+            lastSpotResortAtRef.current = now;
+            setSpotAssets((prev) => {
+                const next = [...prev];
+                next.sort((a, b) => b.quoteVolumeRaw - a.quoteVolumeRaw);
+                return next;
+            });
+        }, COIN_WS_RESORT_INTERVAL_MS);
+
+        return () => window.clearInterval(id);
+    }, [isHydrated, spotAssets.length, universe]);
+
+    useEffect(() => {
+        if (!isHydrated) return;
+        if (universe === "stock") return;
+        if (!futuresAssets.length) return;
+
+        const id = window.setInterval(() => {
+            const now = Date.now();
+            if (now - lastFuturesResortAtRef.current < COIN_WS_RESORT_INTERVAL_MS) return;
+            lastFuturesResortAtRef.current = now;
+            setFuturesAssets((prev) => {
+                const next = [...prev];
+                next.sort((a, b) => b.quoteVolumeRaw - a.quoteVolumeRaw);
+                return next;
+            });
+        }, COIN_WS_RESORT_INTERVAL_MS);
+
+        return () => window.clearInterval(id);
+    }, [futuresAssets.length, isHydrated, universe]);
 
     useEffect(() => {
         if (!isHydrated) return;

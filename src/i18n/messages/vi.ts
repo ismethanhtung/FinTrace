@@ -84,10 +84,10 @@ export const viMessages: Messages = {
         sectionAppearanceDesc:
             "Chọn giao diện màu phù hợp với quy trình làm việc.",
         sectionNotificationsTitle: "Thông báo",
-        sectionNotificationsDesc:
-            "Quản lý cảnh báo và tuỳ chọn thông báo.",
+        sectionNotificationsDesc: "Quản lý cảnh báo và tuỳ chọn thông báo.",
         sectionIntegrationsTitle: "Tích hợp",
-        sectionIntegrationsDesc: "Kết nối nguồn dữ liệu bên ngoài vào FinTrace.",
+        sectionIntegrationsDesc:
+            "Kết nối nguồn dữ liệu bên ngoài vào FinTrace.",
         sectionSecurityTitle: "Bảo mật",
         sectionSecurityDesc: "Quản lý bảo mật tài khoản và quyền truy cập.",
         sectionDataTitle: "Dữ liệu & quyền riêng tư",
@@ -118,8 +118,7 @@ export const viMessages: Messages = {
         passwordDesc: "Lần đổi gần nhất 3 tháng trước.",
         changePassword: "Đổi mật khẩu",
         twoStepVerification: "Xác minh 2 bước",
-        twoStepVerificationDesc:
-            "Thêm một lớp bảo mật khi đăng nhập.",
+        twoStepVerificationDesc: "Thêm một lớp bảo mật khi đăng nhập.",
         dangerZone: "Vùng nguy hiểm",
         logoutAllDevices: "Đăng xuất khỏi mọi thiết bị",
         logoutAllDevicesDesc:
@@ -129,8 +128,7 @@ export const viMessages: Messages = {
         deleteAccountDesc:
             "Xoá vĩnh viễn tài khoản và toàn bộ dữ liệu liên quan.",
         aiProviders: "Nhà cung cấp AI",
-        aiProvidersDesc:
-            "Cấu hình API key. Bật/tắt provider trong chat panel.",
+        aiProvidersDesc: "Cấu hình API key. Bật/tắt provider trong chat panel.",
         availableProviders: "{available} / {total} khả dụng",
         personalKey: "key cá nhân",
         platformKey: "key nền tảng",
@@ -179,11 +177,9 @@ export const viMessages: Messages = {
         cryptoPanicPlaceholder: "Auth token miễn phí của bạn...",
         fontInterDesc: "Sạch, trung tính - sans-serif mặc định cho UI",
         fontOutfitDesc: "Hình học, thoáng - nhiều khoảng thở hơn",
-        fontPlusJakartaDesc:
-            "Hiện đại, chữ rộng - rất dễ đọc",
+        fontPlusJakartaDesc: "Hiện đại, chữ rộng - rất dễ đọc",
         fontIbmPlexDesc: "Kỹ thuật, hơi rộng - tốt cho dữ liệu",
-        fontSpaceGroteskDesc:
-            "Độc đáo, bo tròn - cá tính riêng",
+        fontSpaceGroteskDesc: "Độc đáo, bo tròn - cá tính riêng",
         pushNotifications: "Thông báo đẩy",
         priceAlerts: "Cảnh báo giá",
         priceAlertsDesc: "Thông báo khi tài sản chạm mức giá mục tiêu.",
@@ -195,8 +191,7 @@ export const viMessages: Messages = {
         aiInsights: "Insight AI",
         aiInsightsDesc: "Tín hiệu và mẫu phát hiện do AI tạo.",
         twoFactorAuthentication: "Xác thực hai lớp",
-        twoFactorAuthenticationDesc:
-            "Bảo vệ tài khoản bằng ứng dụng xác thực.",
+        twoFactorAuthenticationDesc: "Bảo vệ tài khoản bằng ứng dụng xác thực.",
         enabled: "Đã bật",
         activeSessions: "Phiên hoạt động",
         activeSessionsDesc: "Hiện có 2 thiết bị đang đăng nhập.",
@@ -211,8 +206,7 @@ export const viMessages: Messages = {
         dataExportDesc: "Tải bản sao đầy đủ dữ liệu FinTrace của bạn.",
         requestExport: "Yêu cầu xuất dữ liệu",
         deleteAllData: "Xoá toàn bộ dữ liệu",
-        deleteAllDataDesc:
-            "Xoá vĩnh viễn toàn bộ dữ liệu. Không thể hoàn tác.",
+        deleteAllDataDesc: "Xoá vĩnh viễn toàn bộ dữ liệu. Không thể hoàn tác.",
         deleteData: "Xoá dữ liệu",
         supportAccess: "Quyền hỗ trợ",
         supportAccessDesc:
@@ -225,6 +219,13 @@ export const viMessages: Messages = {
     rightPanel: {
         aiChat: "AI Chat",
         summary: "Tóm tắt",
+        noPreviousChats: "Chưa có hội thoại trước đó.",
+        aiAnalystTitle: "FinTrace AI Analyst",
+        aiAnalystSubtitle:
+            "Hỏi mình dự đoán xu hướng, phân tích khối lượng, hoặc tóm tắt chỉ số.",
+        promptOverbought: "Đang quá mua không?",
+        promptSupportResistance: "Các mức hỗ trợ/kháng cự?",
+        promptExplainVolume: "Giải thích khối lượng gần đây",
     },
     assetSearch: {
         market: "Market",
@@ -288,6 +289,7 @@ export const viMessages: Messages = {
         matchedTrades: "Khớp lệnh",
         marketTrades: "Giao dịch thị trường",
         viewDetails: "Xem chi tiết",
+        viewMore: "Xem thêm",
         priceVnd: "Giá (VND)",
         priceUsdt: "Giá (USDT)",
         volume: "Khối lượng",
@@ -298,8 +300,8 @@ export const viMessages: Messages = {
         stockOrderBook: "Sổ lệnh cổ phiếu",
         orderBook: "Sổ lệnh",
         spread: "Chênh lệch",
-        stockDepthTitle: "Độ sâu VN {symbol}",
-        depthTitle: "Độ sâu {symbol}",
+        stockDepthTitle: "Độ sâu",
+        depthTitle: "Độ sâu",
         depthChart: "Biểu đồ độ sâu",
         totalBuy: "Tổng mua {value}",
         totalSell: "Tổng bán {value}",

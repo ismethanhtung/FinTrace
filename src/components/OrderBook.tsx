@@ -89,7 +89,9 @@ const RecentTrades = ({
             {/* Column headers */}
             <div className="grid grid-cols-3 px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-muted border-b border-main bg-secondary/10 shrink-0">
                 <span>
-                    {isStock ? t("orderBook.priceVnd") : t("orderBook.priceUsdt")}
+                    {isStock
+                        ? t("orderBook.priceVnd")
+                        : t("orderBook.priceUsdt")}
                 </span>
                 <span className="text-center">
                     {isStock ? t("orderBook.volume") : t("orderBook.qty")}
@@ -137,9 +139,9 @@ const RecentTrades = ({
                                 {new Date(t.time).toLocaleTimeString(
                                     locale === "vi" ? "vi-VN" : "en-US",
                                     {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    second: "2-digit",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        second: "2-digit",
                                     },
                                 )}
                             </span>
@@ -576,11 +578,13 @@ export const OrderBook = () => {
                                             {new Date(
                                                 lastUpdatedAt,
                                             ).toLocaleTimeString(
-                                                locale === "vi" ? "vi-VN" : "en-US",
+                                                locale === "vi"
+                                                    ? "vi-VN"
+                                                    : "en-US",
                                                 {
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                                second: "2-digit",
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                    second: "2-digit",
                                                 },
                                             )}
                                         </span>
@@ -675,9 +679,9 @@ export const OrderBook = () => {
                                         ).toLocaleTimeString(
                                             locale === "vi" ? "vi-VN" : "en-US",
                                             {
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                            second: "2-digit",
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                                second: "2-digit",
                                             },
                                         )}
                                     </span>
@@ -701,7 +705,7 @@ export const OrderBook = () => {
 
                 <div className="w-[20%] min-w-[200px] max-w-[280px] flex flex-col bg-secondary/10 shrink-0">
                     {/* Header */}
-                    <div className={`${PANEL_HEADER_CLASS} justify-center`}>
+                    <div className={`${PANEL_HEADER_CLASS} justify-between`}>
                         <span className="text-[10px] font-bold uppercase tracking-widest leading-none text-main">
                             {isStock
                                 ? t("orderBook.stockDepthTitle", {
@@ -711,6 +715,14 @@ export const OrderBook = () => {
                                       symbol: baseSymbol,
                                   })}
                         </span>
+                        {isStock && (
+                            <Link
+                                href={`/board?symbol=${encodeURIComponent(baseSymbol)}`}
+                                className="px-2 py-1 rounded-md border border-main bg-main text-muted hover:text-main hover:bg-secondary transition-colors text-[10px] font-semibold"
+                            >
+                                {t("orderBook.viewMore")}
+                            </Link>
+                        )}
                     </div>
                     <div className="flex-1 min-h-0 p-3 overflow-y-auto thin-scrollbar">
                         {isStock ? (

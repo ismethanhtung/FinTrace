@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
+import Script from "next/script";
 import "./globals.css";
 import { MarketProvider } from "../context/MarketContext";
 import { AppSettingsProvider } from "../context/AppSettingsContext";
@@ -60,7 +61,9 @@ export default async function RootLayout({
     const initialUniverse = normalizeUniverse(
         cookieStore.get(UNIVERSE_COOKIE_KEY)?.value,
     );
-    const initialLocale = normalizeLocale(cookieStore.get(LOCALE_COOKIE_KEY)?.value);
+    const initialLocale = normalizeLocale(
+        cookieStore.get(LOCALE_COOKIE_KEY)?.value,
+    );
 
     return (
         <html
@@ -70,7 +73,9 @@ export default async function RootLayout({
             suppressHydrationWarning
         >
             <head>
-                <script
+                <Script
+                    id="ft-theme-bootstrap"
+                    strategy="beforeInteractive"
                     dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}
                 />
             </head>

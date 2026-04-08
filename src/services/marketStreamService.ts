@@ -254,6 +254,7 @@ export function mergeMiniTickerArray(
     prev: Asset[],
     tickers: MarketMiniTicker[],
     marketType: MarketType,
+    opts?: { resort?: boolean },
 ): Asset[] {
     if (!tickers.length) return prev;
     const byId = new Map(prev.map((asset) => [asset.id, asset]));
@@ -265,7 +266,9 @@ export function mergeMiniTickerArray(
     }
 
     const next = [...byId.values()];
-    next.sort((a, b) => b.quoteVolumeRaw - a.quoteVolumeRaw);
+    if (opts?.resort !== false) {
+        next.sort((a, b) => b.quoteVolumeRaw - a.quoteVolumeRaw);
+    }
     return next.map((asset) => ({
         ...asset,
         marketType,

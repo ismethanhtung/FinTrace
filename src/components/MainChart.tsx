@@ -72,10 +72,7 @@ const plainNumberFmt = (v: number | null | undefined) => {
     });
 };
 
-const timestampFmt = (
-    ms: number | null | undefined,
-    locale: "vi" | "en",
-) => {
+const timestampFmt = (ms: number | null | undefined, locale: "vi" | "en") => {
     if (!Number.isFinite(ms as number) || Number(ms) <= 0) return "—";
     return new Date(Number(ms)).toLocaleString(
         locale === "vi" ? "vi-VN" : "en-US",
@@ -91,10 +88,7 @@ const yesNoFmt = (
     return v ? yesLabel : noLabel;
 };
 
-const textValueFmt = (
-    v: string | null | undefined,
-    emptyLabel: string,
-) => {
+const textValueFmt = (v: string | null | undefined, emptyLabel: string) => {
     if (v == null) return "—";
     const trimmed = v.trim();
     if (!trimmed) return emptyLabel;
@@ -182,17 +176,38 @@ const CoinInfoPanel = () => {
     ];
     const stockRows = [
         ...spotRows,
-        { label: t("mainChart.company"), value: asset.stockProfile?.organName || "—" },
+        {
+            label: t("mainChart.company"),
+            value: asset.stockProfile?.organName || "—",
+        },
         {
             label: t("mainChart.shortName"),
             value: asset.stockProfile?.organShortName || "—",
         },
-        { label: t("mainChart.exchange"), value: asset.stockProfile?.exchange || "—" },
-        { label: t("mainChart.sector"), value: asset.stockProfile?.sector || "—" },
-        { label: t("mainChart.industry"), value: asset.stockProfile?.industry || "—" },
-        { label: t("mainChart.group"), value: asset.stockProfile?.group || "—" },
-        { label: t("mainChart.subgroup"), value: asset.stockProfile?.subgroup || "—" },
-        { label: t("mainChart.icb"), value: asset.stockProfile?.icbName || "—" },
+        {
+            label: t("mainChart.exchange"),
+            value: asset.stockProfile?.exchange || "—",
+        },
+        {
+            label: t("mainChart.sector"),
+            value: asset.stockProfile?.sector || "—",
+        },
+        {
+            label: t("mainChart.industry"),
+            value: asset.stockProfile?.industry || "—",
+        },
+        {
+            label: t("mainChart.group"),
+            value: asset.stockProfile?.group || "—",
+        },
+        {
+            label: t("mainChart.subgroup"),
+            value: asset.stockProfile?.subgroup || "—",
+        },
+        {
+            label: t("mainChart.icb"),
+            value: asset.stockProfile?.icbName || "—",
+        },
         {
             label: t("mainChart.icbPath"),
             value: asset.stockProfile?.icbNamePath || "—",
@@ -229,8 +244,14 @@ const CoinInfoPanel = () => {
             color:
                 asset.changePercent >= 0 ? "text-emerald-500" : "text-rose-500",
         },
-        { label: t("mainChart.high24h"), value: `$${priceFmt(asset.high24h ?? 0)}` },
-        { label: t("mainChart.low24h"), value: `$${priceFmt(asset.low24h ?? 0)}` },
+        {
+            label: t("mainChart.high24h"),
+            value: `$${priceFmt(asset.high24h ?? 0)}`,
+        },
+        {
+            label: t("mainChart.low24h"),
+            value: `$${priceFmt(asset.low24h ?? 0)}`,
+        },
         { label: t("mainChart.volume"), value: asset.volume24h },
         {
             label: t("mainChart.fundingRate"),
@@ -704,7 +725,9 @@ const CoinInfoPanel = () => {
                 <p className="text-[12px] text-muted leading-relaxed">
                     {universe === "stock"
                         ? t("mainChart.stockAbout", { symbol: asset.symbol })
-                        : t("mainChart.coinAbout", { symbol: asset.symbol })}{" "}
+                        : t("mainChart.coinAbout", {
+                              symbol: asset.symbol,
+                          })}{" "}
                     {universe === "stock"
                         ? t("mainChart.stockDataSource")
                         : t("mainChart.coinDataSource", {
@@ -1326,6 +1349,11 @@ export const MainChart = () => {
         }
         return out.slice(0, 12);
     }, [currentAsset?.tags, universe]);
+    const hasHeaderAssetData = Boolean(currentAsset);
+    const shouldRenderSessionSkeleton = !displayedLastPoint;
+    const shouldRender24hRow = marketStats.length > 0 || !hasHeaderAssetData;
+    const shouldRenderTagsRow =
+        universe === "coin" && (currentTags.length > 0 || !hasHeaderAssetData);
     const navigateToMarketTag = useCallback(
         (tag: string) => {
             const clean = String(tag ?? "").trim();
@@ -1384,72 +1412,108 @@ export const MainChart = () => {
                             <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
                                 {interval}
                             </span>
-                            {sessionStats.map((item) => (
-                                <span
-                                    key={item.key}
-                                    className="inline-flex items-center gap-1"
-                                >
-                                    <span className="text-muted">
-                                        {item.label}:
-                                    </span>
-                                    <span
-                                        className={cn(
-                                            "font-mono font-semibold",
-                                            item.valueClass,
-                                        )}
-                                    >
-                                        {item.value}
-                                    </span>
-                                </span>
-                            ))}
+                            {shouldRenderSessionSkeleton
+                                ? Array.from({ length: 5 }).map((_, idx) => (
+                                      <span
+                                          key={`session-stat-skeleton-desktop-${idx}`}
+                                          className="inline-flex items-center gap-1"
+                                      >
+                                          <span className="h-2 w-10 rounded bg-secondary/80 animate-pulse" />
+                                          <span className="h-2.5 w-14 rounded bg-secondary animate-pulse" />
+                                      </span>
+                                  ))
+                                : sessionStats.map((item) => (
+                                      <span
+                                          key={item.key}
+                                          className="inline-flex items-center gap-1"
+                                      >
+                                          <span className="text-muted">
+                                              {item.label}:
+                                          </span>
+                                          <span
+                                              className={cn(
+                                                  "font-mono font-semibold",
+                                                  item.valueClass,
+                                              )}
+                                          >
+                                              {item.value}
+                                          </span>
+                                      </span>
+                                  ))}
                         </div>
 
-                        {marketStats.length > 0 && (
+                        {shouldRender24hRow && (
                             <div className="flex items-center gap-3 whitespace-nowrap text-[10px]">
                                 <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
                                     24h
                                 </span>
-                                {marketStats.map((item) => (
-                                    <span
-                                        key={item.key}
-                                        className="inline-flex items-center gap-1"
-                                    >
-                                        <span className="text-muted">
-                                            {item.label}:
-                                        </span>
-                                        <span
-                                            className={cn(
-                                                "font-mono font-semibold",
-                                                item.valueClass,
-                                            )}
-                                        >
-                                            {item.value}
-                                        </span>
-                                        {item.sub ? (
-                                            <span className="font-mono text-muted">
-                                                {item.sub}
-                                            </span>
-                                        ) : null}
-                                    </span>
-                                ))}
+                                {marketStats.length > 0
+                                    ? marketStats.map((item) => (
+                                          <span
+                                              key={item.key}
+                                              className="inline-flex items-center gap-1"
+                                          >
+                                              <span className="text-muted">
+                                                  {item.label}:
+                                              </span>
+                                              <span
+                                                  className={cn(
+                                                      "font-mono font-semibold",
+                                                      item.valueClass,
+                                                  )}
+                                              >
+                                                  {item.value}
+                                              </span>
+                                              {item.sub ? (
+                                                  <span className="font-mono text-muted">
+                                                      {item.sub}
+                                                  </span>
+                                              ) : null}
+                                          </span>
+                                      ))
+                                    : Array.from({ length: 5 }).map(
+                                          (_, idx) => (
+                                              <span
+                                                  key={`mkt-stat-skeleton-desktop-${idx}`}
+                                                  className="inline-flex items-center gap-1"
+                                              >
+                                                  <span className="h-2 w-12 rounded bg-secondary/80 animate-pulse" />
+                                                  <span className="h-2.5 w-14 rounded bg-secondary animate-pulse" />
+                                              </span>
+                                          ),
+                                      )}
                             </div>
                         )}
 
-                        {currentTags.length > 0 && (
+                        {shouldRenderTagsRow && (
                             <div className="flex items-center gap-2 whitespace-nowrap text-[10px] overflow-x-auto thin-scrollbar">
                                 <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
                                     {t("mainChart.tags")}
                                 </span>
-                                {currentTags.map((tag) => (
-                                    <button
-                                        key={tag}
-                                        type="button"
-                                        onClick={() => navigateToMarketTag(tag)}
-                                        className="inline-flex items-center py-0.5 text-[10px] font-semibold text-blue-500 hover:text-blue-400"
-                                    >
-                                        {tag}
-                                    </button>
-                                ))}
+                                {currentTags.length > 0
+                                    ? currentTags.map((tag) => (
+                                          <button
+                                              key={tag}
+                                              type="button"
+                                              onClick={() =>
+                                                  navigateToMarketTag(tag)
+                                              }
+                                              className="inline-flex items-center py-0.5 text-[10px] font-semibold text-blue-500 hover:text-blue-400"
+                                          >
+                                              {tag}
+                                          </button>
+                                      ))
+                                    : Array.from({ length: 4 }).map(
+                                          (_, idx) => (
+                                              <span
+                                                  key={`mkt-stat-skeleton-desktop-${idx}`}
+                                                  className="inline-flex items-center gap-1"
+                                              >
+                                                  <span className="h-2 w-12 rounded bg-secondary/80 animate-pulse" />
+                                                  <span className="h-2.5 w-14 rounded bg-secondary animate-pulse" />
+                                              </span>
+                                          ),
+                                      )}
                             </div>
                         )}
                     </div>
@@ -1461,72 +1525,101 @@ export const MainChart = () => {
                         <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
                             {interval}
                         </span>
-                        {sessionStats.map((item) => (
-                            <span
-                                key={item.key}
-                                className="inline-flex items-center gap-1"
-                            >
-                                <span className="text-muted">
-                                    {item.label}:
-                                </span>
-                                <span
-                                    className={cn(
-                                        "font-mono font-semibold",
-                                        item.valueClass,
-                                    )}
-                                >
-                                    {item.value}
-                                </span>
-                            </span>
-                        ))}
+                        {shouldRenderSessionSkeleton
+                            ? Array.from({ length: 5 }).map((_, idx) => (
+                                  <span
+                                      key={`session-stat-skeleton-mobile-${idx}`}
+                                      className="inline-flex items-center gap-1"
+                                  >
+                                      <span className="h-2 w-10 rounded bg-secondary/80 animate-pulse" />
+                                      <span className="h-2.5 w-14 rounded bg-secondary animate-pulse" />
+                                  </span>
+                              ))
+                            : sessionStats.map((item) => (
+                                  <span
+                                      key={item.key}
+                                      className="inline-flex items-center gap-1"
+                                  >
+                                      <span className="text-muted">
+                                          {item.label}:
+                                      </span>
+                                      <span
+                                          className={cn(
+                                              "font-mono font-semibold",
+                                              item.valueClass,
+                                          )}
+                                      >
+                                          {item.value}
+                                      </span>
+                                  </span>
+                              ))}
                     </div>
 
-                    {marketStats.length > 0 && (
+                    {shouldRender24hRow && (
                         <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap thin-scrollbar text-[10px] pb-0.5">
                             <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
                                 24h
                             </span>
-                            {marketStats.map((item) => (
-                                <span
-                                    key={item.key}
-                                    className="inline-flex items-center gap-1"
-                                >
-                                    <span className="text-muted">
-                                        {item.label}:
-                                    </span>
-                                    <span
-                                        className={cn(
-                                            "font-mono font-semibold",
-                                            item.valueClass,
-                                        )}
-                                    >
-                                        {item.value}
-                                    </span>
-                                    {item.sub ? (
-                                        <span className="font-mono text-muted">
-                                            {item.sub}
-                                        </span>
-                                    ) : null}
-                                </span>
-                            ))}
+                            {marketStats.length > 0
+                                ? marketStats.map((item) => (
+                                      <span
+                                          key={item.key}
+                                          className="inline-flex items-center gap-1"
+                                      >
+                                          <span className="text-muted">
+                                              {item.label}:
+                                          </span>
+                                          <span
+                                              className={cn(
+                                                  "font-mono font-semibold",
+                                                  item.valueClass,
+                                              )}
+                                          >
+                                              {item.value}
+                                          </span>
+                                          {item.sub ? (
+                                              <span className="font-mono text-muted">
+                                                  {item.sub}
+                                              </span>
+                                          ) : null}
+                                      </span>
+                                  ))
+                                : Array.from({ length: 5 }).map((_, idx) => (
+                                      <span
+                                          key={`mkt-stat-skeleton-mobile-${idx}`}
+                                          className="inline-flex items-center gap-1"
+                                      >
+                                          <span className="h-2 w-12 rounded bg-secondary/80 animate-pulse" />
+                                          <span className="h-2.5 w-14 rounded bg-secondary animate-pulse" />
+                                      </span>
+                                  ))}
                         </div>
                     )}
 
-                    {currentTags.length > 0 && (
+                    {shouldRenderTagsRow && (
                         <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap thin-scrollbar text-[10px] pb-0.5">
                             <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
                                 {t("mainChart.tags")}
                             </span>
-                            {currentTags.map((tag) => (
-                                <button
-                                    key={tag}
-                                    type="button"
-                                    onClick={() => navigateToMarketTag(tag)}
-                                    className="inline-flex items-center rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-sky-300 hover:bg-sky-500/20"
-                                >
-                                    {tag}
-                                </button>
-                            ))}
+                            {currentTags.length > 0
+                                ? currentTags.map((tag) => (
+                                      <button
+                                          key={tag}
+                                          type="button"
+                                          onClick={() =>
+                                              navigateToMarketTag(tag)
+                                          }
+                                          className="inline-flex items-center rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-sky-300 hover:bg-sky-500/20"
+                                      >
+                                          {tag}
+                                      </button>
+                                  ))
+                                : Array.from({ length: 4 }).map((_, idx) => (
+                                      <span
+                                          key={`tag-skeleton-mobile-${idx}`}
+                                          className="inline-flex h-4 w-16 rounded border border-main bg-secondary/70 animate-pulse"
+                                      />
+                                  ))}
                         </div>
                     )}
                 </div>

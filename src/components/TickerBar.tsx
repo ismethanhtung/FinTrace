@@ -35,6 +35,8 @@ export const TickerBar = () => {
         setSelectedSymbol,
         universe,
         marketType,
+        isLoading,
+        isFuturesLoading,
         spotStreamStatus,
         futuresStreamStatus,
         lastSpotStreamUpdateAt,
@@ -42,9 +44,7 @@ export const TickerBar = () => {
     } = useMarket();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [tickerMode, setTickerMode] = useState<TickerMode>("hot");
-    const [isOnline, setIsOnline] = useState(
-        () => (typeof navigator === "undefined" ? true : navigator.onLine),
-    );
+    const [isOnline, setIsOnline] = useState(true);
     const [networkQuality, setNetworkQuality] = useState<
         "good" | "weak" | "offline"
     >("good");
@@ -77,6 +77,8 @@ export const TickerBar = () => {
         marketType === "futures"
             ? lastFuturesStreamUpdateAt
             : lastSpotStreamUpdateAt;
+    const isBootstrapLoading =
+        marketType === "futures" ? isFuturesLoading : isLoading;
 
     useEffect(() => {
         const evaluateQuality = () => {
@@ -235,8 +237,6 @@ export const TickerBar = () => {
         }
     }, [pathname, router, setSelectedSymbol]);
 
-    if (assets.length === 0) return null;
-
     const durationSeconds = Math.min(
         Math.max(displayAssets.length * 1.6, 180),
         720,
@@ -254,6 +254,7 @@ export const TickerBar = () => {
                     networkQuality={networkQuality}
                     streamStatus={streamStatus}
                     lastUpdateAt={lastUpdateAt}
+                    universe={universe}
                 />
 
                 <div className="w-px h-3 bg-main" />
@@ -357,10 +358,14 @@ export const TickerBar = () => {
                         durationSeconds={durationSeconds}
                         onSelect={handleSelect}
                     />
-                ) : (
+                ) : tickerMode === "favorites" &&
+                  assets.length > 0 &&
+                  !isBootstrapLoading ? (
                     <div className="h-full flex items-center px-4 text-[10px] text-muted">
                         {t("ticker.favoritesEmpty")}
                     </div>
+                ) : (
+                    <TickerMarqueeSkeleton />
                 )}
             </div>
 
@@ -383,16 +388,19 @@ const TickerStatusBadge = React.memo(function TickerStatusBadge({
     networkQuality,
     streamStatus,
     lastUpdateAt,
+    universe,
 }: {
     isOnline: boolean;
     networkQuality: "good" | "weak" | "offline";
     streamStatus: "connecting" | "connected" | "disconnected" | "error";
     lastUpdateAt: number | null;
+    universe: "coin" | "stock";
 }) {
-    const { t, locale } = useI18n();
-    const [nowMs, setNowMs] = useState(() => Date.now());
+    const { t } = useI18n();
+    const [nowMs, setNowMs] = useState(0);
 
     useEffect(() => {
+        setNowMs(Date.now());
         const id = window.setInterval(() => setNowMs(Date.now()), 1000);
         return () => window.clearInterval(id);
     }, []);
@@ -401,9 +409,9 @@ const TickerStatusBadge = React.memo(function TickerStatusBadge({
         typeof lastUpdateAt === "number" ? Math.max(0, nowMs - lastUpdateAt) : null;
     const isLikelyLive =
         streamStatus === "connected" &&
-        staleMs !== null &&
-        staleMs < 10_000 &&
-        isOnline;
+        isOnline &&
+        (universe === "stock" ||
+            (staleMs !== null && staleMs < 10_000));
     const statusLabel = !isOnline
         ? t("ticker.offline")
         : networkQuality === "weak"
@@ -448,18 +456,6 @@ const TickerStatusBadge = React.memo(function TickerStatusBadge({
                         : "bg-amber-400 animate-pulse",
                 )}
             />
-            <span className="text-[9px] text-muted tabular-nums">
-                {lastUpdateAt
-                    ? new Date(lastUpdateAt).toLocaleTimeString(
-                          locale === "vi" ? "vi-VN" : "en-US",
-                          {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              second: "2-digit",
-                          },
-                      )
-                    : "--:--:--"}
-            </span>
         </div>
     );
 });
@@ -525,6 +521,24 @@ const TickerMarquee = React.memo(function TickerMarquee({
                         {priceFmt(asset.price)}
                     </span>
                 </button>
+            ))}
+        </div>
+    );
+});
+
+const TickerMarqueeSkeleton = React.memo(function TickerMarqueeSkeleton() {
+    return (
+        <div className="flex h-full items-center gap-0 px-1">
+            {Array.from({ length: 7 }).map((_, idx) => (
+                <div
+                    key={`ticker-skeleton-${idx}`}
+                    className="flex items-center space-x-1 px-2.5 h-8 border-r border-main shrink-0 w-[210px]"
+                >
+                    <span className="h-3.5 w-3.5 rounded-full bg-secondary animate-pulse shrink-0" />
+                    <span className="h-2.5 w-16 rounded bg-secondary animate-pulse shrink-0" />
+                    <span className="h-2.5 w-10 rounded bg-secondary/80 animate-pulse ml-auto shrink-0" />
+                    <span className="h-2.5 w-12 rounded bg-secondary/80 animate-pulse shrink-0" />
+                </div>
             ))}
         </div>
     );

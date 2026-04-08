@@ -66,6 +66,7 @@ describe("UniverseContext", () => {
             </UniverseProvider>,
         );
         fireEvent.click(screen.getByText("switch"));
-        expect(pushMock).toHaveBeenCalledWith("/market");
+        // Switching to stock should land on stock-friendly default route.
+        expect(pushMock).toHaveBeenCalledWith("/board");
     });
 });
