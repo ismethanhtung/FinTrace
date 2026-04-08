@@ -4,6 +4,17 @@
     "main": ".open-next/worker.js",
     "compatibility_date": "2026-04-08",
     "compatibility_flags": ["nodejs_compat"],
+    "vars": {
+        "APP_URL": "MY_APP_URL",
+        "STOCK_LAMBDA_BASE_URL": "http://52.77.72.207:80/",
+        "BINANCE_BASE_URL": "https://api.binance.com/api/v3/",
+        "NEXT_PUBLIC_STOCK_LAMBDA_URL": "http://52.77.72.207:80/",
+        "NEXT_PUBLIC_STOCK_LIST_LIMIT": "1607",
+        "NEXT_PUBLIC_STOCK_HISTORY_CONCURRENCY": "16",
+        "NEXT_PUBLIC_STOCK_ALLOW_BULK_SNAPSHOT_FALLBACK": "0",
+        "NEXT_PUBLIC_STOCK_ALLOW_HISTORY_FALLBACK": "0",
+        "REDIS_DB": "0"
+    },
     "assets": {
         "directory": ".open-next/assets",
         "binding": "ASSETS"
