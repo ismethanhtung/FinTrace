@@ -6,6 +6,7 @@
     "scripts": {
         "dev": "next dev -p 3000 --turbo",
         "build": "next build",
+        "build:pages": "npx @opennextjs/cloudflare build && node scripts/prepare-pages-output.mjs",
         "start": "next start -p 3000",
         "lint": "tsc --noEmit",
         "typecheck": "tsc --noEmit",
