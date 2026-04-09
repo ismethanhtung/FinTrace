@@ -1,8 +1,6 @@
-import crypto from "node:crypto";
 import { NextResponse } from "next/server";
-import WebSocket from "ws";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 type JsonRecord = Record<string, unknown>;
 const MAX_SYMBOLS = 300;
@@ -126,14 +124,37 @@ function serializeWsError(err: unknown): JsonRecord {
     };
 }
 
-function authMessage(apiKey: string, apiSecret: string): JsonRecord {
+function toBase64(bytes: Uint8Array): string {
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode(...chunk);
+    }
+    return btoa(binary);
+}
+
+async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
+    const keyBytes = new TextEncoder().encode(secret);
+    const payloadBytes = new TextEncoder().encode(payload);
+    const key = await crypto.subtle.importKey(
+        "raw",
+        keyBytes,
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"],
+    );
+    const signature = await crypto.subtle.sign("HMAC", key, payloadBytes);
+    return Array.from(new Uint8Array(signature))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+}
+
+async function authMessage(apiKey: string, apiSecret: string): Promise<JsonRecord> {
     const timestamp = Math.floor(Date.now() / 1000);
     const nonce = String(Date.now() * 1000);
     const message = `${apiKey}:${timestamp}:${nonce}`;
-    const signature = crypto
-        .createHmac("sha256", apiSecret)
-        .update(message, "utf8")
-        .digest("hex");
+    const signature = await hmacSha256Hex(apiSecret, message);
 
     return {
         action: "auth",
@@ -156,21 +177,28 @@ function subscribeMessage(channel: string, symbols: string[]): JsonRecord {
     };
 }
 
-function wsRawToParseInput(data: WebSocket.RawData): string | ArrayBuffer {
+async function wsRawToParseInput(data: unknown): Promise<string | ArrayBuffer> {
     if (typeof data === "string") return data;
     if (data instanceof ArrayBuffer) return data;
-    const buf = Buffer.isBuffer(data)
-        ? data
-        : Array.isArray(data)
-          ? Buffer.concat(data)
-          : Buffer.from(new Uint8Array(data));
-    return new Uint8Array(buf).buffer;
+    if (data instanceof Uint8Array) {
+        const copy = new Uint8Array(data.byteLength);
+        copy.set(data);
+        return copy.buffer;
+    }
+    if (data instanceof Blob) {
+        return await data.arrayBuffer();
+    }
+    const bytes = new TextEncoder().encode(String(data));
+    const copy = new Uint8Array(bytes.byteLength);
+    copy.set(bytes);
+    return copy.buffer;
 }
 
-function wsRawAsUtf8PingCheck(data: WebSocket.RawData): string | null {
+function wsRawAsUtf8PingCheck(data: unknown): string | null {
     if (typeof data === "string") return data;
-    if (Buffer.isBuffer(data)) return data.toString("utf8");
-    if (Array.isArray(data)) return Buffer.concat(data).toString("utf8");
+    if (data instanceof Uint8Array) return new TextDecoder().decode(data);
+    if (data instanceof ArrayBuffer)
+        return new TextDecoder().decode(new Uint8Array(data));
     return null;
 }
 
@@ -190,7 +218,7 @@ async function parseIncoming(data: unknown): Promise<JsonRecord | null> {
             const parsed = JSON.parse(text);
             return asRecord(parsed);
         } catch {
-            return { rawBase64: Buffer.from(bytes).toString("base64") };
+            return { rawBase64: toBase64(bytes) };
         }
     }
     if (data instanceof Blob) {
@@ -252,7 +280,7 @@ export async function GET(request: Request) {
     );
 
     const encoder = new TextEncoder();
-    let ws: InstanceType<typeof WebSocket> | null = null;
+    let ws: WebSocket | null = null;
     let isClosed = false;
     let isAuthed = false;
     let proactivePongTimer: ReturnType<typeof setInterval> | null = null;
@@ -353,21 +381,21 @@ export async function GET(request: Request) {
                 return;
             }
 
-            ws.on("open", () => {
+            ws.onopen = async () => {
                 push("info", {
                     type: "ws_open",
                     at: new Date().toISOString(),
                 });
-                const msg = authMessage(apiKey, apiSecret);
+                const msg = await authMessage(apiKey, apiSecret);
                 ws?.send(JSON.stringify(msg));
                 push("info", {
                     type: "auth_sent",
                     at: new Date().toISOString(),
                 });
-            });
+            };
 
-            ws.on("message", async (rawData) => {
-                const pingProbe = wsRawAsUtf8PingCheck(rawData);
+            ws.onmessage = async (event) => {
+                const pingProbe = wsRawAsUtf8PingCheck(event.data);
                 if (
                     pingProbe !== null &&
                     pingProbe.trim().toUpperCase() === "PING"
@@ -376,7 +404,7 @@ export async function GET(request: Request) {
                     return;
                 }
 
-                const incoming = wsRawToParseInput(rawData);
+                const incoming = await wsRawToParseInput(event.data);
                 const data = await parseIncoming(incoming);
                 if (!data) return;
 
@@ -427,28 +455,32 @@ export async function GET(request: Request) {
                     receivedAt: new Date().toISOString(),
                     data,
                 });
-            });
+            };
 
-            ws.on("error", (err) => {
-                const detail = serializeWsError(err);
+            ws.onerror = () => {
+                const detail = {
+                    message: "DNSE websocket error event",
+                    name: "WebSocketErrorEvent",
+                };
                 console.error("[DNSE stream] ws error", detail);
                 push("error", {
                     type: "ws_error",
                     ...detail,
                 });
-            });
+            };
 
-            ws.on("close", (code, reasonBuf) => {
+            ws.onclose = (event) => {
+                const reason =
+                    typeof event.reason === "string" && event.reason.trim()
+                        ? event.reason
+                        : "closed";
                 push("info", {
                     type: "ws_close",
-                    code,
-                    reason:
-                        (reasonBuf && reasonBuf.length
-                            ? reasonBuf.toString("utf8")
-                            : "") || "closed",
+                    code: event.code,
+                    reason,
                 });
                 cleanup();
-            });
+            };
         },
     });
 
