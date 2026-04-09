@@ -328,7 +328,7 @@ const CoinRow = ({
                 </div>
             </div>
             <div className="text-right shrink-0 ml-2">
-                <div className={cn("text-[11px] font-mono", stockToneClass)}>
+                <div className="text-[11px] font-mono text-main">
                     {hasValidPrice ? priceFmt(asset.price) : "--"}
                 </div>
                 <div

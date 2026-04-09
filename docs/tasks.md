@@ -133,24 +133,65 @@
 - Theo dõi `Real-time Logs` cho các route: `/api/news`, `/api/market-news`, `/api/dnse/realtime/stream`.
 - Với bug realtime, luôn capture payload SSE `event: error` để debug vòng sau.
 
-tiếp theo:
+## Task mới (2026-04-09 chiều)
 
-Stock Order Book -> có chuyện gì với nó vậy?
-50.00
-481,800
-481,800
-29,400
+- [x] Sửa Stock Order Book chỉ hiện 1 mức:
+    - Root cause: depth stock đang ưu tiên hoàn toàn stream nên mất các mức còn lại từ snapshot; thêm nữa bị grouping bucket làm gộp mức.
+    - Fix: merge `stream + snapshot` theo price và ép stock grouping cố định để không gộp sai.
+- [x] Sửa `/board` flash toàn bộ ô khi vừa load/reload:
+    - Root cause: đợt update lớn đầu tiên (cache -> live) gây highlight hàng loạt.
+    - Fix: thêm bulk-flash guard, bỏ qua hiệu ứng khi số ô đổi vượt ngưỡng lớn.
+- [x] Left Sidebar: giá về màu gốc:
+    - Giá luôn `text-main`; giữ nguyên màu symbol và `%/change`.
+
+1. 55,000
+   ↑
+   Spread: -54,745.00 (-99.900%)
+   01:38:25 PM
+
+Stock Order Book
+
+Price
+Qty (CP)
+Total
+55,100
+7,100
+35,100
+55,000
+3,300
+28,000
+54,900
+7,200
+24,700
+56.00
+7,100
+17,500
+55.00
+10,400
+10,400
+55,000
 ↑
-Spread: 50.00 (0.000%)
-01:25:32 PM
-0.00
-1,296,700
-1,296,700
+Spread: -54,745.00 (-99.900%)
+01:38:49 PM
+54,800
+1,200
+1,200
+54,700
+3,500
+4,700
+54,600
+11,100
+15,800
+54.00
+15,800
+31,600
 
-tại sao lại chỉ có 1 nhỉ? có khi nào là do cái chọn size bị sai không?
-kiểm tra lại nhé. giống như bên /board thì ít cũng có 3 cái rồi, buy 3 cái sell 3 cái, tuy có tuỳ cái có 3 có cái có 1, nhưng ở đây hiển thị bị thiếu.
+-> Chênh lệch: -54,745.00 (-99.900%)
+cái chênh lệch này có vẻ hơi lạ nhỉ? không biết có vấn đề gì không, kiểm tra giúp tôi nhé.
 
-2. khi user mới vào trang /board hoặc reload trang này, sẽ bị trường hợp tất cả các ô nhảy màu - toàn bộ full tất cả các ô nhảy màu. rất có thể vì lúc mới vào chưa có data/data cũ, cập nhật 1 phát là toàn bộ data mới -> nhảy hết.
-   tuy nhiên thì như vậy sẽ cho thấy sự thiếu chuyên nghiệp. tất cả những cái khác đều tốt, chỉ có ở đây hơi có vấn đề nhỏ. tìm cách nhé.
+2.  về cái bulk-flash, có ổn không? có sợ rằng nó vô tình làm mất lúc thị trường biến động nhất không?
+    bạn hãy suy nghĩ cẩn thận nhé.
 
-3. ở leftbar, giá cho màu gốc đi, khỏi xanh đỏ. chỉ giá thôi nhé, còn màu chữ, % thì như cũ.
+3.  cũng ở trang /board - các data trong khung nhảy thì được load rất nhanh, reload trang cái là thấy luôn, nhưng data ở mấy cái minichart thì hơi lâu, tuy vẫn nhanh nhưng so với các data bên dưới thì chậm hơn khá rõ. vậy data bên dưới tại sao lại nhanh như vậy, có thể áp dụng cho cái trên không? nếu được hãy áp dụng luôn cho các minichart bên trên nhé.
+
+4.  tôi nhìn thấy rightbar bên mình giao diện cũng đã ok rồi, nhưng tôi thấy rất ấn tượng với chatbar của một trang web, đó là cloudflare, giao diện rất ấn tượng, tôi muốn bạn tham khảo.

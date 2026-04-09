@@ -193,6 +193,29 @@ function normalizeStockDepthLevels(
         );
 }
 
+function mergeStockDepthLevels(
+    primary: Array<{ price: number; quantity: number }>,
+    fallback: Array<{ price: number; quantity: number }>,
+    side: DepthSide,
+    maxLevels = 20,
+) {
+    const byPrice = new Map<number, number>();
+    for (const level of primary) {
+        byPrice.set(level.price, level.quantity);
+    }
+    for (const level of fallback) {
+        if (!byPrice.has(level.price)) {
+            byPrice.set(level.price, level.quantity);
+        }
+    }
+    return Array.from(byPrice.entries())
+        .map(([price, quantity]) => ({ price, quantity }))
+        .sort((a, b) =>
+            side === "bid" ? b.price - a.price : a.price - b.price,
+        )
+        .slice(0, maxLevels);
+}
+
 /**
  * @param symbol - Trading pair symbol (e.g. "BTCUSDT")
  * @param grouping - Price grouping precision for bucketing orders
@@ -501,8 +524,8 @@ export const useOrderBook = (
         );
         const snapshotBids = normalizeStockDepthLevels(snapshot?.bid, "bid");
         const snapshotAsks = normalizeStockDepthLevels(snapshot?.offer, "ask");
-        const bids = streamBids.length ? streamBids : snapshotBids;
-        const asks = streamAsks.length ? streamAsks : snapshotAsks;
+        const bids = mergeStockDepthLevels(streamBids, snapshotBids, "bid");
+        const asks = mergeStockDepthLevels(streamAsks, snapshotAsks, "ask");
         if (!bids.length && !asks.length) return null;
 
         const state: OrderBookState = {
@@ -510,9 +533,8 @@ export const useOrderBook = (
             bids: new Map(bids.map((level) => [String(level.price), level.quantity])),
             asks: new Map(asks.map((level) => [String(level.price), level.quantity])),
         };
-        return deriveDataFromState(state, grouping);
+        return deriveDataFromState(state, 1);
     }, [
-        grouping,
         hasValidSymbol,
         isHydrated,
         resolvedSymbol,

@@ -254,6 +254,8 @@ const EMPTY_INDEX_STATS: IndexData = {
 
 const BOARD_CELL_FLASH_MS = 600;
 const BOARD_MAX_FLASH_ROWS = 320;
+const BOARD_FLASH_BULK_SKIP_MIN_CHANGED = 120;
+const BOARD_FLASH_BULK_SKIP_RATIO = 0.35;
 const STOCK_LAMBDA_URL = process.env.NEXT_PUBLIC_STOCK_LAMBDA_URL?.trim() || "";
 const BOARD_RECENTS_KEY = "fintrace_board_recent_symbols";
 const BOARD_ACTIVE_TAB_KEY = "fintrace_board_active_tab";
@@ -876,6 +878,7 @@ export default function BoardPage() {
         startWidth: number;
     } | null>(null);
     const prevCellValuesRef = useRef<Record<string, number | string>>({});
+    const hasInitializedCellSnapshotRef = useRef(false);
     const [cellFlashes, setCellFlashes] = useState<
         Record<string, CellFlashState>
     >({});
@@ -1696,11 +1699,17 @@ export default function BoardPage() {
         const prev = prevCellValuesRef.current;
         const nextValues: Record<string, number | string> = {};
         const updates: Record<string, CellFlashState> = {};
+        let changedCount = 0;
+        let comparableCount = 0;
 
         for (const cell of rowCellSnapshots) {
             const prevValue = prev[cell.key];
             nextValues[cell.key] = cell.value;
+            if (prevValue !== undefined) {
+                comparableCount += 1;
+            }
             if (prevValue !== undefined && !Object.is(prevValue, cell.value)) {
+                changedCount += 1;
                 updates[cell.key] = {
                     until: now + BOARD_CELL_FLASH_MS,
                     tone: cell.tone,
@@ -1709,6 +1718,18 @@ export default function BoardPage() {
         }
 
         prevCellValuesRef.current = nextValues;
+        if (!hasInitializedCellSnapshotRef.current) {
+            hasInitializedCellSnapshotRef.current = true;
+            return;
+        }
+        const shouldSkipBulkFlash =
+            changedCount >= BOARD_FLASH_BULK_SKIP_MIN_CHANGED &&
+            comparableCount > 0 &&
+            changedCount / comparableCount >= BOARD_FLASH_BULK_SKIP_RATIO;
+        if (shouldSkipBulkFlash) {
+            setCellFlashes({});
+            return;
+        }
         if (!Object.keys(updates).length) return;
 
         setCellFlashes((prevFlashes) => {
