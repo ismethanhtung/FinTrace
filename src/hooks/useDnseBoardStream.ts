@@ -25,6 +25,9 @@ type DnseInfoEvent = {
 const MAX_STREAM_SYMBOLS = 300;
 const DEFAULT_CHANNEL_BOARDS = ["G1", "G2", "G3"] as const;
 const DEBUG_PREFIX = "[DNSE SSE]";
+const STREAM_BATCH_WINDOW_MS = 120;
+const DEBUG_DNSE_STREAM =
+    process.env.NEXT_PUBLIC_DEBUG_DNSE_STREAM === "1";
 
 function normalizeSymbol(raw: string): string | null {
     const symbol = raw.trim().toUpperCase();
@@ -169,15 +172,50 @@ export function useDnseBoardStream(
         );
         eventSourceRef.current = es;
         let hasLoggedFirstMarketEvent = false;
-        console.info(DEBUG_PREFIX, "stream_init", {
-            url: `/api/dnse/realtime/stream?${qs.toString()}`,
-            symbolCount: symbolsForStream.length,
-            board,
-            boards: boardsForChannels,
-            marketIndexes,
-            resolution,
-            channels,
-        });
+        let flushTimer: ReturnType<typeof setTimeout> | null = null;
+        let pendingBoardPatches: ReturnType<typeof extractDnseBoardPatches> = [];
+        let pendingMarketIndexPatches: ReturnType<
+            typeof extractDnseMarketIndexPatches
+        > = [];
+        if (DEBUG_DNSE_STREAM) {
+            console.info(DEBUG_PREFIX, "stream_init", {
+                url: `/api/dnse/realtime/stream?${qs.toString()}`,
+                symbolCount: symbolsForStream.length,
+                board,
+                boards: boardsForChannels,
+                marketIndexes,
+                resolution,
+                channels,
+            });
+        }
+
+        const flushPendingPatches = () => {
+            flushTimer = null;
+            let hasUpdates = false;
+            if (pendingMarketIndexPatches.length) {
+                const marketPatches = pendingMarketIndexPatches;
+                pendingMarketIndexPatches = [];
+                setDataByMarketIndex((prev) =>
+                    mergeDnseMarketIndexState(prev, marketPatches),
+                );
+                hasUpdates = true;
+            }
+            if (pendingBoardPatches.length) {
+                const boardPatches = pendingBoardPatches;
+                pendingBoardPatches = [];
+                setDataBySymbol((prev) => mergeDnseBoardState(prev, boardPatches));
+                hasUpdates = true;
+            }
+            if (hasUpdates) {
+                setLastUpdatedAt(Date.now());
+                setStatus("connected");
+            }
+        };
+
+        const scheduleFlush = () => {
+            if (flushTimer !== null) return;
+            flushTimer = setTimeout(flushPendingPatches, STREAM_BATCH_WINDOW_MS);
+        };
 
         es.addEventListener("info", (event) => {
             try {
@@ -185,7 +223,7 @@ export function useDnseBoardStream(
                     (event as MessageEvent).data,
                 ) as DnseInfoEvent;
                 const type = String(payload.type || "").toLowerCase();
-                if (type !== "sse_heartbeat") {
+                if (DEBUG_DNSE_STREAM && type !== "sse_heartbeat") {
                     console.info(DEBUG_PREFIX, "info", payload);
                 }
                 if (
@@ -209,7 +247,7 @@ export function useDnseBoardStream(
                 const payload = JSON.parse((event as MessageEvent).data) as {
                     data?: unknown;
                 };
-                if (!hasLoggedFirstMarketEvent) {
+                if (DEBUG_DNSE_STREAM && !hasLoggedFirstMarketEvent) {
                     hasLoggedFirstMarketEvent = true;
                     console.info(DEBUG_PREFIX, "first_market_payload", payload);
                 }
@@ -221,25 +259,28 @@ export function useDnseBoardStream(
                 );
 
                 if (marketIndexPatches.length) {
-                    setDataByMarketIndex((prev) =>
-                        mergeDnseMarketIndexState(prev, marketIndexPatches),
-                    );
-                    setLastUpdatedAt(Date.now());
-                    setStatus("connected");
+                    pendingMarketIndexPatches.push(...marketIndexPatches);
                 }
 
-                if (!patches.length) return;
+                if (!patches.length) {
+                    if (marketIndexPatches.length) {
+                        scheduleFlush();
+                    }
+                    return;
+                }
 
                 const filteredPatches = patches.filter((patch) =>
                     allowed.has(patch.symbol),
                 );
-                if (!filteredPatches.length) return;
+                if (!filteredPatches.length) {
+                    if (marketIndexPatches.length) {
+                        scheduleFlush();
+                    }
+                    return;
+                }
 
-                setDataBySymbol((prev) =>
-                    mergeDnseBoardState(prev, filteredPatches),
-                );
-                setLastUpdatedAt(Date.now());
-                setStatus("connected");
+                pendingBoardPatches.push(...filteredPatches);
+                scheduleFlush();
             } catch {
                 // ignore malformed market events
             }
@@ -253,9 +294,11 @@ export function useDnseBoardStream(
                 typeof asMessageEvent.data !== "string" ||
                 !asMessageEvent.data.trim()
             ) {
-                console.warn(DEBUG_PREFIX, "eventsource_transport_error", {
-                    readyState: es.readyState,
-                });
+                if (DEBUG_DNSE_STREAM) {
+                    console.warn(DEBUG_PREFIX, "eventsource_transport_error", {
+                        readyState: es.readyState,
+                    });
+                }
                 if (es.readyState === EventSource.CONNECTING) {
                     setStatus((prev) =>
                         prev === "connected" ? "disconnected" : "connecting",
@@ -295,7 +338,13 @@ export function useDnseBoardStream(
         });
 
         return () => {
-            console.info(DEBUG_PREFIX, "stream_cleanup");
+            if (DEBUG_DNSE_STREAM) {
+                console.info(DEBUG_PREFIX, "stream_cleanup");
+            }
+            if (flushTimer !== null) {
+                clearTimeout(flushTimer);
+                flushTimer = null;
+            }
             es.close();
             if (eventSourceRef.current === es) {
                 eventSourceRef.current = null;

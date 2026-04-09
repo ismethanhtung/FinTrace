@@ -26,40 +26,9 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../context/I18nContext";
+import { resolveStockTone, toneClassForStock } from "../lib/stockTone";
 
 const STOCK_DNSE_PRICE_SCALE = 1000;
-const TONE_EPS = 1e-6;
-
-type StockTone = "fuchsia" | "emerald" | "rose" | "amber" | "cyan";
-
-function toneClassForStock(tone: StockTone): string {
-    if (tone === "fuchsia") return "text-[#c05af2]";
-    if (tone === "emerald") return "text-[#32d74b]";
-    if (tone === "rose") return "text-[#ff2727]";
-    if (tone === "cyan") return "text-cyan-500";
-    return "text-[#ffbe0c]";
-}
-
-function resolveStockTone(
-    price: number,
-    ref: number,
-    ceiling: number,
-    floor: number,
-    fallbackChangePercent: number,
-): StockTone {
-    if (Number.isFinite(price) && Number.isFinite(ceiling)) {
-        if (Math.abs(price - ceiling) <= TONE_EPS) return "fuchsia";
-    }
-    if (Number.isFinite(price) && Number.isFinite(floor)) {
-        if (Math.abs(price - floor) <= TONE_EPS) return "cyan";
-    }
-    if (Number.isFinite(price) && Number.isFinite(ref)) {
-        if (price > ref + TONE_EPS) return "emerald";
-        if (price < ref - TONE_EPS) return "rose";
-        return "amber";
-    }
-    return fallbackChangePercent >= 0 ? "emerald" : "rose";
-}
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const priceFmt = (v: number) =>
@@ -300,7 +269,7 @@ const CoinRow = ({
     const hasValidPrice = Number.isFinite(asset.price) && asset.price > 0;
     const hasValidChange =
         Number.isFinite(asset.changePercent) &&
-        (hasValidPrice || Math.abs(asset.changePercent) > TONE_EPS);
+        (hasValidPrice || Math.abs(asset.changePercent) > 1e-6);
 
     return (
         <div
@@ -642,7 +611,6 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                 scaledRef,
                 scaledCeiling,
                 scaledFloor,
-                asset.changePercent,
             );
             out[symbol] = toneClassForStock(tone);
         }

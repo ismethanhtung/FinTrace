@@ -1,21 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const parseURLMock = vi.fn();
+const fetchRssFeedMock = vi.fn();
 
-vi.mock("rss-parser", () => ({
-    default: class MockParser {
-        parseURL = parseURLMock;
-    },
+vi.mock("../../../lib/rss", () => ({
+    fetchRssFeed: fetchRssFeedMock,
+    readRssErrorLogFields: (error: unknown) => ({
+        message: error instanceof Error ? error.message : String(error),
+    }),
 }));
 
 describe("GET /api/general-news", () => {
     beforeEach(() => {
         vi.resetModules();
-        parseURLMock.mockReset();
+        fetchRssFeedMock.mockReset();
     });
 
     it("returns articles from RSS and normalizes payload", async () => {
-        parseURLMock.mockResolvedValue({
+        fetchRssFeedMock.mockResolvedValue({
             title: "Feed",
             items: [
                 {
@@ -36,7 +37,7 @@ describe("GET /api/general-news", () => {
     });
 
     it("returns 500 with error contract when fetch fails and cache is empty", async () => {
-        parseURLMock.mockRejectedValue(new Error("rss fail"));
+        fetchRssFeedMock.mockRejectedValue(new Error("rss fail"));
         const { GET } = await import("./route");
         const res = await GET(
             new Request("http://localhost/api/general-news?refresh=1"),
@@ -47,7 +48,7 @@ describe("GET /api/general-news", () => {
     });
 
     it("uses Vietnamese stock queries when universe=stock", async () => {
-        parseURLMock.mockResolvedValue({
+        fetchRssFeedMock.mockResolvedValue({
             title: "Feed",
             items: [
                 {
@@ -68,12 +69,12 @@ describe("GET /api/general-news", () => {
 
         expect(res.status).toBe(200);
         expect(body.articles).toHaveLength(1);
-        expect(parseURLMock).toHaveBeenCalled();
-        expect(parseURLMock.mock.calls[0][0]).toContain(
+        expect(fetchRssFeedMock).toHaveBeenCalled();
+        expect(fetchRssFeedMock.mock.calls[0][0]).toContain(
             "q=ch%E1%BB%A9ng%20kho%C3%A1n",
         );
-        expect(parseURLMock.mock.calls[0][0]).toContain("hl=vi");
-        expect(parseURLMock.mock.calls[0][0]).toContain("gl=VN");
-        expect(parseURLMock.mock.calls[0][0]).toContain("ceid=VN:vi");
+        expect(fetchRssFeedMock.mock.calls[0][0]).toContain("hl=vi");
+        expect(fetchRssFeedMock.mock.calls[0][0]).toContain("gl=VN");
+        expect(fetchRssFeedMock.mock.calls[0][0]).toContain("ceid=VN:vi");
     });
 });

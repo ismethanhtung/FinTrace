@@ -11,8 +11,8 @@
  */
 
 import { NextResponse } from "next/server";
-import Parser from "rss-parser";
 import { getGroqApiKey } from "../../../lib/getGroqKey";
+import { fetchRssFeed, readRssErrorLogFields } from "../../../lib/rss";
 
 export const runtime = "nodejs";
 
@@ -78,11 +78,10 @@ async function fetchRssArticles(): Promise<
         description: string;
     }[]
 > {
-    const parser = new Parser();
     const query = RSS_QUERIES[Math.floor(Math.random() * RSS_QUERIES.length)];
     const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
 
-    const feed = await parser.parseURL(rssUrl);
+    const feed = await fetchRssFeed(rssUrl);
 
     return feed.items.slice(0, 8).map((item, i) => {
         const rawDesc =
@@ -456,7 +455,7 @@ export async function GET(request: Request) {
             },
         );
     } catch (error) {
-        console.error("[market-news] Error:", error);
+        console.error("[market-news] Error:", readRssErrorLogFields(error));
 
         // If we have stale cache, serve it rather than fail
         if (_cache) {
@@ -471,7 +470,10 @@ export async function GET(request: Request) {
         }
 
         return NextResponse.json(
-            { error: "Failed to fetch market news", details: String(error) },
+            {
+                error: "Failed to fetch market news via RSS. Please retry shortly.",
+                details: readRssErrorLogFields(error).message,
+            },
             { status: 500 },
         );
     }

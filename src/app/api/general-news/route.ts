@@ -8,9 +8,13 @@
  */
 
 import { NextResponse } from "next/server";
-import Parser from "rss-parser";
 import { normalizeUniverse } from "../../../lib/marketUniverse";
 import type { AssetUniverse } from "../../../lib/marketUniverse";
+import {
+    fetchRssFeed,
+    readRssErrorLogFields,
+    type ParsedRssFeed,
+} from "../../../lib/rss";
 
 export const runtime = "nodejs";
 
@@ -91,21 +95,20 @@ function buildRssPlan(universe: AssetUniverse): {
 async function fetchNewsArticles(
     universe: AssetUniverse,
 ): Promise<GeneralNewsArticle[]> {
-    const parser = new Parser();
     const { queries, hl, gl, ceid } = buildRssPlan(universe);
 
     try {
         const feedResults = await Promise.allSettled(
             queries.map(async (query) => {
                 const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${hl}&gl=${gl}&ceid=${ceid}`;
-                return parser.parseURL(rssUrl);
+                return fetchRssFeed(rssUrl);
             }),
         );
         const feeds = feedResults
             .filter(
                 (
                     result,
-                ): result is PromiseFulfilledResult<Awaited<ReturnType<Parser["parseURL"]>>> =>
+                ): result is PromiseFulfilledResult<ParsedRssFeed> =>
                     result.status === "fulfilled",
             )
             .map((result) => result.value);
@@ -161,7 +164,10 @@ async function fetchNewsArticles(
                 new Date(a.publishedAt).getTime(),
         );
     } catch (error) {
-        console.error("[general-news] Error fetching RSS:", error);
+        console.error(
+            "[general-news] Error fetching RSS:",
+            readRssErrorLogFields(error),
+        );
         throw error;
     }
 }
@@ -220,7 +226,7 @@ export async function GET(request: Request) {
             },
         );
     } catch (error) {
-        console.error("[general-news] Error:", error);
+        console.error("[general-news] Error:", readRssErrorLogFields(error));
 
         // If we have stale cache, serve it rather than fail
         if (cacheEntry) {
@@ -236,7 +242,10 @@ export async function GET(request: Request) {
         }
 
         return NextResponse.json(
-            { error: "Failed to fetch news", details: String(error) },
+            {
+                error: "Failed to fetch news via RSS. Please retry shortly.",
+                details: readRssErrorLogFields(error).message,
+            },
             { status: 500 },
         );
     }

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import Parser from "rss-parser";
 import { normalizeUniverse } from "../../../lib/marketUniverse";
-
-const parser = new Parser();
+import { fetchRssFeed, readRssErrorLogFields } from "../../../lib/rss";
 
 export async function GET(request: Request) {
     try {
@@ -28,7 +26,7 @@ export async function GET(request: Request) {
                 ? `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=vi&gl=VN&ceid=VN:vi`
                 : `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
 
-        const feed = await parser.parseURL(rssUrl);
+        const feed = await fetchRssFeed(rssUrl);
 
         const items = feed.items.slice(0, 15).map((item, index) => {
             let rawDesc =
@@ -52,9 +50,9 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ items });
     } catch (error) {
-        console.error("[API News] Error fetching RSS:", error);
+        console.error("[API News] Error fetching RSS:", readRssErrorLogFields(error));
         return NextResponse.json(
-            { error: "Failed to fetch news" },
+            { error: "Failed to fetch news via RSS. Please retry shortly." },
             { status: 500 },
         );
     }

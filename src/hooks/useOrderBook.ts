@@ -221,6 +221,7 @@ export const useOrderBook = (
     const loadingSnapshotRef = useRef(false);
     const pendingResyncRef = useRef(false);
     const snapshotRequestSeqRef = useRef(0);
+    const hasInitialSnapshotRef = useRef(false);
     const mountedRef = useRef(true);
     const subscriptionRef = useRef<ReturnType<typeof subscribeSharedStream> | null>(
         null,
@@ -263,6 +264,7 @@ export const useOrderBook = (
         depthUpdateTsRef.current = [];
         loadingSnapshotRef.current = false;
         pendingResyncRef.current = false;
+        hasInitialSnapshotRef.current = false;
         setBookTicker(null);
         setUpdatesPerSec10s(0);
         setLastUpdatedAt(null);
@@ -314,7 +316,7 @@ export const useOrderBook = (
         if (loadingSnapshotRef.current) return;
         loadingSnapshotRef.current = true;
         const requestSeq = ++snapshotRequestSeqRef.current;
-        setIsLoading(true);
+        setIsLoading(!hasInitialSnapshotRef.current);
         try {
             const getDepth =
                 marketType === "futures"
@@ -339,6 +341,7 @@ export const useOrderBook = (
             setUpdatesPerSec10s(0);
             setLastUpdatedAt(Date.now());
             setError(null);
+            hasInitialSnapshotRef.current = true;
             setBookVersion((v) => v + 1);
             applyBufferedDiffs();
         } catch (err) {

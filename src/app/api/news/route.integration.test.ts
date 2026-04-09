@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const parseURLMock = vi.fn();
+const fetchRssFeedMock = vi.fn();
 
-vi.mock("rss-parser", () => {
-    return {
-        default: class MockParser {
-            parseURL = parseURLMock;
-        },
-    };
-});
+vi.mock("../../../lib/rss", () => ({
+    fetchRssFeed: fetchRssFeedMock,
+    readRssErrorLogFields: (error: unknown) => ({
+        message: error instanceof Error ? error.message : String(error),
+    }),
+}));
 
 describe("GET /api/news", () => {
     beforeEach(() => {
-        parseURLMock.mockReset();
+        vi.resetModules();
+        fetchRssFeedMock.mockReset();
     });
 
     it("returns 400 when symbol is missing", async () => {
@@ -26,7 +26,7 @@ describe("GET /api/news", () => {
     });
 
     it("returns normalized rss items on success", async () => {
-        parseURLMock.mockResolvedValue({
+        fetchRssFeedMock.mockResolvedValue({
             title: "Google News",
             items: [
                 {
@@ -47,13 +47,13 @@ describe("GET /api/news", () => {
         expect(body.items).toHaveLength(1);
         expect(body.items[0].title).toBe("BTC rises");
         expect(body.items[0].description).toBe("Hello world");
-        expect(parseURLMock).toHaveBeenCalledWith(
+        expect(fetchRssFeedMock).toHaveBeenCalledWith(
             "https://news.google.com/rss/search?q=BTC%20crypto&hl=en-US&gl=US&ceid=US:en",
         );
     });
 
     it("uses Vietnamese stock-focused query for stock universe", async () => {
-        parseURLMock.mockResolvedValue({
+        fetchRssFeedMock.mockResolvedValue({
             title: "Google News",
             items: [],
         });
@@ -67,7 +67,7 @@ describe("GET /api/news", () => {
 
         expect(res.status).toBe(200);
         expect(body.items).toEqual([]);
-        expect(parseURLMock).toHaveBeenCalledWith(
+        expect(fetchRssFeedMock).toHaveBeenCalledWith(
             "https://news.google.com/rss/search?q=Ch%E1%BB%A9ng%20kho%C3%A1n%20SSI&hl=vi&gl=VN&ceid=VN:vi",
         );
     });
