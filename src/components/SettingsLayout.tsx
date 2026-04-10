@@ -93,7 +93,7 @@ function SettingsSidebar({
     const { data: session } = useSession();
 
     return (
-        <aside className="w-[260px] shrink-0 border-r border-main bg-secondary/60 flex flex-col min-h-screen">
+        <aside className="w-[260px] shrink-0 border-r border-main bg-secondary/60 flex h-full min-h-0 flex-col">
             {/* Logo row */}
             <div className="h-14 flex items-center justify-between px-5 border-b border-main">
                 <div className="flex items-center gap-2.5">
@@ -208,13 +208,13 @@ export default function SettingsLayout({
 }) {
     const { data: session } = useSession();
     return (
-        <div className="min-h-screen flex bg-main text-main">
+        <div className="h-screen overflow-hidden flex bg-main text-main">
             <SettingsSidebar
                 activeSection={activeSection}
                 onSelect={onSelect}
             />
 
-            <div className="flex-1 flex flex-col min-h-screen min-w-0">
+            <div className="flex-1 flex flex-col h-full min-h-0 min-w-0">
                 {/* Top bar */}
                 <header className="h-14 border-b border-main flex items-center justify-between px-8 bg-main/80 backdrop-blur-sm sticky top-0 z-10">
                     <div>

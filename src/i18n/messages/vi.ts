@@ -187,7 +187,7 @@ export const viMessages: Messages = {
         fontPlusJakartaDesc: "Hiện đại, chữ rộng - rất dễ đọc",
         fontIbmPlexDesc: "Kỹ thuật, hơi rộng - tốt cho dữ liệu",
         fontSpaceGroteskDesc: "Độc đáo, bo tròn - cá tính riêng",
-        pushNotifications: "Thông báo đẩy",
+        pushNotifications: "Thông báo đẩy (Phát triển)",
         priceAlerts: "Cảnh báo giá",
         priceAlertsDesc: "Thông báo khi tài sản chạm mức giá mục tiêu.",
         portfolioReports: "Báo cáo danh mục",

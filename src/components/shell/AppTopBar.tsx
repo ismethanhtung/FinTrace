@@ -9,7 +9,10 @@ import { QuickSearchDropdown } from "../AssetList";
 import { UserMenu } from "../UserMenu";
 import { WorldSwitch } from "./WorldSwitch";
 import { LocaleSwitch } from "./LocaleSwitch";
-import { useAppSettings, type AppTheme } from "../../context/AppSettingsContext";
+import {
+    useAppSettings,
+    type AppTheme,
+} from "../../context/AppSettingsContext";
 import { useI18n } from "../../context/I18nContext";
 import { useUniverse } from "../../context/UniverseContext";
 import { type TranslationKey } from "../../i18n/translate";
@@ -122,7 +125,10 @@ export function AppTopBar({
                                         : "text-muted hover:text-main hover:bg-secondary/50 font-medium",
                                 )}
                             >
-                                <span>{item.label ?? t(item.labelKey ?? "navigation.chart")}</span>
+                                <span>
+                                    {item.label ??
+                                        t(item.labelKey ?? "navigation.chart")}
+                                </span>
                             </Link>
                         );
                     })}
@@ -144,20 +150,6 @@ export function AppTopBar({
                     </span>
                 </button>
                 <LocaleSwitch />
-
-                {onRefresh && (
-                    <button
-                        onClick={onRefresh}
-                        className={cn(
-                            "p-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary",
-                            isRefreshing && "animate-spin",
-                        )}
-                        title={refreshTitle}
-                        aria-label={refreshAriaLabel}
-                    >
-                        <RefreshCw size={14} />
-                    </button>
-                )}
 
                 {rightExtra}
                 <UserMenu />

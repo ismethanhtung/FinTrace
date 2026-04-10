@@ -186,7 +186,7 @@ export const enMessages = {
         fontPlusJakartaDesc: "Modern, wider letterforms - very readable",
         fontIbmPlexDesc: "Technical, slightly wider - great for data",
         fontSpaceGroteskDesc: "Distinctive, rounded - unique personality",
-        pushNotifications: "Push notifications",
+        pushNotifications: "Push notifications (Development)",
         priceAlerts: "Price alerts",
         priceAlertsDesc: "Get notified when an asset hits your target price.",
         portfolioReports: "Portfolio reports",
