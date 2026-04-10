@@ -70,6 +70,16 @@ async function ensureUserDataIndexesInternal(): Promise<void> {
     { userId: 1, lastSeenAt: -1 },
     { name: "idx_session_meta_last_seen" },
   );
+
+  await db.collection("user_two_factor").createIndex(
+    { userId: 1 },
+    { unique: true, name: "uniq_user_two_factor" },
+  );
+
+  await db.collection("user_two_factor").createIndex(
+    { updatedAt: -1 },
+    { name: "idx_user_two_factor_updated" },
+  );
 }
 
 export async function ensureUserDataIndexes(): Promise<void> {

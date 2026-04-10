@@ -38,6 +38,7 @@ import { useI18n } from "../../context/I18nContext";
 import { cn } from "../../lib/utils";
 import { aiProviderService, ModelInfo } from "../../services/aiProviderService";
 import { getFallbackModelsForProvider } from "../../lib/aiModelDefaults";
+import { TwoFactorSettingsPanel } from "../../components/settings/TwoFactorSettingsPanel";
 
 // ─── Font preview card ────────────────────────────────────────────────────────
 const FONT_OPTIONS: { value: AppFont; description: string }[] = [
@@ -229,6 +230,122 @@ const Toggle = ({
             )}
         />
     </button>
+);
+
+const ActiveSessionsPanel = ({
+    t,
+    sessions,
+    isLoadingSessions,
+    isRevokingSessions,
+    onRevokeOtherSessions,
+    onRevokeSession,
+}: {
+    t: (key: any, params?: Record<string, unknown>) => string;
+    sessions: Array<{
+        sessionTokenHash: string;
+        isCurrent: boolean;
+        expires: string;
+        createdAt?: string;
+        lastSeenAt?: string;
+        ip?: string;
+        country?: string | null;
+        deviceLabel: string;
+        osLabel: string;
+        browserLabel: string;
+    }>;
+    isLoadingSessions: boolean;
+    isRevokingSessions: boolean;
+    onRevokeOtherSessions: () => void;
+    onRevokeSession: (sessionTokenHash: string) => void;
+}) => (
+    <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+            <p className="text-[12px] text-muted">Active sessions</p>
+            <button
+                type="button"
+                onClick={onRevokeOtherSessions}
+                disabled={isRevokingSessions}
+                className="px-4 py-2 text-[12px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+                {isRevokingSessions
+                    ? `${t("settingsPage.loading")}...`
+                    : t("settingsPage.logoutAll")}
+            </button>
+        </div>
+
+        <div className="rounded-xl border border-main bg-secondary/30 overflow-hidden">
+            {isLoadingSessions ? (
+                <div className="p-4 text-[12px] text-muted">
+                    {t("settingsPage.loading")}...
+                </div>
+            ) : sessions.length === 0 ? (
+                <div className="p-4 text-[12px] text-muted">
+                    No session info yet. It will appear after you use the app.
+                </div>
+            ) : (
+                <div className="divide-y divide-[var(--border-color)]">
+                    {sessions.map((s) => {
+                        const isDesktop = s.deviceLabel === "Desktop";
+                        const Icon = isDesktop ? Laptop : Smartphone;
+                        return (
+                            <div
+                                key={s.sessionTokenHash}
+                                className="p-4 flex items-start justify-between gap-4"
+                            >
+                                <div className="flex items-start gap-3 min-w-0">
+                                    <div className="w-9 h-9 rounded-lg bg-main border border-main flex items-center justify-center shrink-0">
+                                        <Icon size={16} className="text-muted" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <p className="text-[13px] font-semibold truncate">
+                                                {s.browserLabel}
+                                            </p>
+                                            {s.isCurrent && (
+                                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
+                                                    This device
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-[11px] text-muted truncate">
+                                            {s.osLabel} · {s.deviceLabel}
+                                        </p>
+                                        <p className="text-[11px] text-muted">
+                                            {s.country ? `${s.country} · ` : ""}
+                                            {s.ip && s.ip !== "unknown"
+                                                ? s.ip
+                                                : "IP unknown"}
+                                            {s.lastSeenAt
+                                                ? ` · Last seen ${new Date(s.lastSeenAt).toLocaleString()}`
+                                                : ""}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="shrink-0 flex flex-col items-end gap-2">
+                                    <p className="text-[10px] text-muted">
+                                        Expires{" "}
+                                        {new Date(s.expires).toLocaleDateString()}
+                                    </p>
+                                    {!s.isCurrent && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                onRevokeSession(s.sessionTokenHash)
+                                            }
+                                            className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors"
+                                        >
+                                            Log out
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    </div>
 );
 
 // ─── API Key input with show/hide ─────────────────────────────────────────────
@@ -985,7 +1102,13 @@ export default function SettingsPage() {
                         label={t("settingsPage.twoStepVerification")}
                         description={t("settingsPage.twoStepVerificationDesc")}
                     >
-                        <Toggle checked={true} onChange={() => undefined} />
+                        <button
+                            type="button"
+                            onClick={() => setActiveSection("security")}
+                            className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors whitespace-nowrap"
+                        >
+                            {t("settingsPage.manageTwoFactor")}
+                        </button>
                     </SettingsRow>
 
                     {/* Danger zone */}
@@ -1000,115 +1123,14 @@ export default function SettingsPage() {
                         description={t("settingsPage.logoutAllDevicesDesc")}
                         vertical
                     >
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <p className="text-[12px] text-muted">
-                                    Active sessions
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={handleRevokeOtherSessions}
-                                    disabled={isRevokingSessions}
-                                    className="px-4 py-2 text-[12px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                                >
-                                    {isRevokingSessions
-                                        ? `${t("settingsPage.loading")}...`
-                                        : t("settingsPage.logoutAll")}
-                                </button>
-                            </div>
-
-                            <div className="rounded-xl border border-main bg-secondary/30 overflow-hidden">
-                                {isLoadingSessions ? (
-                                    <div className="p-4 text-[12px] text-muted">
-                                        {t("settingsPage.loading")}...
-                                    </div>
-                                ) : sessions.length === 0 ? (
-                                    <div className="p-4 text-[12px] text-muted">
-                                        No session info yet. It will appear
-                                        after you use the app.
-                                    </div>
-                                ) : (
-                                    <div className="divide-y divide-[var(--border-color)]">
-                                        {sessions.map((s) => {
-                                            const isDesktop =
-                                                s.deviceLabel === "Desktop";
-                                            const Icon = isDesktop
-                                                ? Laptop
-                                                : Smartphone;
-                                            return (
-                                                <div
-                                                    key={s.sessionTokenHash}
-                                                    className="p-4 flex items-start justify-between gap-4"
-                                                >
-                                                    <div className="flex items-start gap-3 min-w-0">
-                                                        <div className="w-9 h-9 rounded-lg bg-main border border-main flex items-center justify-center shrink-0">
-                                                            <Icon
-                                                                size={16}
-                                                                className="text-muted"
-                                                            />
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <div className="flex items-center gap-2 min-w-0">
-                                                                <p className="text-[13px] font-semibold truncate">
-                                                                    {
-                                                                        s.browserLabel
-                                                                    }
-                                                                </p>
-                                                                {s.isCurrent && (
-                                                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
-                                                                        This
-                                                                        device
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-[11px] text-muted truncate">
-                                                                {s.osLabel} ·{" "}
-                                                                {s.deviceLabel}
-                                                            </p>
-                                                            <p className="text-[11px] text-muted">
-                                                                {s.country
-                                                                    ? `${s.country} · `
-                                                                    : ""}
-                                                                {s.ip &&
-                                                                s.ip !==
-                                                                    "unknown"
-                                                                    ? s.ip
-                                                                    : "IP unknown"}
-                                                                {s.lastSeenAt
-                                                                    ? ` · Last seen ${new Date(s.lastSeenAt).toLocaleString()}`
-                                                                    : ""}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="shrink-0 flex flex-col items-end gap-2">
-                                                        <p className="text-[10px] text-muted">
-                                                            Expires{" "}
-                                                            {new Date(
-                                                                s.expires,
-                                                            ).toLocaleDateString()}
-                                                        </p>
-                                                        {!s.isCurrent && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    handleRevokeSession(
-                                                                        s.sessionTokenHash,
-                                                                    )
-                                                                }
-                                                                className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors"
-                                                            >
-                                                                Log out
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        <ActiveSessionsPanel
+                            t={t}
+                            sessions={sessions}
+                            isLoadingSessions={isLoadingSessions}
+                            isRevokingSessions={isRevokingSessions}
+                            onRevokeOtherSessions={handleRevokeOtherSessions}
+                            onRevokeSession={handleRevokeSession}
+                        />
                     </SettingsRow>
 
                     <SettingsRow
@@ -1623,21 +1645,23 @@ export default function SettingsPage() {
                         description={t(
                             "settingsPage.twoFactorAuthenticationDesc",
                         )}
+                        vertical
                     >
-                        <div className="flex items-center gap-3">
-                            <span className="text-[12px] text-emerald-500 font-medium">
-                                {t("settingsPage.enabled")}
-                            </span>
-                            <Toggle checked={true} onChange={() => undefined} />
-                        </div>
+                        <TwoFactorSettingsPanel />
                     </SettingsRow>
                     <SettingsRow
                         label={t("settingsPage.activeSessions")}
                         description={t("settingsPage.activeSessionsDesc")}
+                        vertical
                     >
-                        <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors">
-                            {t("settingsPage.manageSessions")}
-                        </button>
+                        <ActiveSessionsPanel
+                            t={t}
+                            sessions={sessions}
+                            isLoadingSessions={isLoadingSessions}
+                            isRevokingSessions={isRevokingSessions}
+                            onRevokeOtherSessions={handleRevokeOtherSessions}
+                            onRevokeSession={handleRevokeSession}
+                        />
                     </SettingsRow>
                     <SettingsRow
                         label={t("settingsPage.apiAccessTokens")}

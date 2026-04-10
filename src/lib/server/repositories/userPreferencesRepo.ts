@@ -30,7 +30,7 @@ export async function getUserPreferences(
     const doc = await (await collection()).findOne({ userId });
     if (!doc) return null;
     return {
-        font: (doc.font || "Inter") as UserPreferenceState["font"],
+        font: (doc.font || "Plus Jakarta Sans") as UserPreferenceState["font"],
         theme: (doc.theme || "light") as UserPreferenceState["theme"],
         activeProviderId: doc.activeProviderId || "openrouter",
         providerModels: doc.providerModels || {},

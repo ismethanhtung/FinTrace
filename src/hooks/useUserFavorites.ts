@@ -11,41 +11,25 @@ type FavoriteItem = {
     updatedAt: string;
 };
 
-const GUEST_FAVORITES_STORAGE_KEY = "ft-guest-favorites-v1";
+let favoritesCache: FavoriteItem[] | null = null;
+let favoritesInflight: Promise<FavoriteItem[]> | null = null;
 
-function loadGuestFavorites(): FavoriteItem[] {
-    try {
-        const raw = localStorage.getItem(GUEST_FAVORITES_STORAGE_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw) as unknown[];
-        if (!Array.isArray(parsed)) return [];
-        return parsed
-            .filter(
-                (item): item is FavoriteItem =>
-                    Boolean(item) &&
-                    typeof item === "object" &&
-                    (item as FavoriteItem).universe !== undefined &&
-                    typeof (item as FavoriteItem).symbol === "string",
-            )
-            .map((item) => ({
-                universe: item.universe === "stock" ? "stock" : "coin",
-                symbol: item.symbol.trim().toUpperCase(),
-                updatedAt:
-                    typeof item.updatedAt === "string"
-                        ? item.updatedAt
-                        : new Date().toISOString(),
-            }));
-    } catch {
-        return [];
-    }
-}
-
-function saveGuestFavorites(items: FavoriteItem[]): void {
-    try {
-        localStorage.setItem(GUEST_FAVORITES_STORAGE_KEY, JSON.stringify(items));
-    } catch {
-        // ignore localStorage write failures
-    }
+async function fetchFavorites(): Promise<FavoriteItem[]> {
+    if (favoritesCache) return favoritesCache;
+    if (favoritesInflight) return favoritesInflight;
+    favoritesInflight = fetch("/api/user/favorites", { cache: "no-store" })
+        .then(async (res) => {
+            if (!res.ok)
+                throw new Error(`Failed to load favorites (${res.status})`);
+            const json = (await res.json()) as { favorites?: FavoriteItem[] };
+            const next = Array.isArray(json.favorites) ? json.favorites : [];
+            favoritesCache = next;
+            return next;
+        })
+        .finally(() => {
+            favoritesInflight = null;
+        });
+    return favoritesInflight;
 }
 
 export function useUserFavorites() {
@@ -59,19 +43,16 @@ export function useUserFavorites() {
         async function load() {
             setIsLoading(true);
             if (status !== "authenticated") {
-                const guest = loadGuestFavorites();
                 if (active) {
-                    setFavorites(guest);
+                    setFavorites([]);
                     setIsLoading(false);
                 }
                 return;
             }
             try {
-                const res = await fetch("/api/user/favorites", { cache: "no-store" });
-                if (!res.ok) throw new Error(`Failed to load favorites (${res.status})`);
-                const json = (await res.json()) as { favorites?: FavoriteItem[] };
+                const list = await fetchFavorites();
                 if (active) {
-                    setFavorites(Array.isArray(json.favorites) ? json.favorites : []);
+                    setFavorites(list);
                 }
             } catch {
                 if (active) setFavorites([]);
@@ -86,7 +67,12 @@ export function useUserFavorites() {
     }, [status]);
 
     const favoriteSymbolSet = useMemo(
-        () => new Set(favorites.filter((f) => f.universe === universe).map((f) => f.symbol)),
+        () =>
+            new Set(
+                favorites
+                    .filter((f) => f.universe === universe)
+                    .map((f) => f.symbol),
+            ),
         [favorites, universe],
     );
 
@@ -110,9 +96,14 @@ export function useUserFavorites() {
                                 item.symbol === normalized
                             ),
                     );
-                    const appended = [{ universe: targetUniverse, symbol: normalized, updatedAt: now }, ...next];
-                    saveGuestFavorites(appended);
-                    return appended;
+                    return [
+                        {
+                            universe: targetUniverse,
+                            symbol: normalized,
+                            updatedAt: now,
+                        },
+                        ...next,
+                    ];
                 });
                 return;
             }
@@ -120,7 +111,10 @@ export function useUserFavorites() {
             await fetch("/api/user/favorites", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ universe: targetUniverse, symbol: normalized }),
+                body: JSON.stringify({
+                    universe: targetUniverse,
+                    symbol: normalized,
+                }),
             });
             setFavorites((prev) => {
                 const next = prev.filter(
@@ -130,7 +124,16 @@ export function useUserFavorites() {
                             item.symbol === normalized
                         ),
                 );
-                return [{ universe: targetUniverse, symbol: normalized, updatedAt: now }, ...next];
+                const updated = [
+                    {
+                        universe: targetUniverse,
+                        symbol: normalized,
+                        updatedAt: now,
+                    },
+                    ...next,
+                ];
+                favoritesCache = updated;
+                return updated;
             });
         },
         [status, universe],
@@ -143,32 +146,35 @@ export function useUserFavorites() {
 
             if (status !== "authenticated") {
                 setFavorites((prev) => {
-                    const next = prev.filter(
+                    return prev.filter(
                         (item) =>
                             !(
                                 item.universe === targetUniverse &&
                                 item.symbol === normalized
                             ),
                     );
-                    saveGuestFavorites(next);
-                    return next;
                 });
                 return;
             }
             await fetch("/api/user/favorites", {
                 method: "DELETE",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ universe: targetUniverse, symbol: normalized }),
+                body: JSON.stringify({
+                    universe: targetUniverse,
+                    symbol: normalized,
+                }),
             });
-            setFavorites((prev) =>
-                prev.filter(
+            setFavorites((prev) => {
+                const updated = prev.filter(
                     (item) =>
                         !(
                             item.universe === targetUniverse &&
                             item.symbol === normalized
                         ),
-                ),
-            );
+                );
+                favoritesCache = updated;
+                return updated;
+            });
         },
         [status, universe],
     );

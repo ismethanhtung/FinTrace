@@ -301,7 +301,7 @@ export const AppSettingsProvider = ({
 }) => {
     const { status: authStatus } = useSession();
     const isAuthenticated = authStatus === "authenticated";
-    const [font, setFontState] = useState<AppFont>("Inter");
+    const [font, setFontState] = useState<AppFont>("Plus Jakarta Sans");
     const [theme, setThemeState] = useState<AppTheme>(initialTheme);
     const [aiProviders, setAiProvidersState] = useState<AIProviderConfig[]>(
         buildDefaultProviders,

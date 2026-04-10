@@ -230,6 +230,7 @@ export async function deleteAccountAndData(userId: string): Promise<void> {
     await db.collection("user_pins").deleteMany({ userId: { $in: userIds } });
     await db.collection("user_ai_keys").deleteMany({ userId: { $in: userIds } });
     await db.collection("user_preferences").deleteMany({ userId: { $in: userIds } });
+    await db.collection("user_two_factor").deleteMany({ userId: { $in: userIds } });
     await db.collection("accounts").deleteMany({ userId: { $in: userIds } });
     await db.collection("sessions").deleteMany({ userId: { $in: userIds } });
     await db.collection("session_meta").deleteMany({ userId });

@@ -23,6 +23,7 @@ import {
     Clock,
     Sun,
     Moon,
+    Pin,
 } from "lucide-react";
 import {
     ComposedChart,
@@ -46,6 +47,7 @@ import { useDnseBoardStream } from "../../hooks/useDnseBoardStream";
 import { useVietcapBoardSnapshot } from "../../hooks/useVietcapBoardSnapshot";
 import { useVietcapMarketIndexes } from "../../hooks/useVietcapMarketIndexes";
 import { useKbIndexIntraday } from "../../hooks/useKbIndexIntraday";
+import { useUserFavorites } from "../../hooks/useUserFavorites";
 import {
     getKbMiniChartMaxHourInVn,
     KB_SESSION_END_HOUR,
@@ -233,7 +235,7 @@ type CellFlashState = {
 
 const INDEX_NAMES = ["VNINDEX", "VN30", "HNX30", "HNXINDEX", "UPCOM"] as const;
 const INITIAL_COL_WIDTHS = [
-    74, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 64, 60, 60, 60, 60,
+    88, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 64, 60, 60, 60, 60,
     70, 90, 64, 64, 80, 80, 92,
 ];
 
@@ -344,7 +346,9 @@ function loadBoardActiveTab(): string | null {
         const normalized = String(raw || "")
             .trim()
             .toUpperCase();
-        return normalized || null;
+        if (!normalized) return null;
+        if (normalized === "MY_LIST_SOON") return "MY_LIST";
+        return normalized;
     } catch {
         return null;
     }
@@ -363,10 +367,7 @@ function loadBoardRowsCache(): Record<string, BoardStockRow[]> {
     try {
         const raw = localStorage.getItem(BOARD_ROWS_CACHE_KEY);
         if (!raw) return {};
-        const parsed = JSON.parse(raw) as Record<
-            string,
-            { rows?: unknown }
-        >;
+        const parsed = JSON.parse(raw) as Record<string, { rows?: unknown }>;
         if (!parsed || typeof parsed !== "object") return {};
         const out: Record<string, BoardStockRow[]> = {};
         for (const [tab, payload] of Object.entries(parsed)) {
@@ -399,8 +400,10 @@ function saveBoardRowsCache(cache: Record<string, BoardStockRow[]>) {
         const entries = Object.entries(cache)
             .filter(([, rows]) => Array.isArray(rows) && rows.length > 0)
             .slice(0, BOARD_ROWS_CACHE_MAX_TABS);
-        const payload: Record<string, { savedAt: number; rows: BoardStockRow[] }> =
-            {};
+        const payload: Record<
+            string,
+            { savedAt: number; rows: BoardStockRow[] }
+        > = {};
         for (const [tab, rows] of entries) {
             payload[tab] = {
                 savedAt: Date.now(),
@@ -854,7 +857,10 @@ export default function BoardPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { assets, setSelectedSymbol } = useMarket();
-    const [activeTab, setActiveTab] = useState(() => loadBoardActiveTab() ?? "VN30");
+    const { favorites, isFavorite, toggleFavorite } = useUserFavorites();
+    const [activeTab, setActiveTab] = useState(
+        () => loadBoardActiveTab() ?? "VN30",
+    );
     const [search, setSearch] = useState("");
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [recentSymbols, setRecentSymbols] = useState<string[]>(() =>
@@ -888,9 +894,8 @@ export default function BoardPage() {
     const [cachedRowsByTab] = useState<Record<string, BoardStockRow[]>>(() =>
         loadBoardRowsCache(),
     );
-    const cachedRowsByTabRef = useRef<Record<string, BoardStockRow[]>>(
-        cachedRowsByTab,
-    );
+    const cachedRowsByTabRef =
+        useRef<Record<string, BoardStockRow[]>>(cachedRowsByTab);
     const saveCacheTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -1020,6 +1025,14 @@ export default function BoardPage() {
     );
     const tabFilteredSymbols = useMemo(() => {
         const tabGroups = new Set(["VN30", "HNX30", "HOSE", "HNX", "UPCOM"]);
+        if (normalizedTab === "MY_LIST") {
+            const favoriteStockSymbols = new Set(
+                favorites
+                    .filter((item) => item.universe === "stock")
+                    .map((item) => item.symbol.trim().toUpperCase()),
+            );
+            return symbols.filter((symbol) => favoriteStockSymbols.has(symbol));
+        }
 
         return symbols.filter((symbol) => {
             if (!tabGroups.has(normalizedTab)) return true;
@@ -1028,7 +1041,7 @@ export default function BoardPage() {
             );
             return groups.includes(normalizedTab);
         });
-    }, [normalizedTab, symbols, vietcapGroupsBySymbol]);
+    }, [favorites, normalizedTab, symbols, vietcapGroupsBySymbol]);
     const searchMetaBySymbol = useMemo(() => {
         const out = new Map<string, BoardSearchMeta>();
         symbols.forEach((symbol) => {
@@ -1900,10 +1913,10 @@ export default function BoardPage() {
             setActiveTab(targetTab);
         }
         setRecentSymbols((prev) => {
-            const next = [incoming, ...prev.filter((item) => item !== incoming)].slice(
-                0,
-                BOARD_MAX_RECENTS,
-            );
+            const next = [
+                incoming,
+                ...prev.filter((item) => item !== incoming),
+            ].slice(0, BOARD_MAX_RECENTS);
             saveBoardRecentSymbols(next);
             return next;
         });
@@ -1949,7 +1962,7 @@ export default function BoardPage() {
         ? "border-rose-500/30 bg-rose-500/10 text-rose-500"
         : "border-indigo-500/30 bg-indigo-500/10 text-indigo-500";
     const boardTabs = [
-        { id: "MY_LIST_SOON", label: t("boardPage.tabMyListSoon"), chevron: false },
+        { id: "MY_LIST", label: t("boardPage.tabMyList"), chevron: false },
         { id: "VN30", label: "VN30", chevron: true },
         { id: "HNX30", label: "HNX30", chevron: true },
         { id: "HOSE", label: "HOSE", chevron: true },
@@ -1957,6 +1970,8 @@ export default function BoardPage() {
         { id: "UPCOM", label: "UPCOM", chevron: true },
         { id: "SECTOR", label: t("boardPage.tabSectorStocks"), chevron: true },
     ] as const;
+    const activeTabLabel =
+        boardTabs.find((tab) => tab.id === activeTab)?.label ?? activeTab;
 
     if (universe !== "stock") {
         return <div className="h-screen w-full bg-main" />;
@@ -2999,7 +3014,7 @@ export default function BoardPage() {
                                             className="p-6 text-center text-[12px] text-muted"
                                         >
                                             {t("boardPage.noDataForGroup", {
-                                                group: activeTab,
+                                                group: activeTabLabel,
                                             })}
                                         </td>
                                     </tr>
@@ -3079,6 +3094,42 @@ export default function BoardPage() {
                                                                 {stock.ticker}
                                                             </div>
                                                         </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(
+                                                                event,
+                                                            ) => {
+                                                                event.stopPropagation();
+                                                                void toggleFavorite(
+                                                                    stock.ticker,
+                                                                    "stock",
+                                                                );
+                                                            }}
+                                                            className={cn(
+                                                                "ml-auto inline-flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors",
+                                                                isFavorite(
+                                                                    stock.ticker,
+                                                                )
+                                                                    ? "text-amber-500"
+                                                                    : "text-muted hover:bg-secondary hover:text-main",
+                                                            )}
+                                                            aria-label={t(
+                                                                "ticker.toggleFavorite",
+                                                            )}
+                                                            title={t(
+                                                                "ticker.toggleFavorite",
+                                                            )}
+                                                        >
+                                                            <Pin
+                                                                size={10}
+                                                                className={cn(
+                                                                    isFavorite(
+                                                                        stock.ticker,
+                                                                    ) &&
+                                                                        "fill-current",
+                                                                )}
+                                                            />
+                                                        </button>
                                                     </div>
                                                 </td>
                                                 <td

@@ -23,10 +23,12 @@ import {
     Info,
     Funnel,
     X,
+    Star,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../context/I18nContext";
 import { resolveStockTone, toneClassForStock } from "../lib/stockTone";
+import { useUserFavorites } from "../hooks/useUserFavorites";
 
 const STOCK_DNSE_PRICE_SCALE = 1000;
 
@@ -160,7 +162,10 @@ const AssetInfoTooltip = ({
 }) => {
     const [open, setOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
-    const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
+    const [tooltipPos, setTooltipPos] = useState<{
+        top: number;
+        left: number;
+    } | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
 
     useEffect(() => {
@@ -254,11 +259,15 @@ const CoinRow = ({
     isSelected,
     onClick,
     stockToneClass,
+    isFavorite,
+    onToggleFavorite,
 }: {
     asset: Asset;
     isSelected: boolean;
     onClick: () => void;
     stockToneClass?: string;
+    isFavorite: boolean;
+    onToggleFavorite: () => void;
 }) => {
     const { t } = useI18n();
     const isFutures = asset.marketType === "futures";
@@ -307,6 +316,27 @@ const CoinRow = ({
                                 PERP
                             </span>
                         )}
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onToggleFavorite();
+                            }}
+                            className={cn(
+                                "ml-1 inline-flex h-5 w-5 items-center justify-center transition-colors",
+                                isFavorite
+                                    ? "text-amber-500"
+                                    : "text-muted hover:text-main hover:bg-secondary",
+                            )}
+                            aria-label={t("ticker.toggleFavorite")}
+                            title={t("ticker.toggleFavorite")}
+                            tabIndex={-1}
+                        >
+                            <Star
+                                size={10}
+                                className={cn(isFavorite && "fill-current")}
+                            />
+                        </button>
                     </div>
                     <div className="text-[9px] text-muted truncate">
                         {isFutures && typeof fundingRate === "number" ? (
@@ -525,6 +555,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         isLoading,
         isFuturesLoading,
     } = useMarket();
+    const { isFavorite, toggleFavorite } = useUserFavorites();
     const streamSymbols = useMemo(
         () =>
             universe === "stock"
@@ -541,13 +572,12 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         () => ["VN30", "HNX30", "HOSE", "HNX", "UPCOM"],
         [],
     );
-    const { snapshotBySymbol: vietcapSnapshotBySymbol } = useVietcapBoardSnapshot(
-        {
+    const { snapshotBySymbol: vietcapSnapshotBySymbol } =
+        useVietcapBoardSnapshot({
             enabled: universe === "stock",
             groups: vietcapSnapshotGroups,
             refreshIntervalMs: 45_000,
-        },
-    );
+        });
     const assets = useMemo<Asset[]>(
         () =>
             baseAssets.map((asset) => {
@@ -622,6 +652,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     const [selectedExchanges, setSelectedExchanges] = useState<string[]>([]);
     const [selectedIndexes, setSelectedIndexes] = useState<string[]>([]);
     const [selectedCoinTags, setSelectedCoinTags] = useState<string[]>([]);
+    const [favoriteOnly, setFavoriteOnly] = useState(false);
     const [stockFilterOpen, setStockFilterOpen] = useState(false);
     const [coinFilterOpen, setCoinFilterOpen] = useState(false);
     const [stockVisibleCount, setStockVisibleCount] = useState(STOCK_PAGE_SIZE);
@@ -685,6 +716,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         () =>
             sortAssets(
                 assets.filter((a) => {
+                    if (favoriteOnly && !isFavorite(a.symbol)) return false;
                     const exchangeValue = normalizeFilterValue(
                         a.stockProfile?.exchange,
                     );
@@ -720,6 +752,8 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
             ),
         [
             assets,
+            favoriteOnly,
+            isFavorite,
             q,
             selectedCoinTagSet,
             selectedExchangeSet,
@@ -745,7 +779,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     useEffect(() => {
         if (universe !== "stock") return;
         setStockVisibleCount(STOCK_PAGE_SIZE);
-    }, [search, sortMode, selectedExchanges, selectedIndexes, universe]);
+    }, [favoriteOnly, search, sortMode, selectedExchanges, selectedIndexes, universe]);
 
     useEffect(() => {
         if (universe !== "stock") return;
@@ -965,14 +999,18 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div className="rounded border border-main bg-secondary/10 p-1.5">
                                                     <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
-                                                        {t("leftSidebar.exchange")}
+                                                        {t(
+                                                            "leftSidebar.exchange",
+                                                        )}
                                                     </div>
                                                     <div className="max-h-36 overflow-y-auto thin-scrollbar space-y-1 pr-0.5">
                                                         {stockFilterOptions
                                                             .exchanges
                                                             .length === 0 ? (
                                                             <div className="px-1 py-1 text-[9px] text-muted">
-                                                                {t("leftSidebar.noExchange")}
+                                                                {t(
+                                                                    "leftSidebar.noExchange",
+                                                                )}
                                                             </div>
                                                         ) : (
                                                             stockFilterOptions.exchanges.map(
@@ -1041,7 +1079,9 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                             .indexes.length ===
                                                         0 ? (
                                                             <div className="px-1 py-1 text-[9px] text-muted">
-                                                                {t("leftSidebar.noIndex")}
+                                                                {t(
+                                                                    "leftSidebar.noIndex",
+                                                                )}
                                                             </div>
                                                         ) : (
                                                             stockFilterOptions.indexes.map(
@@ -1128,9 +1168,12 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                                         )
                                                                     }
                                                                     className="inline-flex items-center gap-1 rounded border border-sky-500/35 bg-sky-500/10 px-1.5 py-1 text-[9px] font-semibold text-sky-400"
-                                                                    title={t("leftSidebar.removeExchange", {
-                                                                        value: exchange,
-                                                                    })}
+                                                                    title={t(
+                                                                        "leftSidebar.removeExchange",
+                                                                        {
+                                                                            value: exchange,
+                                                                        },
+                                                                    )}
                                                                 >
                                                                     {exchange}
                                                                     <X
@@ -1159,9 +1202,12 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                                         )
                                                                     }
                                                                     className="inline-flex items-center gap-1 rounded border border-sky-500/35 bg-sky-500/10 px-1.5 py-1 text-[9px] font-semibold text-sky-400"
-                                                                    title={t("leftSidebar.removeIndex", {
-                                                                        value: indexName,
-                                                                    })}
+                                                                    title={t(
+                                                                        "leftSidebar.removeIndex",
+                                                                        {
+                                                                            value: indexName,
+                                                                        },
+                                                                    )}
                                                                 >
                                                                     {indexName}
                                                                     <X
@@ -1186,7 +1232,9 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                         >
                             <button
                                 type="button"
-                                onClick={() => setCoinFilterOpen((prev) => !prev)}
+                                onClick={() =>
+                                    setCoinFilterOpen((prev) => !prev)
+                                }
                                 className={cn(
                                     "inline-flex h-6 w-6 items-center justify-center rounded border transition-colors focus:outline-none focus:ring-1",
                                     hasActiveCoinFilter
@@ -1246,7 +1294,9 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                     {coinFilterOptions.length ===
                                                     0 ? (
                                                         <div className="px-1 py-1 text-[9px] text-muted">
-                                                            {t("leftSidebar.noTags")}
+                                                            {t(
+                                                                "leftSidebar.noTags",
+                                                            )}
                                                         </div>
                                                     ) : (
                                                         coinFilterOptions.map(
@@ -1294,7 +1344,9 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                                             className="h-3 w-3 rounded border-main bg-secondary text-sky-400 focus:ring-sky-500/40"
                                                                         />
                                                                         <span className="truncate">
-                                                                            {tag}
+                                                                            {
+                                                                                tag
+                                                                            }
                                                                         </span>
                                                                     </label>
                                                                 );
@@ -1329,9 +1381,12 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                                                                         )
                                                                     }
                                                                     className="inline-flex items-center gap-1 rounded border border-sky-500/35 bg-sky-500/10 px-1.5 py-1 text-[9px] font-semibold text-sky-400"
-                                                                    title={t("leftSidebar.removeTag", {
-                                                                        value: tag,
-                                                                    })}
+                                                                    title={t(
+                                                                        "leftSidebar.removeTag",
+                                                                        {
+                                                                            value: tag,
+                                                                        },
+                                                                    )}
                                                                 >
                                                                     {tag}
                                                                     <X
@@ -1355,20 +1410,36 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
             {/* Column headers — "Price / 24h" is clickable to sort */}
             <div className="px-3 py-1.5 grid grid-cols-2 text-[9px] font-semibold text-muted uppercase tracking-wider border-b border-main bg-secondary/30 shrink-0">
                 <span>{t("leftSidebar.symbol")}</span>
-                <button
-                    onClick={() => setSortMode(nextSortMode(sortMode))}
-                    className="flex items-center justify-end gap-1 hover:text-main transition-colors"
-                    title={
-                        sortMode === "volume"
-                            ? t("leftSidebar.sortChangeDesc")
-                            : sortMode === "change_desc"
-                              ? t("leftSidebar.sortChangeAsc")
-                              : t("leftSidebar.sortVolume")
-                    }
-                >
-                    {t("leftSidebar.price24h")}
-                    <SortIcon mode={sortMode} />
-                </button>
+                <div className="flex items-center justify-end gap-1.5">
+                    <button
+                        type="button"
+                        onClick={() => setFavoriteOnly((prev) => !prev)}
+                        className={cn(
+                            "inline-flex h-4.5 w-4.5 items-center justify-center rounded border transition-colors",
+                            favoriteOnly
+                                ? "border-amber-400/60 bg-amber-400/10 text-amber-500"
+                                : "border-main text-muted hover:text-main hover:bg-secondary",
+                        )}
+                        title={t("ticker.favorite")}
+                        aria-label={t("ticker.favorite")}
+                    >
+                        <Star size={9} className={cn(favoriteOnly && "fill-current")} />
+                    </button>
+                    <button
+                        onClick={() => setSortMode(nextSortMode(sortMode))}
+                        className="flex items-center justify-end gap-1 hover:text-main transition-colors"
+                        title={
+                            sortMode === "volume"
+                                ? t("leftSidebar.sortChangeDesc")
+                                : sortMode === "change_desc"
+                                  ? t("leftSidebar.sortChangeAsc")
+                                  : t("leftSidebar.sortVolume")
+                        }
+                    >
+                        {t("leftSidebar.price24h")}
+                        <SortIcon mode={sortMode} />
+                    </button>
+                </div>
             </div>
 
             {/* Coin list */}
@@ -1390,6 +1461,10 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                             asset={asset}
                             isSelected={selectedSymbol === asset.id}
                             onClick={() => setSelectedSymbol(asset.id)}
+                            isFavorite={isFavorite(asset.symbol)}
+                            onToggleFavorite={() =>
+                                void toggleFavorite(asset.symbol, universe)
+                            }
                             stockToneClass={
                                 universe === "stock"
                                     ? stockToneClassBySymbol[

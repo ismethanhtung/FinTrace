@@ -13,11 +13,14 @@ function isUniverse(value: unknown): value is "coin" | "stock" {
     return value === "coin" || value === "stock";
 }
 
-function readInput(input: unknown): { universe: "coin" | "stock"; symbol: string } | null {
+function readInput(
+    input: unknown,
+): { universe: "coin" | "stock"; symbol: string } | null {
     if (!input || typeof input !== "object") return null;
     const rec = input as Record<string, unknown>;
     if (!isUniverse(rec.universe)) return null;
-    if (typeof rec.symbol !== "string" || rec.symbol.trim().length === 0) return null;
+    if (typeof rec.symbol !== "string" || rec.symbol.trim().length === 0)
+        return null;
     return {
         universe: rec.universe,
         symbol: rec.symbol.trim().toUpperCase(),

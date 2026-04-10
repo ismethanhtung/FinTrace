@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { cn } from "../lib/utils";
 import { useMarket } from "../context/MarketContext";
 import { TokenAvatar } from "./TokenAvatar";
-import { Check, Settings2, Star, Wifi } from "lucide-react";
+import { Check, Settings2, Wifi } from "lucide-react";
 import type { Asset } from "../services/binanceService";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "../context/I18nContext";
@@ -33,7 +33,6 @@ export const TickerBar = () => {
     const pathname = usePathname();
     const {
         assets,
-        selectedSymbol,
         setSelectedSymbol,
         universe,
         marketType,
@@ -51,7 +50,7 @@ export const TickerBar = () => {
         "good" | "weak" | "offline"
     >("good");
     const [stableOrderIds, setStableOrderIds] = useState<string[]>([]);
-    const { isFavorite, toggleFavorite } = useUserFavorites();
+    const { isFavorite } = useUserFavorites();
     const modeMeta: Record<
         TickerMode,
         { label: string; description: string; implemented: boolean }
@@ -260,25 +259,6 @@ export const TickerBar = () => {
                     lastUpdateAt={lastUpdateAt}
                     universe={universe}
                 />
-
-                <div className="w-px h-3 bg-main" />
-                <button
-                    type="button"
-                    onClick={() => void toggleFavorite(selectedSymbol, universe)}
-                    className={cn(
-                        "flex items-center gap-1 rounded-md border px-2 h-6 transition-colors",
-                        isFavorite(selectedSymbol)
-                            ? "border-amber-400/70 bg-amber-400/10 text-amber-500"
-                            : "border-main text-muted hover:text-main hover:bg-secondary",
-                    )}
-                    aria-label={t("ticker.toggleFavorite")}
-                    title={t("ticker.toggleFavorite")}
-                >
-                    <Star size={11} className={cn(isFavorite(selectedSymbol) && "fill-current")} />
-                    <span className="text-[9px] font-medium whitespace-nowrap">
-                        {t("ticker.favorite")}
-                    </span>
-                </button>
 
                 <div className="w-px h-3 bg-main" />
 

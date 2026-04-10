@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
+import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { cookies } from "next/headers";
 import Script from "next/script";
 import "./globals.css";
@@ -16,10 +16,22 @@ import { getColorSchemeForTheme } from "../lib/themeDom";
 import { I18nProvider } from "../context/I18nContext";
 import { LOCALE_COOKIE_KEY, normalizeLocale } from "../i18n/config";
 import { AuthSessionProvider } from "../components/providers/AuthSessionProvider";
+import { auth } from "../auth";
+import { ensureUserDataIndexes } from "../lib/db/database";
+import { getUserTwoFactor } from "../lib/server/repositories/userTwoFactorRepo";
+import {
+    getTwoFactorLoginCookieName,
+    verifyTwoFactorLoginCookieValue,
+} from "../lib/server/security/twoFactor";
+import { TwoFactorLoginGate } from "../components/auth/TwoFactorLoginGate";
 
 const jetbrainsMono = JetBrains_Mono({
     subsets: ["latin"],
     variable: "--font-mono",
+});
+const plusJakartaSans = Plus_Jakarta_Sans({
+    subsets: ["latin"],
+    variable: "--font-sans",
 });
 
 const THEME_BOOTSTRAP_SCRIPT = `
@@ -56,6 +68,8 @@ export default async function RootLayout({
     children: React.ReactNode;
 }>) {
     const cookieStore = await cookies();
+    const session = await auth();
+    const userId = session?.user?.id ?? null;
     const initialTheme = normalizeTheme(
         cookieStore.get(THEME_COOKIE_KEY)?.value,
     );
@@ -65,6 +79,18 @@ export default async function RootLayout({
     const initialLocale = normalizeLocale(
         cookieStore.get(LOCALE_COOKIE_KEY)?.value,
     );
+    let requiresTwoFactorGate = false;
+    if (userId) {
+        await ensureUserDataIndexes();
+        const twoFactor = await getUserTwoFactor(userId);
+        if (twoFactor?.enabled) {
+            const cookieValue = cookieStore.get(getTwoFactorLoginCookieName())?.value;
+            requiresTwoFactorGate = !verifyTwoFactorLoginCookieValue(
+                cookieValue,
+                userId,
+            );
+        }
+    }
 
     return (
         <html
@@ -80,12 +106,20 @@ export default async function RootLayout({
                     dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}
                 />
             </head>
-            <body className={`${jetbrainsMono.variable} antialiased`}>
+            <body
+                className={`${plusJakartaSans.variable} ${jetbrainsMono.variable} antialiased`}
+            >
                 <AuthSessionProvider>
                     <I18nProvider initialLocale={initialLocale}>
                         <AppSettingsProvider initialTheme={initialTheme}>
                             <UniverseProvider initialUniverse={initialUniverse}>
-                                <MarketProvider>{children}</MarketProvider>
+                                <MarketProvider>
+                                    {requiresTwoFactorGate ? (
+                                        <TwoFactorLoginGate />
+                                    ) : (
+                                        children
+                                    )}
+                                </MarketProvider>
                             </UniverseProvider>
                         </AppSettingsProvider>
                     </I18nProvider>

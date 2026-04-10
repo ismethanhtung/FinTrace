@@ -21,7 +21,7 @@ function validatePayload(body: unknown): Omit<UserPreferenceState, "updatedAt"> 
         font:
             typeof body.font === "string" && body.font.length > 0
                 ? (body.font as UserPreferenceState["font"])
-                : "Inter",
+                : "Plus Jakarta Sans",
         theme:
             typeof body.theme === "string" && body.theme.length > 0
                 ? (body.theme as UserPreferenceState["theme"])

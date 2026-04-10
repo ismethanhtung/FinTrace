@@ -236,7 +236,8 @@ export default function SettingsLayout({
                             strokeWidth={1.5}
                         />
                         <span className="text-[12px] text-muted">
-                            {session?.user?.email?.split("@")[1] || "fintrace.local"}
+                            {session?.user?.email?.split("@")[1] ||
+                                "fintrace.local"}
                         </span>
                     </div>
                 </header>
