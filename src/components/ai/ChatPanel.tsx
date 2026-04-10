@@ -703,7 +703,7 @@ ${
                             disabled={!input.trim() || !canChat}
                             className="absolute right-1.5 bottom-1.5 p-1 w-6 h-6 flex items-center justify-center bg-accent text-white rounded-md hover:bg-accent/90 disabled:opacity-50 transition-colors"
                         >
-                            <Send size={11} className="ml-0.5" />
+                            <Send size={11} className="" />
                         </button>
                     )}
                 </form>

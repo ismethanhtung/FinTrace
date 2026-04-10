@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getHuggingFaceKey } from '../../../../../lib/getHuggingFaceKey';
 import { apiError } from '../../../../../lib/ai/apiError';
+import { getUserApiKeyForProvider } from '../../../../../lib/server/services/userAiKeyService';
 
 const HUGGINGFACE_CHAT_URL =
   'https://router.huggingface.co/v1/chat/completions';
@@ -47,6 +48,10 @@ export async function POST(request: Request) {
   }
 
   let apiKey = extractApiKey(request);
+
+  if (!apiKey) {
+    apiKey = await getUserApiKeyForProvider('huggingface');
+  }
 
   if (!apiKey) {
     try {
@@ -110,4 +115,3 @@ export async function POST(request: Request) {
   const json = await upstreamRes.json();
   return NextResponse.json(json);
 }
-

@@ -8,6 +8,7 @@ import React, {
     useLayoutEffect,
     useCallback,
 } from "react";
+import { useSession } from "next-auth/react";
 import { getDefaultModelForProvider } from "../lib/aiModelDefaults";
 import {
     normalizeTheme,
@@ -128,6 +129,10 @@ const PROVIDERS_STORAGE_KEY = "ft-ai-providers";
 const SELECTED_PROVIDER_KEY = "ft-selected-provider";
 const PROVIDER_MODELS_STORAGE_KEY = "ft-provider-models";
 
+type PersistProviderOptions = {
+    stripApiKeys?: boolean;
+};
+
 function buildDefaultProviders(): AIProviderConfig[] {
     return BUILT_IN_PROVIDERS.map((p) => ({
         ...p,
@@ -215,6 +220,37 @@ function loadProviderModels(): Record<string, string> {
     }
 }
 
+function sanitizeProvidersForPersistence(
+    providers: AIProviderConfig[],
+    options?: PersistProviderOptions,
+): AIProviderConfig[] {
+    if (!options?.stripApiKeys) return providers;
+    return providers.map((provider) => ({
+        ...provider,
+        apiKey: "",
+    }));
+}
+
+function mergeWithBuiltInProviders(
+    providers: AIProviderConfig[],
+): AIProviderConfig[] {
+    const merged = [...providers];
+    const existingIds = new Set(merged.map((provider) => provider.id));
+    for (const builtIn of BUILT_IN_PROVIDERS) {
+        if (!existingIds.has(builtIn.id)) {
+            merged.push({
+                ...builtIn,
+                apiKey: "",
+                enabled: true,
+                baseUrl: "",
+            });
+        }
+    }
+    return merged.map((provider) =>
+        isBuiltInProviderId(provider.id) ? { ...provider, baseUrl: "" } : provider,
+    );
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 interface AppSettingsValue {
     // Appearance
@@ -262,6 +298,8 @@ export const AppSettingsProvider = ({
     children: React.ReactNode;
     initialTheme?: AppTheme;
 }) => {
+    const { status: authStatus } = useSession();
+    const isAuthenticated = authStatus === "authenticated";
     const [font, setFontState] = useState<AppFont>("Inter");
     const [theme, setThemeState] = useState<AppTheme>(initialTheme);
     const [aiProviders, setAiProvidersState] = useState<AIProviderConfig[]>(
@@ -283,6 +321,8 @@ export const AppSettingsProvider = ({
     const [systemPrompt, setSystemPromptState] = useState(
         DEFAULT_SYSTEM_PROMPT,
     );
+    const [hasHydratedLocalState, setHasHydratedLocalState] = useState(false);
+    const [hasHydratedRemoteState, setHasHydratedRemoteState] = useState(false);
 
     // Rehydrate from localStorage on mount
     useEffect(() => {
@@ -321,7 +361,7 @@ export const AppSettingsProvider = ({
         }
         if (savedCPKey) setCryptoPanicApiKeyState(savedCPKey);
         if (savedPrompt) setSystemPromptState(savedPrompt);
-        setAiProvidersState(savedProviders);
+        setAiProvidersState(mergeWithBuiltInProviders(savedProviders));
         if (savedActiveProvider) setActiveProviderIdState(savedActiveProvider);
 
         // Legacy migration from the old single-model storage.
@@ -336,6 +376,7 @@ export const AppSettingsProvider = ({
         }
 
         setProviderModelsState(savedProviderModels);
+        setHasHydratedLocalState(true);
     }, [initialTheme]);
 
     // Apply font
@@ -379,11 +420,15 @@ export const AppSettingsProvider = ({
         return () => {
             mounted = false;
         };
-    }, []);
+    }, [authStatus]);
 
-    const persistProviders = useCallback((providers: AIProviderConfig[]) => {
-        localStorage.setItem(PROVIDERS_STORAGE_KEY, JSON.stringify(providers));
-    }, []);
+    const persistProviders = useCallback(
+        (providers: AIProviderConfig[], options?: PersistProviderOptions) => {
+            const safe = sanitizeProvidersForPersistence(providers, options);
+            localStorage.setItem(PROVIDERS_STORAGE_KEY, JSON.stringify(safe));
+        },
+        [],
+    );
 
     const persistProviderModels = useCallback(
         (models: Record<string, string>) => {
@@ -394,6 +439,133 @@ export const AppSettingsProvider = ({
         },
         [],
     );
+
+    // Server-first mode for authenticated users: hydrate settings from server once.
+    useEffect(() => {
+        if (!hasHydratedLocalState) return;
+        if (!isAuthenticated) {
+            setHasHydratedRemoteState(false);
+            return;
+        }
+        let active = true;
+        (async () => {
+            try {
+                const res = await fetch("/api/user/preferences", {
+                    cache: "no-store",
+                });
+                if (!res.ok) return;
+                const json = (await res.json()) as {
+                    preferences?: {
+                        font?: AppFont;
+                        theme?: AppTheme;
+                        activeProviderId?: AIProviderId;
+                        providerModels?: Record<string, string>;
+                        systemPrompt?: string;
+                        cryptoPanicApiKey?: string;
+                        providers?: Array<
+                            Omit<AIProviderConfig, "apiKey" | "enabled"> & {
+                                enabled?: boolean;
+                            }
+                        >;
+                    } | null;
+                };
+                if (!active || !json.preferences) {
+                    if (active) setHasHydratedRemoteState(true);
+                    return;
+                }
+                const pref = json.preferences;
+                if (pref.font && FONT_STACKS[pref.font]) setFontState(pref.font);
+                if (pref.theme && THEME_CYCLE.includes(pref.theme)) {
+                    setThemeState(pref.theme);
+                    applyThemeToDocument(pref.theme);
+                }
+                if (typeof pref.systemPrompt === "string") {
+                    setSystemPromptState(pref.systemPrompt);
+                }
+                if (typeof pref.cryptoPanicApiKey === "string") {
+                    setCryptoPanicApiKeyState(pref.cryptoPanicApiKey);
+                }
+                if (pref.providerModels && typeof pref.providerModels === "object") {
+                    setProviderModelsState(pref.providerModels);
+                }
+                if (Array.isArray(pref.providers)) {
+                    const nextProviders = pref.providers
+                        .map((provider) => ({
+                            id: provider.id,
+                            name: provider.name,
+                            apiKey: "",
+                            enabled: provider.enabled !== false,
+                            baseUrl: provider.baseUrl ?? "",
+                            websiteUrl: provider.websiteUrl,
+                            placeholder: provider.placeholder,
+                            description: provider.description,
+                        }))
+                        .filter((provider) => provider.id && provider.name);
+                    setAiProvidersState(mergeWithBuiltInProviders(nextProviders));
+                }
+                if (pref.activeProviderId) {
+                    setActiveProviderIdState(pref.activeProviderId);
+                }
+            } catch {
+                // keep local settings on network/auth failures
+            } finally {
+                if (active) setHasHydratedRemoteState(true);
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, [hasHydratedLocalState, isAuthenticated]);
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        if (!hasHydratedLocalState) return;
+        persistProviders(aiProviders, { stripApiKeys: true });
+    }, [aiProviders, hasHydratedLocalState, isAuthenticated, persistProviders]);
+
+    // Sync settings to server after authenticated hydration (debounced).
+    useEffect(() => {
+        if (!isAuthenticated || !hasHydratedRemoteState) return;
+        const timer = window.setTimeout(() => {
+            const payload = {
+                font,
+                theme,
+                activeProviderId,
+                providerModels,
+                systemPrompt,
+                cryptoPanicApiKey,
+                providers: aiProviders.map((provider) => ({
+                    id: provider.id,
+                    name: provider.name,
+                    enabled: provider.enabled,
+                    baseUrl: provider.baseUrl ?? "",
+                    websiteUrl: provider.websiteUrl,
+                    placeholder: provider.placeholder,
+                    description: provider.description,
+                })),
+            };
+            fetch("/api/user/preferences", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            }).catch(() => {
+                // preserve local behavior if sync fails
+            });
+        }, 600);
+        return () => window.clearTimeout(timer);
+    }, [
+        activeProviderId,
+        aiProviders,
+        cryptoPanicApiKey,
+        font,
+        hasHydratedRemoteState,
+        isAuthenticated,
+        providerModels,
+        systemPrompt,
+        theme,
+    ]);
 
     const providerHasAvailableKey = useCallback(
         (providerId: AIProviderId) => {
@@ -443,11 +615,31 @@ export const AppSettingsProvider = ({
                 const next = prev.map((p) =>
                     p.id === providerId ? { ...p, apiKey: key } : p,
                 );
-                persistProviders(next);
+                persistProviders(next, { stripApiKeys: isAuthenticated });
                 return next;
             });
+            if (isAuthenticated) {
+                const normalizedProviderId = providerId.trim().toLowerCase();
+                if (key.trim().length > 0) {
+                    fetch(`/api/user/ai-keys/${encodeURIComponent(normalizedProviderId)}`, {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ apiKey: key }),
+                    }).catch(() => {
+                        // no-op: local state is optimistic
+                    });
+                    return;
+                }
+                fetch(`/api/user/ai-keys/${encodeURIComponent(normalizedProviderId)}`, {
+                    method: "DELETE",
+                }).catch(() => {
+                    // no-op: local state is optimistic
+                });
+            }
         },
-        [persistProviders],
+        [isAuthenticated, persistProviders],
     );
 
     const setProviderEnabled = useCallback(
@@ -456,11 +648,11 @@ export const AppSettingsProvider = ({
                 const next = prev.map((p) =>
                     p.id === providerId ? { ...p, enabled } : p,
                 );
-                persistProviders(next);
+                persistProviders(next, { stripApiKeys: isAuthenticated });
                 return next;
             });
         },
-        [persistProviders],
+        [isAuthenticated, persistProviders],
     );
 
     const addCustomProvider = useCallback(
@@ -479,11 +671,11 @@ export const AppSettingsProvider = ({
                         enabled: true,
                     },
                 ];
-                persistProviders(next);
+                persistProviders(next, { stripApiKeys: isAuthenticated });
                 return next;
             });
         },
-        [persistProviders],
+        [isAuthenticated, persistProviders],
     );
 
     const removeCustomProvider = useCallback(
@@ -494,7 +686,7 @@ export const AppSettingsProvider = ({
             if (isBuiltIn) return;
             setAiProvidersState((prev) => {
                 const next = prev.filter((p) => p.id !== providerId);
-                persistProviders(next);
+                persistProviders(next, { stripApiKeys: isAuthenticated });
                 return next;
             });
             setProviderModelsState((prev) => {
@@ -503,7 +695,7 @@ export const AppSettingsProvider = ({
                 return next;
             });
         },
-        [persistProviderModels, persistProviders],
+        [isAuthenticated, persistProviderModels, persistProviders],
     );
 
     const setActiveProviderId = useCallback(
@@ -523,9 +715,11 @@ export const AppSettingsProvider = ({
     const setOpenrouterApiKey = useCallback(
         (key: string) => {
             setProviderApiKey("openrouter", key);
-            localStorage.setItem("ft-openrouter-key", key);
+            if (!isAuthenticated) {
+                localStorage.setItem("ft-openrouter-key", key);
+            }
         },
-        [setProviderApiKey],
+        [isAuthenticated, setProviderApiKey],
     );
 
     const setCryptoPanicApiKey = useCallback((key: string) => {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getOpenRouterApiKey } from '../../../../../lib/getOpenRouterKey';
 import { apiError } from '../../../../../lib/ai/apiError';
+import { getUserApiKeyForProvider } from '../../../../../lib/server/services/userAiKeyService';
 
 const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -46,6 +47,10 @@ export async function POST(request: Request) {
 
   const apiKeyFromUser = extractApiKeyFromHeaders(request);
   let apiKey = apiKeyFromUser;
+
+  if (!apiKey) {
+    apiKey = await getUserApiKeyForProvider('openrouter');
+  }
 
   if (!apiKey) {
     try {
@@ -105,4 +110,3 @@ export async function POST(request: Request) {
   const json = await upstreamRes.json();
   return NextResponse.json(json);
 }
-

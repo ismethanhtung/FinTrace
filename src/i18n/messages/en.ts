@@ -36,6 +36,12 @@ export const enMessages = {
     localeSwitch: {
         title: "Current language: {locale} - click to switch",
     },
+    auth: {
+        loading: "Auth...",
+        signIn: "Sign in",
+        signOut: "Sign out",
+        loginRequired: "Sign in to save account data",
+    },
     theme: {
         light: "Light",
         dark1: "Dark I",
@@ -221,8 +227,7 @@ export const enMessages = {
         summary: "Summary",
         noPreviousChats: "No previous chats.",
         aiAnalystTitle: "FinTrace AI Analyst",
-        aiAnalystSubtitle:
-            "Ask me to predict trends, interpret volume, or summarize metrics.",
+        aiAnalystSubtitle: "Ask me to interpret volume, or summarize metrics.",
         promptOverbought: "Is it overbought?",
         promptSupportResistance: "Support/Resistance levels?",
         promptExplainVolume: "Explain recent volume",
@@ -422,11 +427,13 @@ export const enMessages = {
         gainersLabel: "Top gainers",
         gainersDescription: "Prioritize strongest 24h gainers.",
         favoritesLabel: "Favorites",
-        favoritesDescription: "Will be implemented next.",
+        favoritesDescription: "Show assets you marked as favorite.",
+        favorite: "Favorite",
+        toggleFavorite: "Toggle favorite for selected asset",
         openSettings: "Open ticker settings",
         settingsTitle: "Ticker Settings",
         settingsDesc: "Choose asset type shown on the bottom bar.",
-        favoritesEmpty: "Favorite assets list will be added in the next step.",
+        favoritesEmpty: "No favorites yet. Mark symbols with the star button.",
         soon: "Soon",
         offline: "Offline",
         weakNetwork: "Weak network",

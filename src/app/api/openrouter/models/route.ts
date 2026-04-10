@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getOpenRouterApiKey } from '../../../../lib/getOpenRouterKey';
 import { apiError } from '../../../../lib/ai/apiError';
+import { getUserApiKeyForProvider } from '../../../../lib/server/services/userAiKeyService';
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 
@@ -20,6 +21,10 @@ export async function GET(request: Request) {
   try {
     const apiKeyFromUser = extractApiKeyFromHeaders(request);
     let apiKey = apiKeyFromUser;
+
+    if (!apiKey) {
+      apiKey = await getUserApiKeyForProvider('openrouter');
+    }
 
     if (!apiKey) {
       try {
@@ -66,4 +71,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

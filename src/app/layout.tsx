@@ -15,6 +15,7 @@ import {
 import { getColorSchemeForTheme } from "../lib/themeDom";
 import { I18nProvider } from "../context/I18nContext";
 import { LOCALE_COOKIE_KEY, normalizeLocale } from "../i18n/config";
+import { AuthSessionProvider } from "../components/providers/AuthSessionProvider";
 
 const jetbrainsMono = JetBrains_Mono({
     subsets: ["latin"],
@@ -80,13 +81,15 @@ export default async function RootLayout({
                 />
             </head>
             <body className={`${jetbrainsMono.variable} antialiased`}>
-                <I18nProvider initialLocale={initialLocale}>
-                    <AppSettingsProvider initialTheme={initialTheme}>
-                        <UniverseProvider initialUniverse={initialUniverse}>
-                            <MarketProvider>{children}</MarketProvider>
-                        </UniverseProvider>
-                    </AppSettingsProvider>
-                </I18nProvider>
+                <AuthSessionProvider>
+                    <I18nProvider initialLocale={initialLocale}>
+                        <AppSettingsProvider initialTheme={initialTheme}>
+                            <UniverseProvider initialUniverse={initialUniverse}>
+                                <MarketProvider>{children}</MarketProvider>
+                            </UniverseProvider>
+                        </AppSettingsProvider>
+                    </I18nProvider>
+                </AuthSessionProvider>
             </body>
         </html>
     );

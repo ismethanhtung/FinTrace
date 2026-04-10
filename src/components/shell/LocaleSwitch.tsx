@@ -24,22 +24,54 @@ const FlagUK = () => (
         className="inline-flex items-center justify-center rounded-full overflow-hidden"
         style={{ width: 18, height: 18, background: "#00247d" }}
     >
-        <svg viewBox="0 0 32 32" width={18} height={18}>
-            <circle cx="16" cy="16" r="16" fill="#00247d" />
-            <g>
-                <rect x="14" y="0" width="4" height="32" fill="#fff" />
-                <rect x="0" y="14" width="32" height="4" fill="#fff" />
-                <rect x="15" y="0" width="2" height="32" fill="#cf142b" />
-                <rect x="0" y="15" width="32" height="2" fill="#cf142b" />
-                <polygon points="0,0 6,0 32,26 32,32 26,32 0,6" fill="#fff" />
-                <polygon points="32,0 26,0 0,26 0,32 6,32 32,6" fill="#fff" />
-                <polygon
-                    points="0,0 2.6,0 32,29.4 32,32 29.4,32 0,2.6"
-                    fill="#cf142b"
+        <svg
+            viewBox="0 0 32 32"
+            width="18"
+            height="18"
+            xmlns="http://www.w3.org/2000/svg"
+        >
+            <defs>
+                <clipPath id="circleView">
+                    <circle cx="16" cy="16" r="16" />
+                </clipPath>
+            </defs>
+
+            <g clipPath="url(#circleView)">
+                <rect width="32" height="32" fill="#012169" />
+
+                <path
+                    d="M0,0 L32,32 M32,0 L0,32"
+                    stroke="#fff"
+                    strokeWidth="4"
                 />
-                <polygon
-                    points="32,0 29.4,0 0,29.4 0,32 2.6,32 32,2.6"
-                    fill="#cf142b"
+
+                <path
+                    d="M0,0 L16,16 M32,32 L16,16 M0,32 L16,16 M32,0 L16,16"
+                    stroke="#C8102E"
+                    strokeWidth="1.5"
+                    strokeDasharray="16"
+                    strokeDashoffset="16"
+                />
+
+                <path
+                    d="M0,0 L16,16 M32,32 L16,16"
+                    stroke="#C8102E"
+                    strokeWidth="1.3"
+                    transform="translate(0, 1)"
+                />
+                <path
+                    d="M32,0 L16,16 M0,32 L16,16"
+                    stroke="#C8102E"
+                    strokeWidth="1.3"
+                    transform="translate(1, 0)"
+                />
+
+                <path d="M16,0 V32 M0,16 H32" stroke="#fff" strokeWidth="6" />
+
+                <path
+                    d="M16,0 V32 M0,16 H32"
+                    stroke="#C8102E"
+                    strokeWidth="3.5"
                 />
             </g>
         </svg>

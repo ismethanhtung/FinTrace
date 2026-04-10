@@ -9,6 +9,16 @@
 - [ ] T2 - Cần thêm metric init/reconnect cho OrderBook để triệt loading nhấp nháy.
 - [ ] T4/T5 (phần còn lại) - Cần profile thêm render table `/board` theo thao tác Theme/Language ở tab `SECTOR`.
 
+## Nhóm task mới: Auth + User Data (2026-04-09)
+
+- [x] TASK-056 - Auth foundation (Google + MongoDB)
+- [x] TASK-057 - User data schema + repositories
+- [x] TASK-058 - User API contract v1
+- [x] TASK-059 - Frontend auth + settings migration
+- [x] TASK-060 - Favorites/pin integration (v1)
+- [x] TASK-061 - Security hardening + observability
+- [x] TASK-062 - Tests + docs finalization
+
 ## T1 - Fix flash màu sai ở Left Sidebar khi reload
 
 - Mức độ: High
@@ -193,5 +203,3 @@ cái chênh lệch này có vẻ hơi lạ nhỉ? không biết có vấn đề 
     bạn hãy suy nghĩ cẩn thận nhé.
 
 3.  cũng ở trang /board - các data trong khung nhảy thì được load rất nhanh, reload trang cái là thấy luôn, nhưng data ở mấy cái minichart thì hơi lâu, tuy vẫn nhanh nhưng so với các data bên dưới thì chậm hơn khá rõ. vậy data bên dưới tại sao lại nhanh như vậy, có thể áp dụng cho cái trên không? nếu được hãy áp dụng luôn cho các minichart bên trên nhé.
-
-4.  tôi nhìn thấy rightbar bên mình giao diện cũng đã ok rồi, nhưng tôi thấy rất ấn tượng với chatbar của một trang web, đó là cloudflare, giao diện rất ấn tượng, tôi muốn bạn tham khảo.

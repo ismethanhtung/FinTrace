@@ -38,6 +38,12 @@ export const viMessages: Messages = {
     localeSwitch: {
         title: "Ngôn ngữ hiện tại: {locale} - bấm để chuyển",
     },
+    auth: {
+        loading: "Đang xác thực...",
+        signIn: "Đăng nhập",
+        signOut: "Đăng xuất",
+        loginRequired: "Đăng nhập để lưu dữ liệu tài khoản",
+    },
     theme: {
         light: "Sáng",
         dark1: "Tối I",
@@ -222,7 +228,7 @@ export const viMessages: Messages = {
         noPreviousChats: "Chưa có hội thoại trước đó.",
         aiAnalystTitle: "FinTrace AI Analyst",
         aiAnalystSubtitle:
-            "Hỏi mình dự đoán xu hướng, phân tích khối lượng, hoặc tóm tắt chỉ số.",
+            "Hỏi mình phân tích khối lượng, hoặc tóm tắt chỉ số.",
         promptOverbought: "Đang quá mua không?",
         promptSupportResistance: "Các mức hỗ trợ/kháng cự?",
         promptExplainVolume: "Giải thích khối lượng gần đây",
@@ -422,12 +428,13 @@ export const viMessages: Messages = {
         gainersLabel: "Tăng mạnh",
         gainersDescription: "Ưu tiên các tài sản tăng mạnh nhất trong 24h.",
         favoritesLabel: "Yêu thích",
-        favoritesDescription: "Sẽ hiện thực ở bước tiếp theo.",
+        favoritesDescription: "Hiển thị các tài sản bạn đã đánh dấu yêu thích.",
+        favorite: "Yêu thích",
+        toggleFavorite: "Bật/tắt yêu thích cho mã đang chọn",
         openSettings: "Mở cài đặt ticker",
         settingsTitle: "Cài đặt ticker",
         settingsDesc: "Chọn loại tài sản hiển thị ở thanh dưới.",
-        favoritesEmpty:
-            "Danh sách tài sản yêu thích sẽ được bổ sung ở bước tiếp theo.",
+        favoritesEmpty: "Chưa có mã yêu thích. Hãy đánh dấu bằng nút ngôi sao.",
         soon: "Sắp có",
         offline: "Mất mạng",
         weakNetwork: "Mạng yếu",

@@ -4,10 +4,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { cn } from "../lib/utils";
 import { useMarket } from "../context/MarketContext";
 import { TokenAvatar } from "./TokenAvatar";
-import { Check, Settings2, Wifi } from "lucide-react";
+import { Check, Settings2, Star, Wifi } from "lucide-react";
 import type { Asset } from "../services/binanceService";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "../context/I18nContext";
+import { useUserFavorites } from "../hooks/useUserFavorites";
 
 type TickerMode = "hot" | "gainers" | "favorites";
 const TICKER_MAX_ITEMS = 96;
@@ -32,6 +33,7 @@ export const TickerBar = () => {
     const pathname = usePathname();
     const {
         assets,
+        selectedSymbol,
         setSelectedSymbol,
         universe,
         marketType,
@@ -49,6 +51,7 @@ export const TickerBar = () => {
         "good" | "weak" | "offline"
     >("good");
     const [stableOrderIds, setStableOrderIds] = useState<string[]>([]);
+    const { isFavorite, toggleFavorite } = useUserFavorites();
     const modeMeta: Record<
         TickerMode,
         { label: string; description: string; implemented: boolean }
@@ -66,7 +69,7 @@ export const TickerBar = () => {
         favorites: {
             label: t("ticker.favoritesLabel"),
             description: t("ticker.favoritesDescription"),
-            implemented: false,
+            implemented: true,
         },
     };
     const modeKeyRef = useRef<string>(`${tickerMode}:${marketType}`);
@@ -179,11 +182,12 @@ export const TickerBar = () => {
         }
 
         if (tickerMode === "favorites") {
-            return [];
+            const favoriteOnly = assets.filter((asset) => isFavorite(asset.id));
+            return favoriteOnly;
         }
 
         return [...assets].sort((a, b) => b.quoteVolumeRaw - a.quoteVolumeRaw);
-    }, [assets, tickerMode]);
+    }, [assets, isFavorite, tickerMode]);
 
     // Keep ticker order stable across websocket ticks to avoid marquee jumps.
     useEffect(() => {
@@ -256,6 +260,25 @@ export const TickerBar = () => {
                     lastUpdateAt={lastUpdateAt}
                     universe={universe}
                 />
+
+                <div className="w-px h-3 bg-main" />
+                <button
+                    type="button"
+                    onClick={() => void toggleFavorite(selectedSymbol, universe)}
+                    className={cn(
+                        "flex items-center gap-1 rounded-md border px-2 h-6 transition-colors",
+                        isFavorite(selectedSymbol)
+                            ? "border-amber-400/70 bg-amber-400/10 text-amber-500"
+                            : "border-main text-muted hover:text-main hover:bg-secondary",
+                    )}
+                    aria-label={t("ticker.toggleFavorite")}
+                    title={t("ticker.toggleFavorite")}
+                >
+                    <Star size={11} className={cn(isFavorite(selectedSymbol) && "fill-current")} />
+                    <span className="text-[9px] font-medium whitespace-nowrap">
+                        {t("ticker.favorite")}
+                    </span>
+                </button>
 
                 <div className="w-px h-3 bg-main" />
 

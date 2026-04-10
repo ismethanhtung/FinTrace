@@ -9,6 +9,7 @@ import { QuickSearchDropdown } from "../AssetList";
 import { UserMenu } from "../UserMenu";
 import { WorldSwitch } from "./WorldSwitch";
 import { LocaleSwitch } from "./LocaleSwitch";
+import { AuthControl } from "./AuthControl";
 import { useAppSettings, type AppTheme } from "../../context/AppSettingsContext";
 import { useI18n } from "../../context/I18nContext";
 import { useUniverse } from "../../context/UniverseContext";
@@ -160,6 +161,7 @@ export function AppTopBar({
                 )}
 
                 {rightExtra}
+                <AuthControl />
 
                 <div className="h-5 w-px border-l border-main" />
                 <UserMenu />

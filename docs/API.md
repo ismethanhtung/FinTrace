@@ -158,6 +158,12 @@ All environment variables must be documented here and in `.env.example`.
 | Variable | Required | Client-side? | Description |
 |---|---|---|---|
 | `GEMINI_API_KEY` | For AI features | ❌ Server only | Google Gemini AI API key |
+| `MONGODB_URI` | Yes (auth/user data) | ❌ Server only | MongoDB Atlas connection string |
+| `MONGODB_DB_NAME` | Yes (auth/user data) | ❌ Server only | MongoDB database name |
+| `AUTH_SECRET` | Yes (auth) | ❌ Server only | Auth.js session/token signing secret |
+| `GOOGLE_CLIENT_ID` | Yes (Google login) | ❌ Server only | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Yes (Google login) | ❌ Server only | Google OAuth client secret |
+| `USER_SECRET_ENCRYPTION_KEY` | Yes (user AI keys) | ❌ Server only | Master key to encrypt user provider API keys |
 | `NEXT_PUBLIC_APP_ENV` | No | ✅ Yes | `development` or `production` |
 
 **To add a new variable:**
@@ -177,3 +183,43 @@ DNSE may be used only for public market data streams.
 - Required: keep credentials server-side only (if ever needed for approved read-only integrations)
 
 Detailed rules: [`docs/dnse-public-market-rules.md`](./dnse-public-market-rules.md)
+
+---
+
+## 5. Internal User Data APIs (Authenticated)
+
+These APIs require a valid authenticated session (`401` when unauthenticated).
+
+### 5.1 `GET/PUT /api/user/preferences`
+
+- `GET`: fetch current user settings snapshot.
+- `PUT`: upsert user settings (theme/font/provider defaults/system prompt/custom providers).
+
+### 5.2 `GET/POST/DELETE /api/user/favorites`
+
+- `GET`: list favorites for current user.
+- `POST`: upsert favorite by `(universe, symbol)`.
+- `DELETE`: remove favorite by `(universe, symbol)`.
+
+### 5.3 `GET/POST/DELETE /api/user/pins`
+
+- `GET`: list pin records for current user.
+- `POST`: upsert pin by `(pinType, pinKey)`.
+- `DELETE`: remove pin by `(pinType, pinKey)`.
+
+### 5.4 `GET /api/user/ai-keys`
+
+- List key metadata per provider (presence and update time only).
+- Never returns plaintext key.
+
+### 5.5 `PUT/DELETE /api/user/ai-keys/:provider`
+
+- `PUT`: set encrypted key for provider.
+- `DELETE`: delete provider key.
+- Basic rate-limit applied on write/delete operations.
+
+### 5.6 Provider proxy fallback order (built-in providers)
+
+1. Explicit API key in request header
+2. Authenticated user key in encrypted DB store
+3. Platform key from environment / secret manager

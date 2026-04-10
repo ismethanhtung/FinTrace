@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getGroqApiKey } from '../../../../lib/getGroqKey';
 import { apiError } from '../../../../lib/ai/apiError';
+import { getUserApiKeyForProvider } from '../../../../lib/server/services/userAiKeyService';
 
 const GROQ_MODELS_URL = 'https://api.groq.com/openai/v1/models';
 
@@ -17,6 +18,9 @@ export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   let apiKey = extractApiKey(request);
+  if (!apiKey) {
+    apiKey = await getUserApiKeyForProvider('groq');
+  }
   if (!apiKey) {
     try {
       apiKey = await getGroqApiKey();

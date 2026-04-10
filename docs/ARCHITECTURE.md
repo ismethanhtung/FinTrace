@@ -260,9 +260,35 @@ Nguyên tắc khi gọi AI:
 
 These are not yet implemented. They require a TASK before implementation:
 
-- **Authentication:** NextAuth.js or Clerk for user accounts
 - **Portfolio Tracking:** User-specific data needs a backend (e.g., Supabase, PlanetScale)
 - **WebSocket streams:** Replace REST polling with Binance WebSocket for live ticks
 - **Server-side data fetching:** Move ticker fetching to Route Handlers for better caching
 - **Error boundary:** Add React Error Boundaries around chart and panel components
 - **Monitoring:** Sentry for error tracking in production
+
+---
+
+## 12. Auth + User Data Layer (Implemented)
+
+FinTrace now includes Auth.js + MongoDB for account-bound data:
+
+- Google OAuth login via Auth.js route handlers.
+- Database session strategy with `session.user.id`.
+- User data APIs under `/api/user/*` guarded by session.
+- Mongo collections:
+  - `user_preferences`
+  - `user_favorites`
+  - `user_pins`
+  - `user_ai_keys` (encrypted API keys at rest)
+
+### 12.1 Guest vs Authenticated Mode
+
+- Guest: market browsing still works, local fallback is allowed.
+- Authenticated: settings/favorites/pins can be persisted server-side and shared across sessions.
+
+### 12.2 Built-in AI Provider Key Resolution
+
+For OpenRouter/Groq/HuggingFace proxy routes:
+1. Request key (header)
+2. Authenticated user key (decrypted server-side)
+3. Platform key (env/secrets manager)
