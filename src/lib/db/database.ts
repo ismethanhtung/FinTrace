@@ -55,6 +55,21 @@ async function ensureUserDataIndexesInternal(): Promise<void> {
     { email: 1 },
     { unique: true, sparse: true, name: "uniq_users_email" },
   );
+
+  await db.collection("sessions").createIndex(
+    { userId: 1, expires: 1 },
+    { name: "idx_sessions_user_expires" },
+  );
+
+  await db.collection("session_meta").createIndex(
+    { userId: 1, sessionTokenHash: 1 },
+    { unique: true, name: "uniq_user_session_meta" },
+  );
+
+  await db.collection("session_meta").createIndex(
+    { userId: 1, lastSeenAt: -1 },
+    { name: "idx_session_meta_last_seen" },
+  );
 }
 
 export async function ensureUserDataIndexes(): Promise<void> {

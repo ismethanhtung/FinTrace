@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import SettingsLayout from "../../components/SettingsLayout";
 import {
     Globe,
@@ -21,6 +21,8 @@ import {
     Mail,
     Bell,
     User,
+    Laptop,
+    Smartphone,
 } from "lucide-react";
 import {
     useAppSettings,
@@ -506,7 +508,7 @@ const AddProviderForm = ({
                 </label>
                 <input
                     required
-                    placeholder="https://llm.chiasegpu.vn/v1"
+                    placeholder="https://llm.provider.vn/v1"
                     value={form.baseUrl}
                     onChange={(e) =>
                         setForm((f) => ({ ...f, baseUrl: e.target.value }))
@@ -601,6 +603,23 @@ export default function SettingsPage() {
         useState<AIProviderId>(activeProviderId);
     const [models, setModels] = useState<ModelInfo[]>([]);
     const [isLoadingModels, setIsLoadingModels] = useState(false);
+    const [isRevokingSessions, setIsRevokingSessions] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [sessions, setSessions] = useState<
+        Array<{
+            sessionTokenHash: string;
+            isCurrent: boolean;
+            expires: string;
+            createdAt?: string;
+            lastSeenAt?: string;
+            ip?: string;
+            country?: string | null;
+            deviceLabel: string;
+            osLabel: string;
+            browserLabel: string;
+        }>
+    >([]);
+    const [isLoadingSessions, setIsLoadingSessions] = useState(false);
     const modelProvider =
         aiProviders.find((provider) => provider.id === modelProviderId) ??
         activeProvider;
@@ -608,13 +627,14 @@ export default function SettingsPage() {
         modelProvider?.id ?? activeProviderId,
     );
     const modelKeySource =
-        modelProvider && (modelProvider.apiKey?.trim() || userKeyStatus[modelProvider.id])
-        ? "user"
-        : modelProvider
-          ? serverKeyStatus[modelProvider.id]
-              ? "platform"
-              : "none"
-          : "none";
+        modelProvider &&
+        (modelProvider.apiKey?.trim() || userKeyStatus[modelProvider.id])
+            ? "user"
+            : modelProvider
+              ? serverKeyStatus[modelProvider.id]
+                  ? "platform"
+                  : "none"
+              : "none";
 
     useEffect(() => {
         setModelProviderId(activeProviderId);
@@ -670,6 +690,121 @@ export default function SettingsPage() {
             Boolean(serverKeyStatus[provider.id]),
     ).length;
     const modelProviderOptions = aiProviders;
+
+    const handleRevokeOtherSessions = async () => {
+        if (isRevokingSessions) return;
+        setIsRevokingSessions(true);
+        try {
+            const res = await fetch("/api/auth/sessions/revoke-others", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+            });
+            const json = (await res.json().catch(() => ({}))) as {
+                error?: string;
+                revokedCount?: number;
+            };
+            if (!res.ok) {
+                throw new Error(json.error || "Failed to revoke sessions");
+            }
+            window.alert(
+                `Logged out ${json.revokedCount ?? 0} other session(s). Current device stays signed in.`,
+            );
+        } catch (error) {
+            window.alert(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to revoke other sessions",
+            );
+        } finally {
+            setIsRevokingSessions(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (isDeletingAccount) return;
+        const confirmed = window.confirm(
+            "This action permanently deletes your account and all associated data. Continue?",
+        );
+        if (!confirmed) return;
+        const typed = window.prompt(
+            'Type "DELETE" to confirm account deletion:',
+        );
+        if (typed !== "DELETE") {
+            window.alert(
+                "Account deletion cancelled: confirmation did not match.",
+            );
+            return;
+        }
+        setIsDeletingAccount(true);
+        try {
+            const res = await fetch("/api/user/account/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ confirmation: "DELETE" }),
+            });
+            const json = (await res.json().catch(() => ({}))) as {
+                error?: string;
+            };
+            if (!res.ok) {
+                throw new Error(json.error || "Failed to delete account");
+            }
+            await signOut({ callbackUrl: "/" });
+        } catch (error) {
+            window.alert(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to delete account",
+            );
+            setIsDeletingAccount(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!session?.user?.id) return;
+        let active = true;
+        setIsLoadingSessions(true);
+        fetch("/api/auth/sessions", { cache: "no-store" })
+            .then((res) => res.json().then((j) => ({ res, j })))
+            .then(({ res, j }) => {
+                if (!active) return;
+                if (!res.ok) return;
+                const list = (j as { sessions?: unknown }).sessions;
+                if (Array.isArray(list)) {
+                    setSessions(list as any);
+                }
+            })
+            .finally(() => {
+                if (active) setIsLoadingSessions(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, [session?.user?.id]);
+
+    const handleRevokeSession = async (sessionTokenHash: string) => {
+        const confirmed = window.confirm("Log out this session?");
+        if (!confirmed) return;
+        try {
+            const res = await fetch("/api/auth/sessions/revoke", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionTokenHash }),
+            });
+            const json = (await res.json().catch(() => ({}))) as {
+                error?: string;
+            };
+            if (!res.ok)
+                throw new Error(json.error || "Failed to revoke session");
+            setSessions((prev) =>
+                prev.filter((s) => s.sessionTokenHash !== sessionTokenHash),
+            );
+        } catch (e) {
+            window.alert(
+                e instanceof Error ? e.message : "Failed to revoke session",
+            );
+        }
+    };
 
     const sectionMeta: Record<string, { title: string; description: string }> =
         {
@@ -761,11 +896,21 @@ export default function SettingsPage() {
                         <div className="grid grid-cols-2 gap-3">
                             <FieldInput
                                 placeholder={t("settingsPage.firstName")}
-                                defaultValue={session?.user?.name?.split(" ").slice(0, -1).join(" ") || ""}
+                                defaultValue={
+                                    session?.user?.name
+                                        ?.split(" ")
+                                        .slice(0, -1)
+                                        .join(" ") || ""
+                                }
                             />
                             <FieldInput
                                 placeholder={t("settingsPage.lastName")}
-                                defaultValue={session?.user?.name?.split(" ").slice(-1).join(" ") || ""}
+                                defaultValue={
+                                    session?.user?.name
+                                        ?.split(" ")
+                                        .slice(-1)
+                                        .join(" ") || ""
+                                }
                             />
                         </div>
                     </SettingsRow>
@@ -793,7 +938,9 @@ export default function SettingsPage() {
                         description={t("settingsPage.usernameDesc")}
                     >
                         <FieldInput
-                            defaultValue={session?.user?.email?.split("@")[0] || ""}
+                            defaultValue={
+                                session?.user?.email?.split("@")[0] || ""
+                            }
                         />
                     </SettingsRow>
 
@@ -851,10 +998,117 @@ export default function SettingsPage() {
                     <SettingsRow
                         label={t("settingsPage.logoutAllDevices")}
                         description={t("settingsPage.logoutAllDevicesDesc")}
+                        vertical
                     >
-                        <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors">
-                            {t("settingsPage.logoutAll")}
-                        </button>
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <p className="text-[12px] text-muted">
+                                    Active sessions
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={handleRevokeOtherSessions}
+                                    disabled={isRevokingSessions}
+                                    className="px-4 py-2 text-[12px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    {isRevokingSessions
+                                        ? `${t("settingsPage.loading")}...`
+                                        : t("settingsPage.logoutAll")}
+                                </button>
+                            </div>
+
+                            <div className="rounded-xl border border-main bg-secondary/30 overflow-hidden">
+                                {isLoadingSessions ? (
+                                    <div className="p-4 text-[12px] text-muted">
+                                        {t("settingsPage.loading")}...
+                                    </div>
+                                ) : sessions.length === 0 ? (
+                                    <div className="p-4 text-[12px] text-muted">
+                                        No session info yet. It will appear
+                                        after you use the app.
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-[var(--border-color)]">
+                                        {sessions.map((s) => {
+                                            const isDesktop =
+                                                s.deviceLabel === "Desktop";
+                                            const Icon = isDesktop
+                                                ? Laptop
+                                                : Smartphone;
+                                            return (
+                                                <div
+                                                    key={s.sessionTokenHash}
+                                                    className="p-4 flex items-start justify-between gap-4"
+                                                >
+                                                    <div className="flex items-start gap-3 min-w-0">
+                                                        <div className="w-9 h-9 rounded-lg bg-main border border-main flex items-center justify-center shrink-0">
+                                                            <Icon
+                                                                size={16}
+                                                                className="text-muted"
+                                                            />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <p className="text-[13px] font-semibold truncate">
+                                                                    {
+                                                                        s.browserLabel
+                                                                    }
+                                                                </p>
+                                                                {s.isCurrent && (
+                                                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
+                                                                        This
+                                                                        device
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-[11px] text-muted truncate">
+                                                                {s.osLabel} ·{" "}
+                                                                {s.deviceLabel}
+                                                            </p>
+                                                            <p className="text-[11px] text-muted">
+                                                                {s.country
+                                                                    ? `${s.country} · `
+                                                                    : ""}
+                                                                {s.ip &&
+                                                                s.ip !==
+                                                                    "unknown"
+                                                                    ? s.ip
+                                                                    : "IP unknown"}
+                                                                {s.lastSeenAt
+                                                                    ? ` · Last seen ${new Date(s.lastSeenAt).toLocaleString()}`
+                                                                    : ""}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="shrink-0 flex flex-col items-end gap-2">
+                                                        <p className="text-[10px] text-muted">
+                                                            Expires{" "}
+                                                            {new Date(
+                                                                s.expires,
+                                                            ).toLocaleDateString()}
+                                                        </p>
+                                                        {!s.isCurrent && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    handleRevokeSession(
+                                                                        s.sessionTokenHash,
+                                                                    )
+                                                                }
+                                                                className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors"
+                                                            >
+                                                                Log out
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </SettingsRow>
 
                     <SettingsRow
@@ -862,8 +1116,15 @@ export default function SettingsPage() {
                         description={t("settingsPage.deleteAccountDesc")}
                         danger
                     >
-                        <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-rose-500/40 text-rose-500 hover:bg-rose-500/10 transition-colors">
-                            {t("settingsPage.deleteAccount")}
+                        <button
+                            type="button"
+                            onClick={handleDeleteAccount}
+                            disabled={isDeletingAccount}
+                            className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-rose-500/40 text-rose-500 hover:bg-rose-500/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {isDeletingAccount
+                                ? `${t("settingsPage.loading")}...`
+                                : t("settingsPage.deleteAccount")}
                         </button>
                     </SettingsRow>
                 </div>
@@ -897,7 +1158,8 @@ export default function SettingsPage() {
                                     provider={provider}
                                     isBuiltIn={builtInIds.has(provider.id)}
                                     keySource={
-                                        provider.apiKey?.trim() || userKeyStatus[provider.id]
+                                        provider.apiKey?.trim() ||
+                                        userKeyStatus[provider.id]
                                             ? "user"
                                             : serverKeyStatus[provider.id]
                                               ? "platform"
