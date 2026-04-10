@@ -5,6 +5,7 @@ import { cn } from "../../lib/utils";
 import type { StreamRecord } from "../../lib/dataStream/types";
 import { Loader2 } from "lucide-react";
 import { useI18n } from "../../context/I18nContext";
+import type { AssetUniverse } from "../../lib/marketUniverse";
 
 const GRID = "grid grid-cols-6 gap-x-3 px-3 items-center min-w-0";
 
@@ -12,10 +13,12 @@ export function DataStreamTape({
     records,
     snapshotTradeLimit,
     maxRecords,
+    universe,
 }: {
     records: StreamRecord[];
     snapshotTradeLimit: number;
     maxRecords: number;
+    universe: AssetUniverse;
 }) {
     const { t } = useI18n();
     return (
@@ -25,7 +28,13 @@ export function DataStreamTape({
                     {t("dataStream.tape.title")}
                 </span>
                 <span className="inline-flex items-center gap-2 text-[10px] text-muted font-mono tabular-nums">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span
+                        className={`inline-block h-1.5 w-1.5 rounded-full ${
+                            universe === "stock"
+                                ? "bg-muted"
+                                : "bg-emerald-500 animate-pulse"
+                        }`}
+                    />
                 </span>
             </div>
 
@@ -47,9 +56,20 @@ export function DataStreamTape({
 
             <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar">
                 {records.length === 0 ? (
-                    <div className="h-full flex items-center justify-center px-3 text-[11px] text-muted text-center">
-                        <Loader2 size={12} className="animate-spin" />
-                    </div>
+                    universe === "stock" ? (
+                        <div className="h-full flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+                            <div className="text-[12px] font-bold uppercase tracking-widest text-muted">
+                                {t("dataStream.tape.stockSoonTitle")}
+                            </div>
+                            <p className="text-[11px] text-muted leading-relaxed max-w-sm">
+                                {t("dataStream.tape.stockSoonHint")}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="h-full flex items-center justify-center px-3 text-[11px] text-muted text-center">
+                            <Loader2 size={12} className="animate-spin" />
+                        </div>
+                    )
                 ) : (
                     records.map((r) => {
                         const toneClass =

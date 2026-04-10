@@ -21,6 +21,7 @@ import {
     normalizeBinanceSpotTradeEvent,
 } from "../services/dataStream/normalizeBinanceEvent";
 import { resolveUniverseSymbol } from "../lib/universeSymbol";
+import { createDataStreamWorker } from "../workers/createDataStreamWorker";
 
 const DEFAULT_CONFIG: DataStreamConfig = {
     minVolumeUsd: 1_000,
@@ -153,6 +154,9 @@ export function useDataStream() {
             wsRef.current.tradesWs?.close();
             wsRef.current.fundingWs?.close();
             workerRef.current?.terminate();
+            // Strict Mode (dev) remounts after cleanup; ref must clear or init skips
+            // and we keep posting to a dead Worker → empty tape locally.
+            workerRef.current = null;
         };
     }, []);
 
@@ -161,10 +165,7 @@ export function useDataStream() {
         if (workerRef.current) return;
 
         try {
-            const worker = new Worker(
-                new URL("../workers/dataStreamWorker.ts", import.meta.url),
-                { type: "module" },
-            );
+            const worker = createDataStreamWorker();
             workerRef.current = worker;
 
             worker.onmessage = (
@@ -496,6 +497,7 @@ export function useDataStream() {
             marketType: marketType,
             snapshotTradeLimit: SNAPSHOT_TRADE_LIMIT,
             maxRecords: config.maxRecords,
+            universe,
         }),
         [
             config,
@@ -516,6 +518,7 @@ export function useDataStream() {
             selectedSymbol,
             marketType,
             config.maxRecords,
+            universe,
         ],
     );
 }

@@ -9,11 +9,7 @@ import { PanicFomoMeter } from "../../components/dataStream/PanicFomoMeter";
 import { TickerBar } from "../../components/TickerBar";
 import { AppTopBar } from "../../components/shell/AppTopBar";
 import { useDataStream } from "../../hooks/useDataStream";
-import {
-    AlertCircle,
-    RefreshCw,
-    Trash2,
-} from "lucide-react";
+import { AlertCircle, RefreshCw, Trash2 } from "lucide-react";
 import { QuestionTooltip } from "../../components/ui/QuestionTooltip";
 import { useI18n } from "../../context/I18nContext";
 
@@ -43,6 +39,7 @@ export default function DataStreamPage() {
         marketType,
         snapshotTradeLimit,
         maxRecords,
+        universe,
     } = useDataStream();
 
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -72,27 +69,42 @@ export default function DataStreamPage() {
                                 <div className="flex items-center gap-2">
                                     <span
                                         className={`inline-block h-1.5 w-1.5 rounded-full ${
-                                            connectionStatus === "connected"
-                                                ? "bg-emerald-500 animate-pulse"
-                                                : connectionStatus === "error"
-                                                  ? "bg-rose-500"
-                                                  : "bg-amber-400 animate-pulse"
+                                            universe === "stock"
+                                                ? "bg-muted"
+                                                : connectionStatus ===
+                                                    "connected"
+                                                  ? "bg-emerald-500 animate-pulse"
+                                                  : connectionStatus === "error"
+                                                    ? "bg-rose-500"
+                                                    : "bg-amber-400 animate-pulse"
                                         }`}
                                     />
                                     <div className="text-[10px] text-muted uppercase tracking-widest font-bold">
-                                        {connectionStatus === "connected"
-                                            ? t("dataStream.page.streamingLive")
-                                            : connectionStatus === "connecting"
-                                              ? t("dataStream.page.connecting")
-                                              : connectionStatus === "error"
-                                                ? t("dataStream.page.wsError")
-                                                : t(
-                                                      "dataStream.page.disconnected",
-                                                  )}
+                                        {universe === "stock"
+                                            ? t("dataStream.page.stockStreamStatus")
+                                            : connectionStatus === "connected"
+                                              ? t("dataStream.page.streamingLive")
+                                              : connectionStatus ===
+                                                  "connecting"
+                                                ? t("dataStream.page.connecting")
+                                                : connectionStatus === "error"
+                                                  ? t("dataStream.page.wsError")
+                                                  : t(
+                                                        "dataStream.page.disconnected",
+                                                    )}
                                     </div>
                                 </div>
                                 <div className="text-[12px] text-muted font-mono">
-                                    {marketType.toUpperCase()} · {selectedSymbol}
+                                    {universe === "stock" ? (
+                                        <span className="text-[11px] font-sans font-normal normal-case tracking-normal">
+                                            {t("dataStream.page.stockStreamHint")}
+                                        </span>
+                                    ) : (
+                                        <>
+                                            {marketType.toUpperCase()} ·{" "}
+                                            {selectedSymbol}
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -109,7 +121,9 @@ export default function DataStreamPage() {
                                     type="button"
                                     onClick={reconnect}
                                     className="h-8 px-3 rounded-lg border border-main bg-secondary text-muted hover:text-main hover:border-accent/40 transition-colors text-[11px] font-semibold inline-flex items-center gap-1.5"
-                                    title={t("dataStream.page.reconnectWebsocket")}
+                                    title={t(
+                                        "dataStream.page.reconnectWebsocket",
+                                    )}
                                 >
                                     <RefreshCw size={13} />
                                     {t("dataStream.page.reconnect")}
@@ -183,6 +197,7 @@ export default function DataStreamPage() {
                                 records={records}
                                 snapshotTradeLimit={snapshotTradeLimit}
                                 maxRecords={maxRecords}
+                                universe={universe}
                             />
                         </div>
                     </div>

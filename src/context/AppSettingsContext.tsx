@@ -247,7 +247,9 @@ function mergeWithBuiltInProviders(
         }
     }
     return merged.map((provider) =>
-        isBuiltInProviderId(provider.id) ? { ...provider, baseUrl: "" } : provider,
+        isBuiltInProviderId(provider.id)
+            ? { ...provider, baseUrl: "" }
+            : provider,
     );
 }
 
@@ -309,7 +311,8 @@ export const AppSettingsProvider = ({
     const [theme, setThemeState] = useState<AppTheme>(initialTheme);
     const [analyticsTelemetryEnabled, setAnalyticsTelemetryEnabledState] =
         useState(true);
-    const [supportAccessEnabled, setSupportAccessEnabledState] = useState(false);
+    const [supportAccessEnabled, setSupportAccessEnabledState] =
+        useState(false);
     const [aiProviders, setAiProvidersState] = useState<AIProviderConfig[]>(
         buildDefaultProviders,
     );
@@ -343,7 +346,9 @@ export const AppSettingsProvider = ({
         const savedAnalyticsTelemetry = localStorage.getItem(
             "ft-analytics-telemetry-enabled",
         );
-        const savedSupportAccess = localStorage.getItem("ft-support-access-enabled");
+        const savedSupportAccess = localStorage.getItem(
+            "ft-support-access-enabled",
+        );
         const savedModel = localStorage.getItem("ft-model");
         const savedPrompt = localStorage.getItem("ft-system-prompt");
         const savedProviders = loadProviders();
@@ -376,7 +381,9 @@ export const AppSettingsProvider = ({
         }
         if (savedCPKey) setCryptoPanicApiKeyState(savedCPKey);
         if (savedAnalyticsTelemetry !== null) {
-            setAnalyticsTelemetryEnabledState(savedAnalyticsTelemetry !== "false");
+            setAnalyticsTelemetryEnabledState(
+                savedAnalyticsTelemetry !== "false",
+            );
         }
         if (savedSupportAccess !== null) {
             setSupportAccessEnabledState(savedSupportAccess === "true");
@@ -400,12 +407,10 @@ export const AppSettingsProvider = ({
         setHasHydratedLocalState(true);
     }, [initialTheme]);
 
-    // Apply font
-    useEffect(() => {
-        document.documentElement.style.setProperty(
-            "--font-sans",
-            FONT_STACKS[font],
-        );
+    // Apply font on <body>: next/font injects --font-sans via body class; inline
+    // on html was overridden, so UI never picked up the user's stack.
+    useLayoutEffect(() => {
+        document.body.style.setProperty("--font-sans", FONT_STACKS[font]);
     }, [font]);
 
     // Keep DOM theme attribute in sync before paint to prevent mixed frame.
@@ -460,17 +465,20 @@ export const AppSettingsProvider = ({
                 if (!mounted || !json || typeof json !== "object") return;
                 const keys = (json as { keys?: unknown[] }).keys;
                 if (!Array.isArray(keys)) return;
-                const next = keys.reduce<Record<string, boolean>>((acc, item) => {
-                    if (!item || typeof item !== "object") return acc;
-                    const rec = item as Record<string, unknown>;
-                    const providerId =
-                        typeof rec.providerId === "string"
-                            ? rec.providerId.trim().toLowerCase()
-                            : "";
-                    const hasKey = rec.hasKey === true;
-                    if (providerId && hasKey) acc[providerId] = true;
-                    return acc;
-                }, {});
+                const next = keys.reduce<Record<string, boolean>>(
+                    (acc, item) => {
+                        if (!item || typeof item !== "object") return acc;
+                        const rec = item as Record<string, unknown>;
+                        const providerId =
+                            typeof rec.providerId === "string"
+                                ? rec.providerId.trim().toLowerCase()
+                                : "";
+                        const hasKey = rec.hasKey === true;
+                        if (providerId && hasKey) acc[providerId] = true;
+                        return acc;
+                    },
+                    {},
+                );
                 setUserKeyStatus(next);
             })
             .catch(() => {
@@ -536,13 +544,16 @@ export const AppSettingsProvider = ({
                     return;
                 }
                 const pref = json.preferences;
-                if (pref.font && FONT_STACKS[pref.font]) setFontState(pref.font);
+                if (pref.font && FONT_STACKS[pref.font])
+                    setFontState(pref.font);
                 if (pref.theme && THEME_CYCLE.includes(pref.theme)) {
                     setThemeState(pref.theme);
                     applyThemeToDocument(pref.theme);
                 }
                 if (typeof pref.analyticsTelemetryEnabled === "boolean") {
-                    setAnalyticsTelemetryEnabledState(pref.analyticsTelemetryEnabled);
+                    setAnalyticsTelemetryEnabledState(
+                        pref.analyticsTelemetryEnabled,
+                    );
                 }
                 if (typeof pref.supportAccessEnabled === "boolean") {
                     setSupportAccessEnabledState(pref.supportAccessEnabled);
@@ -553,7 +564,10 @@ export const AppSettingsProvider = ({
                 if (typeof pref.cryptoPanicApiKey === "string") {
                     setCryptoPanicApiKeyState(pref.cryptoPanicApiKey);
                 }
-                if (pref.providerModels && typeof pref.providerModels === "object") {
+                if (
+                    pref.providerModels &&
+                    typeof pref.providerModels === "object"
+                ) {
                     setProviderModelsState(pref.providerModels);
                 }
                 if (Array.isArray(pref.providers)) {
@@ -569,7 +583,9 @@ export const AppSettingsProvider = ({
                             description: provider.description,
                         }))
                         .filter((provider) => provider.id && provider.name);
-                    setAiProvidersState(mergeWithBuiltInProviders(nextProviders));
+                    setAiProvidersState(
+                        mergeWithBuiltInProviders(nextProviders),
+                    );
                 }
                 if (pref.activeProviderId) {
                     setActiveProviderIdState(pref.activeProviderId);
@@ -698,13 +714,16 @@ export const AppSettingsProvider = ({
                         ...prev,
                         [normalizedProviderId]: true,
                     }));
-                    fetch(`/api/user/ai-keys/${encodeURIComponent(normalizedProviderId)}`, {
-                        method: "PUT",
-                        headers: {
-                            "Content-Type": "application/json",
+                    fetch(
+                        `/api/user/ai-keys/${encodeURIComponent(normalizedProviderId)}`,
+                        {
+                            method: "PUT",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({ apiKey: key }),
                         },
-                        body: JSON.stringify({ apiKey: key }),
-                    }).catch(() => {
+                    ).catch(() => {
                         // no-op: local state is optimistic
                     });
                     return;
@@ -714,9 +733,12 @@ export const AppSettingsProvider = ({
                     delete next[normalizedProviderId];
                     return next;
                 });
-                fetch(`/api/user/ai-keys/${encodeURIComponent(normalizedProviderId)}`, {
-                    method: "DELETE",
-                }).catch(() => {
+                fetch(
+                    `/api/user/ai-keys/${encodeURIComponent(normalizedProviderId)}`,
+                    {
+                        method: "DELETE",
+                    },
+                ).catch(() => {
                     // no-op: local state is optimistic
                 });
             }
@@ -817,7 +839,10 @@ export const AppSettingsProvider = ({
     }, []);
     const setSupportAccessEnabled = useCallback((enabled: boolean) => {
         setSupportAccessEnabledState(enabled);
-        localStorage.setItem("ft-support-access-enabled", enabled ? "true" : "false");
+        localStorage.setItem(
+            "ft-support-access-enabled",
+            enabled ? "true" : "false",
+        );
     }, []);
 
     const getSelectedModel = useCallback(

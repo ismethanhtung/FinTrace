@@ -23,6 +23,9 @@ export default function ConnectionTestPage() {
     const [socket, setSocket] = useState<TestResult>(
         initialResult("WebSocket Binance"),
     );
+    const [sse, setSse] = useState<TestResult>(
+        initialResult("SSE (app /api/health/sse)"),
+    );
 
     const runMongoTest = async () => {
         setMongo({ label: mongo.label, status: "running", detail: "Đang kiểm tra..." });
@@ -124,6 +127,63 @@ export default function ConnectionTestPage() {
         });
     };
 
+    const runSseTest = async () => {
+        setSse({ label: sse.label, status: "running", detail: "Đang mở EventSource..." });
+        const started = performance.now();
+        await new Promise<void>((resolve) => {
+            let done = false;
+            const finish = (next: Omit<TestResult, "label">) => {
+                if (done) return;
+                done = true;
+                setSse({ label: sse.label, ...next });
+                resolve();
+            };
+
+            let messageCount = 0;
+            let es: EventSource;
+            try {
+                es = new EventSource("/api/health/sse");
+            } catch (error) {
+                finish({
+                    status: "error",
+                    detail: error instanceof Error ? error.message : String(error),
+                });
+                return;
+            }
+
+            const timer = window.setTimeout(() => {
+                es.close();
+                finish({
+                    status: "error",
+                    detail: "Timeout: không nhận đủ sự kiện SSE trong 8s",
+                });
+            }, 8000);
+
+            es.onmessage = (ev) => {
+                messageCount += 1;
+                if (messageCount < 2) return;
+                window.clearTimeout(timer);
+                es.close();
+                finish({
+                    status: "ok",
+                    detail: `OK · ${messageCount} events · ${(performance.now() - started).toFixed(0)}ms · last: ${ev.data.slice(0, 80)}`,
+                });
+            };
+
+            es.onerror = () => {
+                window.clearTimeout(timer);
+                es.close();
+                finish({
+                    status: "error",
+                    detail:
+                        messageCount > 0
+                            ? "SSE đứt giữa chừng (proxy/buffering?)"
+                            : "EventSource error (route không stream được)",
+                });
+            };
+        });
+    };
+
     const Card = ({
         result,
         onRun,
@@ -169,11 +229,12 @@ export default function ConnectionTestPage() {
                     <div className="max-w-3xl mx-auto space-y-4">
                         <h1 className="text-[18px] font-semibold">Connection Test</h1>
                         <p className="text-[12px] text-muted">
-                            Test nhanh kết nối MongoDB, API nội bộ và WebSocket.
+                            Test nhanh MongoDB, API nội bộ, WebSocket ra ngoài và SSE nội bộ.
                         </p>
                         <Card result={mongo} onRun={runMongoTest} />
                         <Card result={api} onRun={runApiTest} />
                         <Card result={socket} onRun={runSocketTest} />
+                        <Card result={sse} onRun={runSseTest} />
                     </div>
                 </div>
             </main>

@@ -26,6 +26,7 @@ import { cn } from "../../lib/utils";
 import { useMarket } from "../../context/MarketContext";
 import { useTransactions } from "../../hooks/useTransactions";
 import { useI18n } from "../../context/I18nContext";
+import { TickerBar } from "../../components/TickerBar";
 
 const tradePriceFmt = (v: number) =>
     v < 0.001
@@ -687,6 +688,7 @@ export default function TransactionsPage() {
                     </div>
                 </aside>
             </main>
+            <TickerBar />
         </div>
     );
 }

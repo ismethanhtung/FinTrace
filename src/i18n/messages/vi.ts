@@ -716,6 +716,9 @@ export const viMessages: Messages = {
             buy: "BUY",
             sell: "SELL",
             highlights2m: "Highlight 2m",
+            stockStreamStatus: "Sắp có",
+            stockStreamHint:
+                "Luồng trực tiếp đang có ở vũ trụ Coin. Hãy chuyển vũ trụ để dùng.",
         },
         filters: {
             smartFilters: "Bộ lọc thông minh",
@@ -748,6 +751,9 @@ export const viMessages: Messages = {
             value: "Giá trị",
             source: "Nguồn",
             details: "Chi tiết",
+            stockSoonTitle: "Sắp có",
+            stockSoonHint:
+                "Băng ghi trade trực tiếp chỉ có trên vũ trụ Coin. Chuyển sang Coin để xem luồng.",
         },
         speed: {
             title: "Tốc độ",

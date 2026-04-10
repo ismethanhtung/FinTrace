@@ -718,6 +718,9 @@ export const enMessages = {
             buy: "BUY",
             sell: "SELL",
             highlights2m: "2m Highlights",
+            stockStreamStatus: "Soon",
+            stockStreamHint:
+                "Live stream is available in the Coin universe. Switch universe to use it.",
         },
         filters: {
             smartFilters: "Smart Filters",
@@ -751,6 +754,9 @@ export const enMessages = {
             value: "Value",
             source: "Source",
             details: "Details",
+            stockSoonTitle: "Coming soon",
+            stockSoonHint:
+                "Live tape is available in the Coin universe. Switch to Coin to stream trades.",
         },
         speed: {
             title: "Speed",
