@@ -8,7 +8,6 @@ import {
 } from "../../../../../lib/server/security/rateLimit";
 import { deleteAccountAndData } from "../../../../../lib/server/services/accountSecurityService";
 
-export const runtime = "nodejs";
 
 export async function POST(request: Request) {
     const auth = await getAuthenticatedUser();

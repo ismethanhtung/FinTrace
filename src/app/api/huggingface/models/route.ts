@@ -15,7 +15,6 @@ function extractApiKey(req: Request): string | null {
   return m?.[1]?.trim() ?? null;
 }
 
-export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   let apiKey = extractApiKey(request);

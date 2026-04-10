@@ -14,7 +14,6 @@ import { NextResponse } from "next/server";
 import { getGroqApiKey } from "../../../lib/getGroqKey";
 import { fetchRssFeed, readRssErrorLogFields } from "../../../lib/rss";
 
-export const runtime = "nodejs";
 
 function extractUserGroqKey(request: Request): string | null {
     const headerKey = request.headers.get("x-groq-api-key")?.trim();

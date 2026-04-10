@@ -129,7 +129,7 @@ export async function fetchRssFeed(url: string): Promise<ParsedRssFeed> {
                 method: "GET",
                 headers: {
                     Accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
-                    "User-Agent": "fintrace/1.0 (+cloudflare)",
+                    "User-Agent": "fintrace/1.0 (+fintrace)",
                 },
                 signal: ctrl.signal,
             });

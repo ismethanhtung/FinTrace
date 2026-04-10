@@ -5,7 +5,6 @@ import { getHuggingFaceKey } from '../../../../lib/getHuggingFaceKey';
 import { getAuthenticatedUser } from '../../../../lib/auth/server';
 import { hasUserAiKey } from '../../../../lib/server/repositories/userAiKeysRepo';
 
-export const runtime = 'nodejs';
 
 type KeyStatus = {
   openrouter: boolean;

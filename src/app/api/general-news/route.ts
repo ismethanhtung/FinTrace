@@ -16,7 +16,6 @@ import {
     type ParsedRssFeed,
 } from "../../../lib/rss";
 
-export const runtime = "nodejs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

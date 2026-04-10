@@ -3,7 +3,6 @@ import { ensureUserDataIndexes } from "../../../../lib/db/database";
 import { fail, ok } from "../../../../lib/server/http/apiResponse";
 import { getUserTwoFactor } from "../../../../lib/server/repositories/userTwoFactorRepo";
 
-export const runtime = "nodejs";
 
 export async function GET() {
     const auth = await getAuthenticatedUser();

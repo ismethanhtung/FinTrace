@@ -7,7 +7,6 @@ import {
     upsertUserFavorite,
 } from "../../../../lib/server/repositories/userFavoritesRepo";
 
-export const runtime = "nodejs";
 
 function isUniverse(value: unknown): value is "coin" | "stock" {
     return value === "coin" || value === "stock";

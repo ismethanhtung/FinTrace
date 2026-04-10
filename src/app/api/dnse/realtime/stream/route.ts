@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs";
 
 type JsonRecord = Record<string, unknown>;
 const MAX_SYMBOLS = 300;

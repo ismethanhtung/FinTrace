@@ -49,7 +49,6 @@ function readClientIp(req: { headers: Headers }): string {
 
 function readCountry(req: { headers: Headers }): string | null {
     return (
-        req.headers.get("cf-ipcountry") ||
         req.headers.get("x-vercel-ip-country") ||
         req.headers.get("x-country") ||
         null
@@ -240,4 +239,3 @@ export async function deleteAccountAndData(userId: string): Promise<void> {
         await usersCollection.deleteMany({ _id: new ObjectId(userId) } as never);
     }
 }
-

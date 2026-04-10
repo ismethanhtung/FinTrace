@@ -4,7 +4,7 @@
  * Priority:
  *  1. process.env.HUGGINGFACE_FALLBACK_API_KEY / process.env.HUGGINGFACE_API_KEY / process.env.HF_TOKEN
  *
- * Use Cloudflare secrets/vars in production.
+ * Use environment secrets/vars in production.
  */
 
 function normalizeCandidateKey(raw?: string | null): string | null {
@@ -36,6 +36,6 @@ export async function getHuggingFaceKey(): Promise<string> {
   if (envKey) return envKey;
 
   throw new Error(
-    "HUGGINGFACE_FALLBACK_API_KEY is not set. Configure it in .env for local development or as a Cloudflare secret.",
+    "HUGGINGFACE_FALLBACK_API_KEY is not set. Configure it in .env for local development or as an environment secret.",
   );
 }

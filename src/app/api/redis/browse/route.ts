@@ -6,7 +6,6 @@ import {
     redisConfigured,
 } from "../../../../lib/redis/server";
 
-export const runtime = "nodejs";
 
 const MAX_KEYS_PER_REQUEST = Math.min(
     Math.max(1, Number(process.env.REDIS_BROWSE_PAGE_SIZE) || 250),

@@ -11,7 +11,6 @@ import {
     rateLimit,
 } from "../../../../../lib/server/security/rateLimit";
 
-export const runtime = "nodejs";
 
 type RouteContext = {
     params: Promise<{ provider: string }>;

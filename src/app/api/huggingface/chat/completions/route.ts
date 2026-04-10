@@ -19,7 +19,6 @@ function extractApiKey(req: Request): string | null {
   return m?.[1]?.trim() ?? null;
 }
 
-export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   let body: unknown;

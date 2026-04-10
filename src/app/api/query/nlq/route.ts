@@ -201,7 +201,6 @@ function applyHeuristicScreeningToSpec(args: {
     return next;
 }
 
-export const runtime = "nodejs";
 
 /**
  * POST /api/query/nlq

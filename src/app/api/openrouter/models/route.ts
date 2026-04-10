@@ -15,7 +15,6 @@ function extractApiKeyFromHeaders(req: Request): string | null {
   return m?.[1]?.trim() ? m[1].trim() : null;
 }
 
-export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   try {

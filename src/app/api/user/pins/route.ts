@@ -7,7 +7,6 @@ import {
     upsertUserPin,
 } from "../../../../lib/server/repositories/userPinsRepo";
 
-export const runtime = "nodejs";
 
 function parseCreatePinInput(body: unknown): {
     pinType: string;

@@ -7,7 +7,6 @@ import {
 } from "../../../../lib/server/repositories/userPreferencesRepo";
 import type { UserPreferenceState } from "../../../../lib/server/repositories/types";
 
-export const runtime = "nodejs";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);

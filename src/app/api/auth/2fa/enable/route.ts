@@ -7,7 +7,6 @@ import {
 } from "../../../../../lib/server/repositories/userTwoFactorRepo";
 import { verifyTotpCode } from "../../../../../lib/server/security/twoFactor";
 
-export const runtime = "nodejs";
 
 export async function POST(request: Request) {
     const auth = await getAuthenticatedUser();

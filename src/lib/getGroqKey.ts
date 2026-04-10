@@ -1,6 +1,6 @@
 /**
  * Resolves the Groq API key from environment variables.
- * Use Cloudflare secrets/vars in production.
+ * Use environment secrets/vars in production.
  */
 
 function normalizeCandidateKey(raw?: string | null): string | null {
@@ -26,6 +26,6 @@ export async function getGroqApiKey(): Promise<string> {
   if (envKey) return envKey;
 
   throw new Error(
-    'GROQ_API_KEY is not set. Configure it in .env for local development or as a Cloudflare secret.',
+    'GROQ_API_KEY is not set. Configure it in .env for local development or as an environment secret.',
   );
 }

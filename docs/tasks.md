@@ -3,7 +3,7 @@
 ## Trạng thái hiện tại (2026-04-09)
 
 - [x] T3 - RSS 500 (`/api/news`, `/api/general-news`, `/api/market-news`) đã chuyển sang `fetch` + parser nội bộ + timeout/retry + log field chuẩn.
-- [x] T6 - Endpoint lỗi `[unenv] https.get is not implemented yet` đã xử lý cho nhánh News; route realtime DNSE giữ `runtime = "nodejs"` để tương thích OpenNext build.
+- [x] T6 - Endpoint lỗi `[unenv] https.get is not implemented yet` đã xử lý cho nhánh News.
 - [x] T1 - Fix flash màu sai ở Left Sidebar: fallback đổi sang `amber` khi chưa đủ dữ liệu, không còn mặc định xanh/đỏ; đã thêm unit test `src/lib/stockTone.test.ts`.
 - [x] T4/T5 (một phần) - `useDnseBoardStream` đã thêm batching update 120ms + giảm log debug để giảm re-render/lag ở `/board` và sidebar.
 - [ ] T2 - Cần thêm metric init/reconnect cho OrderBook để triệt loading nhấp nháy.
@@ -61,11 +61,11 @@
 - Mức độ: Critical
 - Hiện trạng: `Failed to load news via RSS` / `News API Error: 500`.
 - Nghi ngờ nguyên nhân:
-    - Route đang dùng API Node (`https.get`) không tương thích runtime Cloudflare.
+    - Route đang dùng API Node (`https.get`) không tương thích runtime environment.
     - Nguồn RSS timeout/blocked.
 - Việc cần làm:
     1. Audit toàn bộ route news dùng Node HTTP API.
-    2. Chuyển sang `fetch` Web API cho runtime Cloudflare.
+    2. Chuyển sang `fetch` Web API cho runtime environment.
     3. Bọc timeout + retry + fallback response hợp lệ.
     4. Thêm logging field: source URL, status, timeout.
 - Done khi:
@@ -125,8 +125,8 @@
 - Việc cần làm:
     1. Quét toàn repo các chỗ dùng `https.get`, `https.request`, `http.*`, `ws`.
     2. Chuyển sang Web-standard API (`fetch`, native `WebSocket`, `crypto.subtle`).
-    3. Xác nhận runtime từng route (`nodejs`/`edge`) tương thích OpenNext + Pages.
-    4. Kiểm tra lại trên production Pages domain.
+    3. Xác nhận runtime từng route tương thích current deployment.
+    4. Kiểm tra lại trên production domain.
 - Done khi:
     - Không còn lỗi unenv trong logs production.
     - Các endpoint realtime/news hoạt động ổn định.
@@ -134,12 +134,12 @@
 ### Tiến độ
 
 - [x] Hoàn tất cho cụm News API.
-- [x] Route SSE DNSE đã đổi sang native `WebSocket` (không dùng package `ws`) và giữ `runtime = "nodejs"` để không vỡ OpenNext build.
+- [x] Route SSE DNSE đã đổi sang native `WebSocket` (không dùng package `ws`).
 - [ ] Cần theo dõi logs production thêm để xác nhận không còn unenv ở endpoint ngoài cụm News.
 
 ## Ghi chú triển khai
 
-- Luôn test bằng domain Pages production sau deploy.
+- Luôn test bằng domain production sau deploy.
 - Theo dõi `Real-time Logs` cho các route: `/api/news`, `/api/market-news`, `/api/dnse/realtime/stream`.
 - Với bug realtime, luôn capture payload SSE `event: error` để debug vòng sau.
 

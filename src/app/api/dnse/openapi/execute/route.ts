@@ -5,7 +5,6 @@ import {
     type DnsePresetOperation,
 } from "../../../../../lib/dnse/openapiCatalog";
 
-export const runtime = "nodejs";
 
 type JsonRecord = Record<string, unknown>;
 

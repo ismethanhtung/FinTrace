@@ -6,7 +6,6 @@ import {
     DNSE_UNDOCUMENTED_SAMPLE_NOTES,
 } from "../../../../../lib/dnse/openapiCatalog";
 
-export const runtime = "nodejs";
 
 export async function GET() {
     return NextResponse.json({

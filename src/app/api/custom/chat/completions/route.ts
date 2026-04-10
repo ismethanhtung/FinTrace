@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { validateCustomBaseUrl } from '../../../../../lib/ai/customProviderUrl';
 import { apiError } from '../../../../../lib/ai/apiError';
 
-export const runtime = 'nodejs';
 
 type Role = 'system' | 'user' | 'assistant';
 type ChatMessage = { role: Role; content: string };

@@ -5,7 +5,6 @@ import { executeQueryV1, type QueryEngineResult } from "../../../../services/que
 import { scanTokenSecurityV1 } from "../../../../services/securityAuditService";
 import { trackWalletV1 } from "../../../../services/walletTrackingService";
 
-export const runtime = "nodejs";
 
 /**
  * POST /api/query/search

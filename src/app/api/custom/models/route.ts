@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { validateCustomBaseUrl } from '../../../../lib/ai/customProviderUrl';
 import { apiError } from '../../../../lib/ai/apiError';
 
-export const runtime = 'nodejs';
 
 function getProviderId(req: Request): string {
   return (req.headers.get('x-ai-provider-id') || 'custom').trim() || 'custom';
