@@ -9,6 +9,8 @@ type UserPreferencesDoc = {
     userId: string;
     font?: string;
     theme?: string;
+    analyticsTelemetryEnabled?: boolean;
+    supportAccessEnabled?: boolean;
     activeProviderId?: string;
     providerModels?: Record<string, string>;
     systemPrompt?: string;
@@ -32,6 +34,8 @@ export async function getUserPreferences(
     return {
         font: (doc.font || "Plus Jakarta Sans") as UserPreferenceState["font"],
         theme: (doc.theme || "light") as UserPreferenceState["theme"],
+        analyticsTelemetryEnabled: doc.analyticsTelemetryEnabled !== false,
+        supportAccessEnabled: doc.supportAccessEnabled === true,
         activeProviderId: doc.activeProviderId || "openrouter",
         providerModels: doc.providerModels || {},
         systemPrompt: doc.systemPrompt || "",
@@ -52,6 +56,8 @@ export async function upsertUserPreferences(
         userId,
         font: input.font,
         theme: input.theme,
+        analyticsTelemetryEnabled: input.analyticsTelemetryEnabled,
+        supportAccessEnabled: input.supportAccessEnabled,
         activeProviderId: input.activeProviderId,
         providerModels: input.providerModels,
         systemPrompt: input.systemPrompt,

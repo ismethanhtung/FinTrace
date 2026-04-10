@@ -15,6 +15,8 @@ export type ProviderPreference = {
 export type UserPreferenceState = {
     font: AppFont;
     theme: AppTheme;
+    analyticsTelemetryEnabled: boolean;
+    supportAccessEnabled: boolean;
     activeProviderId: string;
     providerModels: Record<string, string>;
     systemPrompt: string;

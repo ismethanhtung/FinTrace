@@ -697,6 +697,10 @@ export default function SettingsPage() {
         setFont,
         theme,
         setTheme,
+        analyticsTelemetryEnabled,
+        setAnalyticsTelemetryEnabled,
+        supportAccessEnabled,
+        setSupportAccessEnabled,
         aiProviders,
         setProviderApiKey,
         setProviderEnabled,
@@ -722,6 +726,8 @@ export default function SettingsPage() {
     const [isLoadingModels, setIsLoadingModels] = useState(false);
     const [isRevokingSessions, setIsRevokingSessions] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [isExportingData, setIsExportingData] = useState(false);
+    const [isDeletingData, setIsDeletingData] = useState(false);
     const [sessions, setSessions] = useState<
         Array<{
             sessionTokenHash: string;
@@ -874,6 +880,82 @@ export default function SettingsPage() {
                     : "Failed to delete account",
             );
             setIsDeletingAccount(false);
+        }
+    };
+
+    const handleRequestDataExport = async () => {
+        if (isExportingData) return;
+        setIsExportingData(true);
+        try {
+            const res = await fetch("/api/user/data/export", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+            });
+            const json = (await res.json().catch(() => ({}))) as {
+                error?: string;
+                data?: Record<string, unknown>;
+            };
+            if (!res.ok || !json.data) {
+                throw new Error(json.error || "Failed to export data");
+            }
+            const blob = new Blob([JSON.stringify(json.data, null, 2)], {
+                type: "application/json",
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const ts = new Date().toISOString().replace(/[:.]/g, "-");
+            a.href = url;
+            a.download = `fintrace-data-export-${ts}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            window.alert(
+                error instanceof Error ? error.message : "Failed to export data",
+            );
+        } finally {
+            setIsExportingData(false);
+        }
+    };
+
+    const handleDeleteAllData = async () => {
+        if (isDeletingData) return;
+        const confirmed = window.confirm(
+            "This action permanently deletes all your FinTrace data but keeps your account. Continue?",
+        );
+        if (!confirmed) return;
+        const typed = window.prompt(
+            'Type "DELETE_DATA" to confirm deleting all data:',
+        );
+        if (typed !== "DELETE_DATA") {
+            window.alert("Data deletion cancelled: confirmation did not match.");
+            return;
+        }
+        setIsDeletingData(true);
+        try {
+            const res = await fetch("/api/user/data/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ confirmation: "DELETE_DATA" }),
+            });
+            const json = (await res.json().catch(() => ({}))) as {
+                error?: string;
+                deleted?: Record<string, number>;
+            };
+            if (!res.ok) {
+                throw new Error(json.error || "Failed to delete all data");
+            }
+            window.alert("All user data has been deleted successfully.");
+        } catch (error) {
+            window.alert(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to delete all data",
+            );
+        } finally {
+            setIsDeletingData(false);
         }
     };
 
@@ -1681,14 +1763,24 @@ export default function SettingsPage() {
                         label={t("settingsPage.analyticsTelemetry")}
                         description={t("settingsPage.analyticsTelemetryDesc")}
                     >
-                        <Toggle checked={true} onChange={() => undefined} />
+                        <Toggle
+                            checked={analyticsTelemetryEnabled}
+                            onChange={setAnalyticsTelemetryEnabled}
+                        />
                     </SettingsRow>
                     <SettingsRow
                         label={t("settingsPage.dataExport")}
                         description={t("settingsPage.dataExportDesc")}
                     >
-                        <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors">
-                            {t("settingsPage.requestExport")}
+                        <button
+                            type="button"
+                            onClick={handleRequestDataExport}
+                            disabled={isExportingData}
+                            className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {isExportingData
+                                ? `${t("settingsPage.loading")}...`
+                                : t("settingsPage.requestExport")}
                         </button>
                     </SettingsRow>
                     <SettingsRow
@@ -1696,8 +1788,15 @@ export default function SettingsPage() {
                         description={t("settingsPage.deleteAllDataDesc")}
                         danger
                     >
-                        <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-rose-500/40 text-rose-500 hover:bg-rose-500/10 transition-colors">
-                            {t("settingsPage.deleteData")}
+                        <button
+                            type="button"
+                            onClick={handleDeleteAllData}
+                            disabled={isDeletingData}
+                            className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-rose-500/40 text-rose-500 hover:bg-rose-500/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {isDeletingData
+                                ? `${t("settingsPage.loading")}...`
+                                : t("settingsPage.deleteData")}
                         </button>
                     </SettingsRow>
                 </div>
@@ -1714,7 +1813,10 @@ export default function SettingsPage() {
                             <span className="text-[12px] text-muted">
                                 {t("settingsPage.supportUntil")}
                             </span>
-                            <Toggle checked={true} onChange={() => undefined} />
+                            <Toggle
+                                checked={supportAccessEnabled}
+                                onChange={setSupportAccessEnabled}
+                            />
                         </div>
                     </SettingsRow>
                     <SettingsRow
@@ -1722,7 +1824,7 @@ export default function SettingsPage() {
                         description={t("settingsPage.contactSupportDesc")}
                     >
                         <a
-                            href="mailto:support@fintrace.io"
+                            href="mailto:ismethanhtung@gmail.com"
                             className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors"
                         >
                             <Mail size={13} />

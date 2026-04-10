@@ -26,6 +26,8 @@ function validatePayload(body: unknown): Omit<UserPreferenceState, "updatedAt"> 
             typeof body.theme === "string" && body.theme.length > 0
                 ? (body.theme as UserPreferenceState["theme"])
                 : "light",
+        analyticsTelemetryEnabled: body.analyticsTelemetryEnabled !== false,
+        supportAccessEnabled: body.supportAccessEnabled === true,
         activeProviderId:
             typeof body.activeProviderId === "string" && body.activeProviderId.trim().length > 0
                 ? body.activeProviderId.trim()

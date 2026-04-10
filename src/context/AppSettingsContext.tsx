@@ -259,6 +259,10 @@ interface AppSettingsValue {
     theme: AppTheme;
     setTheme: (t: AppTheme) => void;
     toggleTheme: () => void;
+    analyticsTelemetryEnabled: boolean;
+    setAnalyticsTelemetryEnabled: (enabled: boolean) => void;
+    supportAccessEnabled: boolean;
+    setSupportAccessEnabled: (enabled: boolean) => void;
 
     // AI Providers (multi-provider)
     aiProviders: AIProviderConfig[];
@@ -303,6 +307,9 @@ export const AppSettingsProvider = ({
     const isAuthenticated = authStatus === "authenticated";
     const [font, setFontState] = useState<AppFont>("Plus Jakarta Sans");
     const [theme, setThemeState] = useState<AppTheme>(initialTheme);
+    const [analyticsTelemetryEnabled, setAnalyticsTelemetryEnabledState] =
+        useState(true);
+    const [supportAccessEnabled, setSupportAccessEnabledState] = useState(false);
     const [aiProviders, setAiProvidersState] = useState<AIProviderConfig[]>(
         buildDefaultProviders,
     );
@@ -333,6 +340,10 @@ export const AppSettingsProvider = ({
         const savedFont = localStorage.getItem("ft-font") as AppFont | null;
         const savedThemeRaw = localStorage.getItem(THEME_STORAGE_KEY);
         const savedCPKey = localStorage.getItem("ft-cryptopanic-key");
+        const savedAnalyticsTelemetry = localStorage.getItem(
+            "ft-analytics-telemetry-enabled",
+        );
+        const savedSupportAccess = localStorage.getItem("ft-support-access-enabled");
         const savedModel = localStorage.getItem("ft-model");
         const savedPrompt = localStorage.getItem("ft-system-prompt");
         const savedProviders = loadProviders();
@@ -364,6 +375,12 @@ export const AppSettingsProvider = ({
             persistClientPreferenceCookie(THEME_COOKIE_KEY, initialTheme);
         }
         if (savedCPKey) setCryptoPanicApiKeyState(savedCPKey);
+        if (savedAnalyticsTelemetry !== null) {
+            setAnalyticsTelemetryEnabledState(savedAnalyticsTelemetry !== "false");
+        }
+        if (savedSupportAccess !== null) {
+            setSupportAccessEnabledState(savedSupportAccess === "true");
+        }
         if (savedPrompt) setSystemPromptState(savedPrompt);
         setAiProvidersState(mergeWithBuiltInProviders(savedProviders));
         if (savedActiveProvider) setActiveProviderIdState(savedActiveProvider);
@@ -502,6 +519,8 @@ export const AppSettingsProvider = ({
                         font?: AppFont;
                         theme?: AppTheme;
                         activeProviderId?: AIProviderId;
+                        analyticsTelemetryEnabled?: boolean;
+                        supportAccessEnabled?: boolean;
                         providerModels?: Record<string, string>;
                         systemPrompt?: string;
                         cryptoPanicApiKey?: string;
@@ -521,6 +540,12 @@ export const AppSettingsProvider = ({
                 if (pref.theme && THEME_CYCLE.includes(pref.theme)) {
                     setThemeState(pref.theme);
                     applyThemeToDocument(pref.theme);
+                }
+                if (typeof pref.analyticsTelemetryEnabled === "boolean") {
+                    setAnalyticsTelemetryEnabledState(pref.analyticsTelemetryEnabled);
+                }
+                if (typeof pref.supportAccessEnabled === "boolean") {
+                    setSupportAccessEnabledState(pref.supportAccessEnabled);
                 }
                 if (typeof pref.systemPrompt === "string") {
                     setSystemPromptState(pref.systemPrompt);
@@ -574,6 +599,8 @@ export const AppSettingsProvider = ({
                 font,
                 theme,
                 activeProviderId,
+                analyticsTelemetryEnabled,
+                supportAccessEnabled,
                 providerModels,
                 systemPrompt,
                 cryptoPanicApiKey,
@@ -600,6 +627,8 @@ export const AppSettingsProvider = ({
         return () => window.clearTimeout(timer);
     }, [
         activeProviderId,
+        analyticsTelemetryEnabled,
+        supportAccessEnabled,
         aiProviders,
         cryptoPanicApiKey,
         font,
@@ -779,6 +808,17 @@ export const AppSettingsProvider = ({
         setCryptoPanicApiKeyState(key);
         localStorage.setItem("ft-cryptopanic-key", key);
     }, []);
+    const setAnalyticsTelemetryEnabled = useCallback((enabled: boolean) => {
+        setAnalyticsTelemetryEnabledState(enabled);
+        localStorage.setItem(
+            "ft-analytics-telemetry-enabled",
+            enabled ? "true" : "false",
+        );
+    }, []);
+    const setSupportAccessEnabled = useCallback((enabled: boolean) => {
+        setSupportAccessEnabledState(enabled);
+        localStorage.setItem("ft-support-access-enabled", enabled ? "true" : "false");
+    }, []);
 
     const getSelectedModel = useCallback(
         (providerId: AIProviderId) => {
@@ -852,6 +892,10 @@ export const AppSettingsProvider = ({
                 theme,
                 setTheme,
                 toggleTheme,
+                analyticsTelemetryEnabled,
+                setAnalyticsTelemetryEnabled,
+                supportAccessEnabled,
+                setSupportAccessEnabled,
                 aiProviders,
                 setProviderApiKey,
                 setProviderEnabled,
