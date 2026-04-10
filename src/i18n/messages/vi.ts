@@ -74,7 +74,7 @@ export const viMessages: Messages = {
         security: "Bảo mật",
         dataPrivacy: "Dữ liệu & quyền riêng tư",
         supportAccess: "Hỗ trợ truy cập",
-        footer: "FinTrace v1.0 · Cài đặt",
+        footer: "FinTrace v1.2 · Cài đặt",
     },
     settingsPage: {
         settings: "Cài đặt",

@@ -271,6 +271,7 @@ interface AppSettingsValue {
     activeProvider: AIProviderConfig | undefined;
     availableProviders: AIProviderConfig[];
     serverKeyStatus: Record<string, boolean>;
+    userKeyStatus: Record<string, boolean>;
 
     // Legacy shim – keeps backward compatibility with existing code
     openrouterApiKey: string;
@@ -310,6 +311,9 @@ export const AppSettingsProvider = ({
     const [serverKeyStatus, setServerKeyStatus] = useState<
         Record<string, boolean>
     >({});
+    const [userKeyStatus, setUserKeyStatus] = useState<Record<string, boolean>>(
+        {},
+    );
     const [hasLoadedServerKeyStatus, setHasLoadedServerKeyStatus] =
         useState(false);
     const [cryptoPanicApiKey, setCryptoPanicApiKeyState] = useState("");
@@ -421,6 +425,45 @@ export const AppSettingsProvider = ({
             mounted = false;
         };
     }, [authStatus]);
+
+    useEffect(() => {
+        let mounted = true;
+        if (!isAuthenticated) {
+            setUserKeyStatus({});
+            return () => {
+                mounted = false;
+            };
+        }
+        fetch("/api/user/ai-keys", { cache: "no-store" })
+            .then((res) => {
+                if (!res.ok) return null;
+                return res.json();
+            })
+            .then((json: unknown) => {
+                if (!mounted || !json || typeof json !== "object") return;
+                const keys = (json as { keys?: unknown[] }).keys;
+                if (!Array.isArray(keys)) return;
+                const next = keys.reduce<Record<string, boolean>>((acc, item) => {
+                    if (!item || typeof item !== "object") return acc;
+                    const rec = item as Record<string, unknown>;
+                    const providerId =
+                        typeof rec.providerId === "string"
+                            ? rec.providerId.trim().toLowerCase()
+                            : "";
+                    const hasKey = rec.hasKey === true;
+                    if (providerId && hasKey) acc[providerId] = true;
+                    return acc;
+                }, {});
+                setUserKeyStatus(next);
+            })
+            .catch(() => {
+                if (!mounted) return;
+                setUserKeyStatus({});
+            });
+        return () => {
+            mounted = false;
+        };
+    }, [isAuthenticated]);
 
     const persistProviders = useCallback(
         (providers: AIProviderConfig[], options?: PersistProviderOptions) => {
@@ -572,7 +615,8 @@ export const AppSettingsProvider = ({
             const provider = aiProviders.find((item) => item.id === providerId);
             if (!provider) return false;
             const hasUserKey = Boolean(provider.apiKey?.trim());
-            if (hasUserKey) {
+            const hasPersistedUserKey = Boolean(userKeyStatus[providerId]);
+            if (hasUserKey || hasPersistedUserKey) {
                 // Custom providers bắt buộc phải có baseUrl để routing đúng proxy server.
                 if (!isBuiltInProviderId(provider.id)) {
                     return Boolean(provider.baseUrl?.trim());
@@ -583,7 +627,7 @@ export const AppSettingsProvider = ({
                 return Boolean(serverKeyStatus[providerId]);
             return false;
         },
-        [aiProviders, serverKeyStatus],
+        [aiProviders, serverKeyStatus, userKeyStatus],
     );
 
     const setFont = useCallback((f: AppFont) => {
@@ -621,6 +665,10 @@ export const AppSettingsProvider = ({
             if (isAuthenticated) {
                 const normalizedProviderId = providerId.trim().toLowerCase();
                 if (key.trim().length > 0) {
+                    setUserKeyStatus((prev) => ({
+                        ...prev,
+                        [normalizedProviderId]: true,
+                    }));
                     fetch(`/api/user/ai-keys/${encodeURIComponent(normalizedProviderId)}`, {
                         method: "PUT",
                         headers: {
@@ -632,6 +680,11 @@ export const AppSettingsProvider = ({
                     });
                     return;
                 }
+                setUserKeyStatus((prev) => {
+                    const next = { ...prev };
+                    delete next[normalizedProviderId];
+                    return next;
+                });
                 fetch(`/api/user/ai-keys/${encodeURIComponent(normalizedProviderId)}`, {
                     method: "DELETE",
                 }).catch(() => {
@@ -809,6 +862,7 @@ export const AppSettingsProvider = ({
                 activeProvider,
                 availableProviders,
                 serverKeyStatus,
+                userKeyStatus,
                 openrouterApiKey,
                 setOpenrouterApiKey,
                 cryptoPanicApiKey,

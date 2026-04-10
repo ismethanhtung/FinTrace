@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
     User,
     Bell,
@@ -89,6 +90,7 @@ function SettingsSidebar({
     onSelect: (id: string) => void;
 }) {
     const { t } = useI18n();
+    const { data: session } = useSession();
 
     return (
         <aside className="w-[260px] shrink-0 border-r border-main bg-secondary/60 flex flex-col min-h-screen">
@@ -118,17 +120,27 @@ function SettingsSidebar({
             </div>
 
             {/* User card */}
-            <div className="px-4 py-4 border-b border-main">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-main border border-main">
-                    <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
-                        <User size={16} className="text-accent" />
+            <div className=" border-b border-main">
+                <div className="flex items-center gap-3 p-3 bg-main">
+                    <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0 overflow-hidden">
+                        {session?.user?.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={session.user.image}
+                                alt={session.user.name || "User"}
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                            />
+                        ) : (
+                            <User size={16} className="text-accent" />
+                        )}
                     </div>
                     <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-semibold truncate">
-                            Nguyen Thanh Tung
+                            {session?.user?.name || t("auth.signIn")}
                         </p>
                         <p className="text-[11px] text-muted truncate">
-                            ismethanhtung@gmail.com
+                            {session?.user?.email || ""}
                         </p>
                     </div>
                     <ChevronRight size={13} className="text-muted shrink-0" />
@@ -194,6 +206,7 @@ export default function SettingsLayout({
     pageTitle?: string;
     pageDescription?: string;
 }) {
+    const { data: session } = useSession();
     return (
         <div className="min-h-screen flex bg-main text-main">
             <SettingsSidebar
@@ -223,7 +236,7 @@ export default function SettingsLayout({
                             strokeWidth={1.5}
                         />
                         <span className="text-[12px] text-muted">
-                            fintrace.io
+                            {session?.user?.email?.split("@")[1] || "fintrace.local"}
                         </span>
                     </div>
                 </header>

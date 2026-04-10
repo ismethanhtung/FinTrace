@@ -13,10 +13,12 @@ import {
     History,
     Bell,
     ChevronDown,
+    LayoutGrid,
     AlertTriangle,
     Waves,
-    LayoutGrid,
+    LogIn,
 } from "lucide-react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../context/I18nContext";
@@ -25,6 +27,11 @@ import { type TranslationKey } from "../i18n/translate";
 export const UserMenu = () => {
     const [isOpen, setIsOpen] = useState(false);
     const { t } = useI18n();
+    const { status, data } = useSession();
+    const isAuthenticated = status === "authenticated";
+    const displayName = data?.user?.name?.trim() || "User";
+    const displayEmail = data?.user?.email?.trim() || "";
+    const avatarUrl = data?.user?.image?.trim() || "";
 
     const menuItems = [
         {
@@ -108,11 +115,22 @@ export const UserMenu = () => {
         <div className="relative">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center space-x-2 p-1 rounded-md hover:bg-secondary transition-colors"
+                className="flex items-center gap-2 p-1 rounded-md hover:bg-secondary transition-colors border border-transparent hover:border-main"
             >
                 <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
-                    <User size={16} className="text-muted" />
+                    {avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                            src={avatarUrl}
+                            alt={displayName}
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                        />
+                    ) : (
+                        <User size={16} className="text-muted" />
+                    )}
                 </div>
+
                 <ChevronDown
                     size={12}
                     className={cn(
@@ -136,12 +154,45 @@ export const UserMenu = () => {
                             transition={{ duration: 0.14, ease: "easeOut" }}
                             className="absolute right-0 mt-2 w-56 bg-main border border-main rounded-lg shadow-xl z-50 overflow-hidden"
                         >
-                            <div className="p-3 border-b border-main">
-                                <div className="text-[13px] font-semibold">
-                                    Nguyen Thanh Tung
+                            <div
+                                className={cn(
+                                    "p-3 border-b border-main flex items-center gap-2.5",
+                                    !isAuthenticated && "cursor-pointer",
+                                )}
+                                onClick={() => {
+                                    if (!isAuthenticated) {
+                                        setIsOpen(false);
+                                        signIn("google");
+                                    }
+                                }}
+                            >
+                                <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0">
+                                    {avatarUrl ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                            src={avatarUrl}
+                                            alt={displayName}
+                                            className="w-full h-full object-cover"
+                                            referrerPolicy="no-referrer"
+                                        />
+                                    ) : (
+                                        <User
+                                            size={16}
+                                            className="text-muted"
+                                        />
+                                    )}
                                 </div>
-                                <div className="text-[11px] text-muted">
-                                    ismethanhtung@gmail.com
+                                <div className="min-w-0">
+                                    <div className="text-[13px] font-semibold truncate">
+                                        {isAuthenticated
+                                            ? displayName
+                                            : t("auth.signIn")}
+                                    </div>
+                                    {isAuthenticated && displayEmail && (
+                                        <div className="text-[11px] text-muted truncate">
+                                            {displayEmail}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -170,15 +221,41 @@ export const UserMenu = () => {
                                 ))}
                             </div>
 
-                            <div className="p-1 border-t border-main bg-secondary/50">
-                                <button className="w-full flex items-center px-3 py-2 text-[12px] text-rose-500 hover:bg-rose-500/10 rounded-md transition-colors">
-                                    <LogOut
-                                        size={14}
-                                        className="mr-2.5"
-                                        strokeWidth={1.5}
-                                    />
-                                    {t("common.signOut")}
-                                </button>
+                            <div className="p-1 border-t border-main bg-secondary/50 space-y-1">
+                                {!isAuthenticated && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsOpen(false);
+                                            signIn("google");
+                                        }}
+                                        className="w-full flex items-center px-3 py-2 text-[12px] text-main hover:bg-secondary rounded-md transition-colors cursor-pointer"
+                                    >
+                                        <LogIn
+                                            size={14}
+                                            className="mr-2.5"
+                                            strokeWidth={1.5}
+                                        />
+                                        {t("auth.signIn")}
+                                    </button>
+                                )}
+                                {isAuthenticated && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsOpen(false);
+                                            signOut({ callbackUrl: "/" });
+                                        }}
+                                        className="w-full flex items-center px-3 py-2 text-[12px] text-rose-500 hover:bg-rose-500/10 rounded-md transition-colors"
+                                    >
+                                        <LogOut
+                                            size={14}
+                                            className="mr-2.5"
+                                            strokeWidth={1.5}
+                                        />
+                                        {t("common.signOut")}
+                                    </button>
+                                )}
                             </div>
                         </motion.div>
                     </>

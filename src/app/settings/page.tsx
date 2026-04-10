@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import SettingsLayout from "../../components/SettingsLayout";
 import {
     Globe,
@@ -133,13 +134,25 @@ const SettingsRow = ({
     vertical?: boolean;
     danger?: boolean;
 }) => (
-    <div className={cn("py-5", vertical ? "space-y-3" : "flex items-start justify-between gap-8")}>
+    <div
+        className={cn(
+            "py-5",
+            vertical ? "space-y-3" : "flex items-start justify-between gap-8",
+        )}
+    >
         <div className="min-w-0 flex-1">
-            <p className={cn("text-[14px] font-medium", danger ? "text-rose-500" : "text-main")}>
+            <p
+                className={cn(
+                    "text-[14px] font-medium",
+                    danger ? "text-rose-500" : "text-main",
+                )}
+            >
                 {label}
             </p>
             {description && (
-                <p className="text-[12px] text-muted mt-0.5 leading-relaxed">{description}</p>
+                <p className="text-[12px] text-muted mt-0.5 leading-relaxed">
+                    {description}
+                </p>
             )}
         </div>
         {vertical ? (
@@ -345,7 +358,7 @@ const ProviderCard = ({
 
             {/* Expanded key input */}
             {expanded && (
-                <div className="px-4 pb-4 space-y-3 border-t border-main/50 pt-4">
+                <div className="px-4 pb-4 space-y-3 border-t border-main pt-4">
                     <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-muted uppercase tracking-wider">
                             {t("settingsPage.apiKey")}
@@ -573,6 +586,7 @@ export default function SettingsPage() {
         activeProviderId,
         activeProvider,
         serverKeyStatus,
+        userKeyStatus,
         cryptoPanicApiKey,
         setCryptoPanicApiKey,
         getSelectedModel,
@@ -580,6 +594,7 @@ export default function SettingsPage() {
         systemPrompt,
         setSystemPrompt,
     } = useAppSettings();
+    const { data: session } = useSession();
 
     const [activeSection, setActiveSection] = useState("profile");
     const [modelProviderId, setModelProviderId] =
@@ -589,8 +604,11 @@ export default function SettingsPage() {
     const modelProvider =
         aiProviders.find((provider) => provider.id === modelProviderId) ??
         activeProvider;
-    const modelSelectionValue = getSelectedModel(modelProvider?.id ?? activeProviderId);
-    const modelKeySource = modelProvider?.apiKey?.trim()
+    const modelSelectionValue = getSelectedModel(
+        modelProvider?.id ?? activeProviderId,
+    );
+    const modelKeySource =
+        modelProvider && (modelProvider.apiKey?.trim() || userKeyStatus[modelProvider.id])
         ? "user"
         : modelProvider
           ? serverKeyStatus[modelProvider.id]
@@ -610,7 +628,11 @@ export default function SettingsPage() {
 
         setIsLoadingModels(true);
         aiProviderService
-            .getModels(modelProvider.id, modelProvider.apiKey, modelProvider.baseUrl)
+            .getModels(
+                modelProvider.id,
+                modelProvider.apiKey,
+                modelProvider.baseUrl,
+            )
             .then((list) => {
                 const effective =
                     list.length > 0
@@ -639,58 +661,55 @@ export default function SettingsPage() {
                 }
             })
             .finally(() => setIsLoadingModels(false));
-    }, [
-        modelProvider,
-        modelProviderId,
-        modelSelectionValue,
-        setSelectedModel,
-    ]);
+    }, [modelProvider, modelProviderId, modelSelectionValue, setSelectedModel]);
 
     const builtInIds = new Set(BUILT_IN_PROVIDERS.map((p) => p.id));
     const availableProviderCount = aiProviders.filter(
         (provider) =>
-            Boolean(provider.apiKey?.trim()) || Boolean(serverKeyStatus[provider.id]),
+            Boolean(provider.apiKey?.trim()) ||
+            Boolean(serverKeyStatus[provider.id]),
     ).length;
     const modelProviderOptions = aiProviders;
 
-    const sectionMeta: Record<string, { title: string; description: string }> = {
-        profile: {
-            title: t("settingsPage.sectionProfileTitle"),
-            description: t("settingsPage.sectionProfileDesc"),
-        },
-        ai: {
-            title: t("settingsPage.sectionAiTitle"),
-            description: t("settingsPage.sectionAiDesc"),
-        },
-        ui: {
-            title: t("settingsPage.sectionTypographyTitle"),
-            description: t("settingsPage.sectionTypographyDesc"),
-        },
-        appearance: {
-            title: t("settingsPage.sectionAppearanceTitle"),
-            description: t("settingsPage.sectionAppearanceDesc"),
-        },
-        notif: {
-            title: t("settingsPage.sectionNotificationsTitle"),
-            description: t("settingsPage.sectionNotificationsDesc"),
-        },
-        integrations: {
-            title: t("settingsPage.sectionIntegrationsTitle"),
-            description: t("settingsPage.sectionIntegrationsDesc"),
-        },
-        security: {
-            title: t("settingsPage.sectionSecurityTitle"),
-            description: t("settingsPage.sectionSecurityDesc"),
-        },
-        data: {
-            title: t("settingsPage.sectionDataTitle"),
-            description: t("settingsPage.sectionDataDesc"),
-        },
-        support: {
-            title: t("settingsPage.sectionSupportTitle"),
-            description: t("settingsPage.sectionSupportDesc"),
-        },
-    };
+    const sectionMeta: Record<string, { title: string; description: string }> =
+        {
+            profile: {
+                title: t("settingsPage.sectionProfileTitle"),
+                description: t("settingsPage.sectionProfileDesc"),
+            },
+            ai: {
+                title: t("settingsPage.sectionAiTitle"),
+                description: t("settingsPage.sectionAiDesc"),
+            },
+            ui: {
+                title: t("settingsPage.sectionTypographyTitle"),
+                description: t("settingsPage.sectionTypographyDesc"),
+            },
+            appearance: {
+                title: t("settingsPage.sectionAppearanceTitle"),
+                description: t("settingsPage.sectionAppearanceDesc"),
+            },
+            notif: {
+                title: t("settingsPage.sectionNotificationsTitle"),
+                description: t("settingsPage.sectionNotificationsDesc"),
+            },
+            integrations: {
+                title: t("settingsPage.sectionIntegrationsTitle"),
+                description: t("settingsPage.sectionIntegrationsDesc"),
+            },
+            security: {
+                title: t("settingsPage.sectionSecurityTitle"),
+                description: t("settingsPage.sectionSecurityDesc"),
+            },
+            data: {
+                title: t("settingsPage.sectionDataTitle"),
+                description: t("settingsPage.sectionDataDesc"),
+            },
+            support: {
+                title: t("settingsPage.sectionSupportTitle"),
+                description: t("settingsPage.sectionSupportDesc"),
+            },
+        };
 
     const current = sectionMeta[activeSection] ?? {
         title: t("settingsPage.settings"),
@@ -713,16 +732,23 @@ export default function SettingsPage() {
                         description={t("settingsPage.profilePhotoDesc")}
                     >
                         <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center shrink-0">
-                                <User size={22} className="text-accent" />
+                            <div className="w-14 h-14 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center shrink-0 overflow-hidden">
+                                {session?.user?.image ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                        src={session.user.image}
+                                        alt={session.user.name || "User"}
+                                        className="w-full h-full object-cover"
+                                        referrerPolicy="no-referrer"
+                                    />
+                                ) : (
+                                    <User size={22} className="text-accent" />
+                                )}
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <button className="px-3 py-1.5 text-[12px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors">
-                                    {t("settingsPage.changePhoto")}
-                                </button>
-                                <button className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors">
-                                    {t("settingsPage.remove")}
-                                </button>
+                                <p className="text-[12px] text-muted">
+                                    {session?.user?.name || "Not signed in"}
+                                </p>
                             </div>
                         </div>
                     </SettingsRow>
@@ -735,11 +761,11 @@ export default function SettingsPage() {
                         <div className="grid grid-cols-2 gap-3">
                             <FieldInput
                                 placeholder={t("settingsPage.firstName")}
-                                defaultValue="Brian"
+                                defaultValue={session?.user?.name?.split(" ").slice(0, -1).join(" ") || ""}
                             />
                             <FieldInput
                                 placeholder={t("settingsPage.lastName")}
-                                defaultValue="Frederin"
+                                defaultValue={session?.user?.name?.split(" ").slice(-1).join(" ") || ""}
                             />
                         </div>
                     </SettingsRow>
@@ -750,7 +776,11 @@ export default function SettingsPage() {
                         description={t("settingsPage.emailAddressDesc")}
                     >
                         <div className="flex gap-2">
-                            <FieldInput type="email" defaultValue="brian@fintrace.io" className="flex-1" />
+                            <FieldInput
+                                type="email"
+                                defaultValue={session?.user?.email || ""}
+                                className="flex-1"
+                            />
                             <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors whitespace-nowrap">
                                 {t("settingsPage.changeEmail")}
                             </button>
@@ -762,7 +792,9 @@ export default function SettingsPage() {
                         label={t("settingsPage.username")}
                         description={t("settingsPage.usernameDesc")}
                     >
-                        <FieldInput defaultValue="brian_fintrace" />
+                        <FieldInput
+                            defaultValue={session?.user?.email?.split("@")[0] || ""}
+                        />
                     </SettingsRow>
 
                     {/* Timezone */}
@@ -865,15 +897,21 @@ export default function SettingsPage() {
                                     provider={provider}
                                     isBuiltIn={builtInIds.has(provider.id)}
                                     keySource={
-                                        provider.apiKey?.trim()
+                                        provider.apiKey?.trim() || userKeyStatus[provider.id]
                                             ? "user"
                                             : serverKeyStatus[provider.id]
                                               ? "platform"
                                               : "none"
                                     }
-                                    onKeyChange={(key) => setProviderApiKey(provider.id, key)}
-                                    onToggle={(enabled) => setProviderEnabled(provider.id, enabled)}
-                                    onRemove={() => removeCustomProvider(provider.id)}
+                                    onKeyChange={(key) =>
+                                        setProviderApiKey(provider.id, key)
+                                    }
+                                    onToggle={(enabled) =>
+                                        setProviderEnabled(provider.id, enabled)
+                                    }
+                                    onRemove={() =>
+                                        removeCustomProvider(provider.id)
+                                    }
                                 />
                             ))}
                             <AddProviderForm onAdd={addCustomProvider} />
@@ -906,18 +944,28 @@ export default function SettingsPage() {
                                     <select
                                         value={modelProviderId}
                                         onChange={(e) =>
-                                            setModelProviderId(e.target.value as AIProviderId)
+                                            setModelProviderId(
+                                                e.target.value as AIProviderId,
+                                            )
                                         }
                                         className="w-full bg-secondary border border-main rounded-lg py-2.5 pl-4 pr-10 text-[13px] focus:outline-none focus:ring-1 focus:ring-accent/30 appearance-none"
                                     >
-                                        {modelProviderOptions.map((provider) => (
-                                            <option key={provider.id} value={provider.id}>
-                                                {provider.name}
-                                            </option>
-                                        ))}
+                                        {modelProviderOptions.map(
+                                            (provider) => (
+                                                <option
+                                                    key={provider.id}
+                                                    value={provider.id}
+                                                >
+                                                    {provider.name}
+                                                </option>
+                                            ),
+                                        )}
                                     </select>
                                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                                        <ChevronDown size={13} className="text-muted" />
+                                        <ChevronDown
+                                            size={13}
+                                            className="text-muted"
+                                        />
                                     </div>
                                 </div>
 
@@ -927,7 +975,8 @@ export default function SettingsPage() {
                                         onChange={(e) =>
                                             setSelectedModel(
                                                 e.target.value,
-                                                modelProvider?.id ?? activeProviderId,
+                                                modelProvider?.id ??
+                                                    activeProviderId,
                                             )
                                         }
                                         disabled={isLoadingModels}
@@ -947,9 +996,13 @@ export default function SettingsPage() {
                                         )}
                                         {models.length > 0 &&
                                             !models.find(
-                                                (m) => m.id === modelSelectionValue,
+                                                (m) =>
+                                                    m.id ===
+                                                    modelSelectionValue,
                                             ) && (
-                                                <option value={modelSelectionValue}>
+                                                <option
+                                                    value={modelSelectionValue}
+                                                >
                                                     {modelSelectionValue}
                                                 </option>
                                             )}
@@ -958,7 +1011,10 @@ export default function SettingsPage() {
                                         {isLoadingModels ? (
                                             <span className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                                         ) : (
-                                            <Sparkles size={13} className="text-muted" />
+                                            <Sparkles
+                                                size={13}
+                                                className="text-muted"
+                                            />
                                         )}
                                     </div>
                                 </div>
@@ -967,7 +1023,9 @@ export default function SettingsPage() {
                                     {modelKeySource === "user"
                                         ? t("settingsPage.modelListPersonalKey")
                                         : modelKeySource === "platform"
-                                          ? t("settingsPage.modelListPlatformKey")
+                                          ? t(
+                                                "settingsPage.modelListPlatformKey",
+                                            )
                                           : t("settingsPage.modelListNoKey")}
                                 </p>
                             </div>
@@ -979,7 +1037,11 @@ export default function SettingsPage() {
                                 <>
                                     {t("settingsPage.systemPromptDesc")}{" "}
                                     <button
-                                        onClick={() => setSystemPrompt(DEFAULT_SYSTEM_PROMPT)}
+                                        onClick={() =>
+                                            setSystemPrompt(
+                                                DEFAULT_SYSTEM_PROMPT,
+                                            )
+                                        }
                                         className="text-accent hover:underline"
                                     >
                                         {t("settingsPage.resetToDefault")}
@@ -991,7 +1053,9 @@ export default function SettingsPage() {
                             <textarea
                                 rows={10}
                                 value={systemPrompt}
-                                onChange={(e) => setSystemPrompt(e.target.value)}
+                                onChange={(e) =>
+                                    setSystemPrompt(e.target.value)
+                                }
                                 className="w-full bg-secondary border border-main rounded-lg py-3 px-4 text-[13px] font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-accent/30 resize-y"
                             />
                             <p className="text-[11px] text-muted mt-1.5">
@@ -1028,7 +1092,9 @@ export default function SettingsPage() {
                     >
                         <ApiKeyInput
                             value={cryptoPanicApiKey}
-                            placeholder={t("settingsPage.cryptoPanicPlaceholder")}
+                            placeholder={t(
+                                "settingsPage.cryptoPanicPlaceholder",
+                            )}
                             onChange={setCryptoPanicApiKey}
                         />
                     </SettingsRow>
@@ -1071,19 +1137,25 @@ export default function SettingsPage() {
                                 <div className="flex-1 min-w-0">
                                     <p
                                         className="text-[15px] font-semibold mb-0.5"
-                                        style={{ fontFamily: FONT_STACKS[value] }}
+                                        style={{
+                                            fontFamily: FONT_STACKS[value],
+                                        }}
                                     >
                                         {value}
                                     </p>
                                     <p
                                         className="text-[12px] text-muted"
-                                        style={{ fontFamily: FONT_STACKS[value] }}
+                                        style={{
+                                            fontFamily: FONT_STACKS[value],
+                                        }}
                                     >
                                         {fontDescription}
                                     </p>
                                     <p
                                         className="text-[11px] text-muted/70 mt-1 tracking-wide"
-                                        style={{ fontFamily: FONT_STACKS[value] }}
+                                        style={{
+                                            fontFamily: FONT_STACKS[value],
+                                        }}
                                     >
                                         ABCDEFGHIJKLMNOPQRSTUVWXYZ · 0123456789
                                     </p>
@@ -1096,7 +1168,13 @@ export default function SettingsPage() {
                                             : "border-main",
                                     )}
                                 >
-                                    {isActive && <Check size={11} strokeWidth={3} className="text-white" />}
+                                    {isActive && (
+                                        <Check
+                                            size={11}
+                                            strokeWidth={3}
+                                            className="text-white"
+                                        />
+                                    )}
                                 </div>
                             </button>
                         );
@@ -1108,7 +1186,7 @@ export default function SettingsPage() {
             {activeSection === "appearance" && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {THEME_OPTIONS.map((themeOption) => {
+                        {THEME_OPTIONS.map((themeOption) => {
                             const isActive = theme === themeOption.value;
                             const themeLabel =
                                 themeOption.value === "light"
@@ -1136,24 +1214,59 @@ export default function SettingsPage() {
                                     {/* Swatch */}
                                     <div
                                         className="h-24 p-3.5 flex flex-col justify-between"
-                                        style={{ backgroundColor: themeOption.bg }}
+                                        style={{
+                                            backgroundColor: themeOption.bg,
+                                        }}
                                     >
                                         {/* Simulated sidebar + content */}
                                         <div className="flex gap-1.5">
                                             <div className="flex flex-col gap-1 w-5 shrink-0">
                                                 {[14, 10, 12].map((w, i) => (
-                                                    <div key={i} className="h-1 rounded-full" style={{ backgroundColor: themeOption.border, width: w }} />
+                                                    <div
+                                                        key={i}
+                                                        className="h-1 rounded-full"
+                                                        style={{
+                                                            backgroundColor:
+                                                                themeOption.border,
+                                                            width: w,
+                                                        }}
+                                                    />
                                                 ))}
                                             </div>
                                             <div className="flex-1 flex flex-col gap-1">
-                                                <div className="h-1 rounded-full w-full" style={{ backgroundColor: themeOption.secondaryBg }} />
-                                                <div className="h-1 rounded-full" style={{ backgroundColor: "#007AFF", width: "40%" }} />
+                                                <div
+                                                    className="h-1 rounded-full w-full"
+                                                    style={{
+                                                        backgroundColor:
+                                                            themeOption.secondaryBg,
+                                                    }}
+                                                />
+                                                <div
+                                                    className="h-1 rounded-full"
+                                                    style={{
+                                                        backgroundColor:
+                                                            "#007AFF",
+                                                        width: "40%",
+                                                    }}
+                                                />
                                                 <div className="flex gap-1">
-                                                    <div className="h-1 rounded-full flex-1" style={{ backgroundColor: themeOption.secondaryBg }} />
+                                                    <div
+                                                        className="h-1 rounded-full flex-1"
+                                                        style={{
+                                                            backgroundColor:
+                                                                themeOption.secondaryBg,
+                                                        }}
+                                                    />
                                                     <div className="h-1 w-4 rounded-full bg-emerald-500/80" />
                                                 </div>
                                                 <div className="flex gap-1">
-                                                    <div className="h-1 rounded-full flex-1" style={{ backgroundColor: themeOption.secondaryBg }} />
+                                                    <div
+                                                        className="h-1 rounded-full flex-1"
+                                                        style={{
+                                                            backgroundColor:
+                                                                themeOption.secondaryBg,
+                                                        }}
+                                                    />
                                                     <div className="h-1 w-3 rounded-full bg-rose-500/80" />
                                                 </div>
                                             </div>
@@ -1162,17 +1275,34 @@ export default function SettingsPage() {
                                     {/* Label bar */}
                                     <div
                                         className="px-3 py-2.5 flex items-center justify-between"
-                                        style={{ backgroundColor: themeOption.secondaryBg, borderTop: `1px solid ${themeOption.border}` }}
+                                        style={{
+                                            backgroundColor:
+                                                themeOption.secondaryBg,
+                                            borderTop: `1px solid ${themeOption.border}`,
+                                        }}
                                     >
-                                        <span className="text-[12px] font-semibold" style={{ color: themeOption.text }}>
+                                        <span
+                                            className="text-[12px] font-semibold"
+                                            style={{ color: themeOption.text }}
+                                        >
                                             {themeLabel}
                                         </span>
                                         {isActive ? (
                                             <div className="w-4 h-4 rounded-full bg-accent flex items-center justify-center">
-                                                <Check size={9} strokeWidth={3} className="text-white" />
+                                                <Check
+                                                    size={9}
+                                                    strokeWidth={3}
+                                                    className="text-white"
+                                                />
                                             </div>
                                         ) : (
-                                            <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: themeOption.border }} />
+                                            <div
+                                                className="w-4 h-4 rounded-full border-2"
+                                                style={{
+                                                    borderColor:
+                                                        themeOption.border,
+                                                }}
+                                            />
                                         )}
                                     </div>
                                 </button>
@@ -1212,7 +1342,11 @@ export default function SettingsPage() {
                             on: false,
                         },
                     ].map((n) => (
-                        <SettingsRow key={n.label} label={n.label} description={n.desc}>
+                        <SettingsRow
+                            key={n.label}
+                            label={n.label}
+                            description={n.desc}
+                        >
                             <Toggle checked={n.on} onChange={() => undefined} />
                         </SettingsRow>
                     ))}
@@ -1224,7 +1358,9 @@ export default function SettingsPage() {
                 <div className="space-y-0 divide-y divide-[var(--border-color)]">
                     <SettingsRow
                         label={t("settingsPage.twoFactorAuthentication")}
-                        description={t("settingsPage.twoFactorAuthenticationDesc")}
+                        description={t(
+                            "settingsPage.twoFactorAuthenticationDesc",
+                        )}
                     >
                         <div className="flex items-center gap-3">
                             <span className="text-[12px] text-emerald-500 font-medium">

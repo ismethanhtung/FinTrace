@@ -72,7 +72,7 @@ export const enMessages = {
         security: "Security",
         dataPrivacy: "Data & Privacy",
         supportAccess: "Support Access",
-        footer: "FinTrace v1.0 · Settings",
+        footer: "FinTrace v1.2 · Settings",
     },
     settingsPage: {
         settings: "Settings",
