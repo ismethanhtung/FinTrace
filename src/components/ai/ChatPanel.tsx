@@ -440,6 +440,7 @@ ${
     const [input, setInput] = useState("");
     const [showHistory, setShowHistory] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const chatHeaderRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const canChat = Boolean(
@@ -459,6 +460,44 @@ ${
         }
         container.scrollTop = container.scrollHeight;
     }, [activeSession?.messages, isStreaming]);
+
+    const applyDotSpot = useCallback(
+        (el: HTMLElement | null, e: React.MouseEvent<HTMLElement>) => {
+            if (!el) return;
+            const r = el.getBoundingClientRect();
+            el.style.setProperty("--mouse-x", `${e.clientX - r.left}px`);
+            el.style.setProperty("--mouse-y", `${e.clientY - r.top}px`);
+            el.style.setProperty("--dot-spot", "1");
+        },
+        [],
+    );
+
+    const clearDotSpot = useCallback((el: HTMLElement | null) => {
+        if (!el) return;
+        el.style.setProperty("--dot-spot", "0");
+    }, []);
+
+    const updateMessagePaneSpot = useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
+            applyDotSpot(messagesContainerRef.current, e);
+        },
+        [applyDotSpot],
+    );
+
+    const updateHeaderBarSpot = useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
+            applyDotSpot(chatHeaderRef.current, e);
+        },
+        [applyDotSpot],
+    );
+
+    const onMessagePaneMouseLeave = useCallback(() => {
+        clearDotSpot(messagesContainerRef.current);
+    }, [clearDotSpot]);
+
+    const onHeaderBarMouseLeave = useCallback(() => {
+        clearDotSpot(chatHeaderRef.current);
+    }, [clearDotSpot]);
 
     const handleSend = (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -482,11 +521,17 @@ ${
     return (
         <div className="h-full flex flex-col relative bg-main">
             {/* ── Chat Header bar ── */}
-            <div className="px-5 py-2 flex items-center justify-between shrink-0 bg-secondary/30">
-                <div className="flex items-center space-x-2 text-muted">
+            <div
+                ref={chatHeaderRef}
+                onMouseEnter={updateHeaderBarSpot}
+                onMouseMove={updateHeaderBarSpot}
+                onMouseLeave={onHeaderBarMouseLeave}
+                className="ai-chat-dotted-surface ai-chat-dotted-surface--bar relative shrink-0 px-5 py-2 flex items-center justify-between"
+            >
+                <div className="relative z-10 flex items-center space-x-2 text-muted">
                     <span className="text-[10px] font-semibold tracking-wider text-main truncate max-w-[150px]"></span>
                 </div>
-                <div className="flex items-center space-x-1">
+                <div className="relative z-10 flex items-center space-x-1">
                     <button
                         onClick={() => createSession(selectedSymbol)}
                         className="p-1.5 rounded-md text-muted hover:text-main hover:bg-secondary transition-colors"
@@ -560,10 +605,14 @@ ${
                 {/* ── Message Area ── */}
                 <div
                     ref={messagesContainerRef}
-                    className="h-full overflow-y-auto thin-scrollbar p-5 space-y-5"
+                    onMouseEnter={updateMessagePaneSpot}
+                    onMouseMove={updateMessagePaneSpot}
+                    onMouseLeave={onMessagePaneMouseLeave}
+                    className="ai-chat-dotted-surface relative h-full overflow-y-auto thin-scrollbar p-5"
                 >
+                    <div className="relative z-10 flex min-h-full flex-col space-y-5">
                     {!activeSession || activeSession.messages.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="flex flex-1 flex-col items-center justify-center text-center space-y-4 px-2">
                             <div className="w-12 h-12 rounded-full border-2 border-dashed border-main flex items-center justify-center bg-secondary/30 text-accent">
                                 <Bot size={20} />
                             </div>
@@ -592,7 +641,8 @@ ${
                             </div>
                         </div>
                     ) : (
-                        activeSession.messages.map((msg, i) => (
+                        <>
+                        {activeSession.messages.map((msg, i) => (
                             <div
                                 key={msg.id || i}
                                 className={cn(
@@ -646,9 +696,11 @@ ${
                                     )}
                                 </div>
                             </div>
-                        ))
+                        ))}
+                        <div ref={messagesEndRef} />
+                        </>
                     )}
-                    <div ref={messagesEndRef} />
+                    </div>
                 </div>
             </div>
 

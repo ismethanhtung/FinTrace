@@ -119,6 +119,55 @@ html.theme-switching *::after {
     opacity: 0.95;
 }
 
+/**
+ * AI Chat message pane: dot grid; only dots inside a small radius around the pointer
+ * turn red (masked layer). --mouse-x/--mouse-y in px; --dot-spot 0|1 from JS (hide when pointer leaves).
+ */
+.ai-chat-dotted-surface {
+    --mouse-x: 0px;
+    --mouse-y: 0px;
+    --dot-spot: 0;
+    isolation: isolate;
+    background-color: var(--bg-main);
+    background-image: radial-gradient(
+        color-mix(in srgb, var(--border-color) 88%, transparent) 1.1px,
+        transparent 1.1px
+    );
+    background-size: 12px 12px;
+}
+
+/** Slightly tinted bar (replaces bg-secondary/30 on chat toolbar). */
+.ai-chat-dotted-surface--bar {
+    background-color: color-mix(in srgb, var(--bg-secondary) 32%, var(--bg-main));
+}
+
+.ai-chat-dotted-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: radial-gradient(
+        color-mix(in srgb, #ef4444 90%, transparent) 1.1px,
+        transparent 1.1px
+    );
+    background-size: 12px 12px;
+    mask-image: radial-gradient(
+        118px circle at var(--mouse-x) var(--mouse-y),
+        #000 0%,
+        transparent 100%
+    );
+    -webkit-mask-image: radial-gradient(
+        118px circle at var(--mouse-x) var(--mouse-y),
+        #000 0%,
+        transparent 100%
+    );
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    opacity: var(--dot-spot);
+    transition: opacity 0.16s ease;
+}
+
 /* ─── Ticker scrolling animation ─────────────────────────────────────────────── */
 @keyframes ticker-scroll {
     from {

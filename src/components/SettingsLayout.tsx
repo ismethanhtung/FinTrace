@@ -194,20 +194,24 @@ function SettingsSidebar({
         <aside className="flex h-full min-h-0 w-[264px] shrink-0 flex-col overflow-hidden border-r border-main bg-secondary/40 select-none">
             {/* Logo row */}
             <div className="flex h-14 shrink-0 items-center justify-between border-b border-main px-4">
-                <div className="flex min-w-0 items-center gap-2.5">
+                <Link
+                    href="/"
+                    className="flex min-w-0 max-w-[min(100%,180px)] items-center gap-2.5 rounded-md py-0.5 pl-0.5 pr-1.5 transition-colors hover:bg-secondary/90"
+                    title={t("common.backToApp")}
+                >
                     <Image
                         src="/logo.gif"
                         alt={t("topbar.logoAlt")}
                         width={32}
                         height={32}
                         unoptimized
-                        className="rounded-sm"
+                        className="rounded-sm shrink-0"
                         priority
                     />
-                    <span className="truncate text-[14px] font-bold tracking-tight">
+                    <span className="truncate text-[14px] font-bold tracking-tight text-main">
                         FinTrace
                     </span>
-                </div>
+                </Link>
                 <Link
                     href="/"
                     className="shrink-0 rounded-lg border border-transparent p-1.5 text-muted transition-colors hover:border-main hover:bg-main hover:text-main"
@@ -220,7 +224,7 @@ function SettingsSidebar({
             {/* User row — compact header */}
             <div className="shrink-0 border-b border-main px-3 py-3">
                 <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-main bg-main">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-main bg-main">
                         {session?.user?.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -256,11 +260,6 @@ function SettingsSidebar({
                         className="w-full rounded-md border border-main bg-main py-1.5 pl-8 pr-3 text-[12px] text-main placeholder:text-muted/60 focus:border-accent/40 focus:outline-none focus:ring-1 focus:ring-accent/25"
                     />
                 </div>
-                {navQuery.trim() && filteredGroups.length === 0 ? (
-                    <p className="mt-1.5 px-0.5 text-[10px] text-muted">
-                        {t("settingsLayout.navSearchEmpty")}
-                    </p>
-                ) : null}
             </div>
 
             {/* Nav — collapsible sections */}
@@ -314,7 +313,9 @@ function SettingsSidebar({
                                                                     : "text-muted group-hover:text-main",
                                                             )}
                                                             strokeWidth={
-                                                                active ? 2.2 : 1.8
+                                                                active
+                                                                    ? 2.2
+                                                                    : 1.8
                                                             }
                                                         />
                                                         <span
@@ -327,14 +328,6 @@ function SettingsSidebar({
                                                         >
                                                             {t(item.labelKey)}
                                                         </span>
-                                                        {item.badgeKey ? (
-                                                            <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted ring-1 ring-main bg-secondary/80">
-                                                                {t(item.badgeKey)}
-                                                            </span>
-                                                        ) : null}
-                                                        {active ? (
-                                                            <span className="h-1 w-1 shrink-0 rounded-full bg-accent" />
-                                                        ) : null}
                                                     </button>
                                                 );
                                             })}
@@ -400,16 +393,14 @@ export default function SettingsLayout({
                             className="text-muted"
                             strokeWidth={1.5}
                         />
-                        <span className="text-[12px] text-muted">
-                            {session?.user?.email?.split("@")[1] ||
-                                "fintrace.local"}
-                        </span>
                     </div>
                 </header>
 
                 {/* Content */}
                 <main className="thin-scrollbar min-h-0 flex-1 overflow-y-auto">
-                    <div className="mx-auto max-w-4xl px-8 py-8">{children}</div>
+                    <div className="mx-auto max-w-4xl px-8 py-8">
+                        {children}
+                    </div>
                 </main>
             </div>
         </div>
