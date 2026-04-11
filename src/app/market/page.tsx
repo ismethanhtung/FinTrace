@@ -719,7 +719,7 @@ function priceFmt(v: number): string {
     return v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
-function MarketTableSkeletonRows({ count = 12 }: { count?: number }) {
+function MarketTableSkeletonRows({ count = 20 }: { count?: number }) {
     return (
         <>
             {Array.from({ length: count }, (_, i) => (
@@ -727,13 +727,13 @@ function MarketTableSkeletonRows({ count = 12 }: { count?: number }) {
                     key={`market-sk-${i}`}
                     className="border-b border-main pointer-events-none"
                 >
-                    <td className="pl-5 pr-8 py-4">
+                    <td className="pl-5 pr-8 py-2">
                         <div className="flex items-center gap-2">
                             <div className="h-3.5 w-3.5 rounded bg-main/45 animate-pulse shrink-0" />
                             <div className="h-3.5 w-5 bg-main/45 animate-pulse rounded" />
                         </div>
                     </td>
-                    <td className="pl-2 pr-5 py-4">
+                    <td className="pl-2 pr-5 py-2">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-main/45 animate-pulse shrink-0" />
                             <div className="space-y-2 min-w-0 flex-1">
@@ -745,28 +745,28 @@ function MarketTableSkeletonRows({ count = 12 }: { count?: number }) {
                             </div>
                         </div>
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="px-5 py-2 text-right">
                         <div className="h-4 w-20 bg-main/45 animate-pulse rounded ml-auto" />
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="px-5 py-2 text-right">
                         <div className="h-4 w-14 bg-main/45 animate-pulse rounded ml-auto" />
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="px-5 py-2 text-right">
                         <div className="h-4 w-14 bg-main/45 animate-pulse rounded ml-auto" />
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="px-5 py-2 text-right">
                         <div className="h-4 w-14 bg-main/45 animate-pulse rounded ml-auto" />
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="px-5 py-2 text-right">
                         <div className="h-4 w-24 bg-main/45 animate-pulse rounded ml-auto" />
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="px-5 py-2 text-right">
                         <div className="h-4 w-24 bg-main/45 animate-pulse rounded ml-auto" />
                     </td>
-                    <td className="px-5 py-4 text-center">
+                    <td className="px-5 py-2 text-center">
                         <div className="h-5 w-16 bg-main/45 animate-pulse rounded mx-auto" />
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-2">
                         <div className="flex justify-center">
                             <div className="h-10 w-28 bg-main/45 animate-pulse rounded-md" />
                         </div>

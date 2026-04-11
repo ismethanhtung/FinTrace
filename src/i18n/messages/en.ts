@@ -828,6 +828,10 @@ export const enMessages = {
         socketConnected: "Socket: connected",
         socketError: "Socket: error",
         socketConnecting: "Socket: connecting",
+        socketIdle: "Socket: standby (no symbols)",
+        socketDisconnected: "Socket: disconnected",
+        myWatchlistEmpty:
+            "No starred stocks yet. Star a ticker on the chart or list to add it here.",
         index: "Index",
         points: "Points",
         change: "+/-",

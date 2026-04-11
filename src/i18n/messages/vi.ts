@@ -825,6 +825,10 @@ export const viMessages: Messages = {
         socketConnected: "Socket: đã kết nối",
         socketError: "Socket: lỗi",
         socketConnecting: "Socket: đang kết nối",
+        socketIdle: "Socket: nghỉ (chưa có mã để stream)",
+        socketDisconnected: "Socket: đã ngắt",
+        myWatchlistEmpty:
+            "Chưa có mã yêu thích. Hãy gắn sao mã trên biểu đồ hoặc danh sách để thêm vào đây.",
         index: "Chỉ số",
         points: "Điểm",
         change: "+/-",

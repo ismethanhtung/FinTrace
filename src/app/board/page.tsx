@@ -235,8 +235,8 @@ type CellFlashState = {
 
 const INDEX_NAMES = ["VNINDEX", "VN30", "HNX30", "HNXINDEX", "UPCOM"] as const;
 const INITIAL_COL_WIDTHS = [
-    88, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 64, 60, 60, 60, 60,
-    70, 90, 64, 64, 80, 80, 92,
+    98, 50, 50, 50, 55, 60, 55, 60, 55, 60, 60, 60, 60, 60, 55, 60, 55, 60, 55,
+    60, 90, 60, 60, 80, 80, 92,
 ];
 
 const BOARD_TABLE_COLSPAN = 26;
@@ -372,6 +372,8 @@ function loadBoardRowsCache(): Record<string, BoardStockRow[]> {
         const out: Record<string, BoardStockRow[]> = {};
         for (const [tab, payload] of Object.entries(parsed)) {
             const key = tab.trim().toUpperCase();
+            // Tab danh mục cá nhân thay đổi theo star/pin — không khôi phục từ cache để tránh "mã ma".
+            if (key === "MY_LIST") continue;
             const rows = Array.isArray(payload?.rows)
                 ? payload.rows
                       .filter(
@@ -891,11 +893,12 @@ export default function BoardPage() {
     const highlightTimeoutRef = useRef<number | null>(null);
     const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
     const searchContainerRef = useRef<HTMLDivElement | null>(null);
-    const [cachedRowsByTab] = useState<Record<string, BoardStockRow[]>>(() =>
-        loadBoardRowsCache(),
+    const cachedRowsByTabRef = useRef<Record<string, BoardStockRow[]> | null>(
+        null,
     );
-    const cachedRowsByTabRef =
-        useRef<Record<string, BoardStockRow[]>>(cachedRowsByTab);
+    if (cachedRowsByTabRef.current === null) {
+        cachedRowsByTabRef.current = loadBoardRowsCache();
+    }
     const saveCacheTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -1025,22 +1028,43 @@ export default function BoardPage() {
     );
     const tabFilteredSymbols = useMemo(() => {
         const tabGroups = new Set(["VN30", "HNX30", "HOSE", "HNX", "UPCOM"]);
+        let filtered: string[];
         if (normalizedTab === "MY_LIST") {
             const favoriteStockSymbols = new Set(
                 favorites
                     .filter((item) => item.universe === "stock")
                     .map((item) => item.symbol.trim().toUpperCase()),
             );
-            return symbols.filter((symbol) => favoriteStockSymbols.has(symbol));
+            filtered = symbols.filter((symbol) =>
+                favoriteStockSymbols.has(symbol),
+            );
+        } else {
+            filtered = symbols.filter((symbol) => {
+                if (!tabGroups.has(normalizedTab)) return true;
+                const groups = (vietcapGroupsBySymbol[symbol] || []).map((g) =>
+                    g.trim().toUpperCase(),
+                );
+                return groups.includes(normalizedTab);
+            });
         }
 
-        return symbols.filter((symbol) => {
-            if (!tabGroups.has(normalizedTab)) return true;
-            const groups = (vietcapGroupsBySymbol[symbol] || []).map((g) =>
-                g.trim().toUpperCase(),
-            );
-            return groups.includes(normalizedTab);
-        });
+        /** Thứ tự star trong DB/state: phần tử đầu = mới thêm (addFavorite prepend). */
+        const stockFavoriteRank = new Map<string, number>();
+        let rank = 0;
+        for (const item of favorites) {
+            if (item.universe !== "stock") continue;
+            const sym = item.symbol.trim().toUpperCase();
+            if (!sym || stockFavoriteRank.has(sym)) continue;
+            stockFavoriteRank.set(sym, rank++);
+        }
+
+        const starredInTab = filtered.filter((s) => stockFavoriteRank.has(s));
+        const restInTab = filtered.filter((s) => !stockFavoriteRank.has(s));
+        starredInTab.sort(
+            (a, b) =>
+                (stockFavoriteRank.get(a) ?? 0) - (stockFavoriteRank.get(b) ?? 0),
+        );
+        return [...starredInTab, ...restInTab];
     }, [favorites, normalizedTab, symbols, vietcapGroupsBySymbol]);
     const searchMetaBySymbol = useMemo(() => {
         const out = new Map<string, BoardSearchMeta>();
@@ -1427,8 +1451,17 @@ export default function BoardPage() {
     );
 
     const rowsForTable = useMemo(() => {
-        const fallbackRows = cachedRowsByTab[normalizedTab] ?? [];
-        const base = boardRows.length > 0 ? boardRows : fallbackRows;
+        const fallbackRows =
+            normalizedTab === "MY_LIST"
+                ? []
+                : (cachedRowsByTabRef.current[normalizedTab] ?? []);
+        const myListHasNoSymbols =
+            normalizedTab === "MY_LIST" && tabFilteredSymbols.length === 0;
+        const base = myListHasNoSymbols
+            ? []
+            : boardRows.length > 0
+              ? boardRows
+              : fallbackRows;
         if (!base.length || !boardSort) return base;
         const order = new Map(base.map((r, i) => [r.id, i]));
         return [...base].sort((a, b) => {
@@ -1438,12 +1471,33 @@ export default function BoardPage() {
             if (c === 0) c = (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0);
             return boardSort.dir === "asc" ? c : -c;
         });
-    }, [boardRows, boardSort, cachedRowsByTab, normalizedTab]);
+    }, [
+        boardRows,
+        boardSort,
+        normalizedTab,
+        tabFilteredSymbols.length,
+    ]);
 
     useEffect(() => {
-        if (!boardRows.length) return;
         const key = normalizedTab.trim().toUpperCase();
         if (!key) return;
+
+        if (key === "MY_LIST") {
+            if ("MY_LIST" in cachedRowsByTabRef.current) {
+                const { MY_LIST: _removed, ...rest } = cachedRowsByTabRef.current;
+                cachedRowsByTabRef.current = rest;
+                if (saveCacheTimerRef.current !== null) {
+                    window.clearTimeout(saveCacheTimerRef.current);
+                }
+                saveCacheTimerRef.current = window.setTimeout(() => {
+                    saveBoardRowsCache(cachedRowsByTabRef.current);
+                    saveCacheTimerRef.current = null;
+                }, 800);
+            }
+            return;
+        }
+
+        if (!boardRows.length) return;
         cachedRowsByTabRef.current = {
             ...cachedRowsByTabRef.current,
             [key]: boardRows,
@@ -1938,13 +1992,21 @@ export default function BoardPage() {
             ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
             : streamStatus === "error"
               ? "border-rose-500/30 bg-rose-500/10 text-rose-500"
-              : "border-amber-500/30 bg-amber-500/10 text-amber-500";
+              : streamStatus === "idle"
+                ? "border-main bg-secondary/70 text-muted"
+                : streamStatus === "disconnected"
+                  ? "border-zinc-500/25 bg-zinc-500/10 text-zinc-500"
+                  : "border-amber-500/30 bg-amber-500/10 text-amber-500";
     const streamStatusLabel =
         streamStatus === "connected"
             ? t("boardPage.socketConnected")
             : streamStatus === "error"
               ? t("boardPage.socketError")
-              : t("boardPage.socketConnecting");
+              : streamStatus === "idle"
+                ? t("boardPage.socketIdle")
+                : streamStatus === "disconnected"
+                  ? t("boardPage.socketDisconnected")
+                  : t("boardPage.socketConnecting");
     useEffect(() => {
         if (!streamError) return;
         console.error("[Board stream] status/error", {
@@ -3013,9 +3075,12 @@ export default function BoardPage() {
                                             colSpan={BOARD_TABLE_COLSPAN}
                                             className="p-6 text-center text-[12px] text-muted"
                                         >
-                                            {t("boardPage.noDataForGroup", {
-                                                group: activeTabLabel,
-                                            })}
+                                            {normalizedTab === "MY_LIST" &&
+                                            tabFilteredSymbols.length === 0
+                                                ? t("boardPage.myWatchlistEmpty")
+                                                : t("boardPage.noDataForGroup", {
+                                                      group: activeTabLabel,
+                                                  })}
                                         </td>
                                     </tr>
                                 ) : (
