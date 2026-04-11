@@ -12,6 +12,7 @@ import { useDataStream } from "../../hooks/useDataStream";
 import { AlertCircle, RefreshCw, Trash2 } from "lucide-react";
 import { QuestionTooltip } from "../../components/ui/QuestionTooltip";
 import { useI18n } from "../../context/I18nContext";
+import { cn } from "../../lib/utils";
 
 function netLabel(buyUsd30s: number, sellUsd30s: number): string {
     const net = buyUsd30s - sellUsd30s;
@@ -65,7 +66,21 @@ export default function DataStreamPage() {
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-main">
                     <div className="px-3 border-b border-main bg-secondary/10 shrink-0 h-[56px] flex items-center">
                         <div className="w-full flex items-center justify-between gap-3">
-                            <div className="space-y-1">
+                            <div className="flex min-w-0 items-start gap-2.5">
+                                <span
+                                    className={cn(
+                                        "mt-0.5 shrink-0 rounded border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider",
+                                        universe === "stock"
+                                            ? "border-amber-400/45 bg-amber-400/12 text-amber-600"
+                                            : "border-emerald-500/45 bg-emerald-500/12 text-emerald-600",
+                                    )}
+                                    title={t("dataStream.page.universeBadgeTitle")}
+                                >
+                                    {universe === "stock"
+                                        ? t("common.stock")
+                                        : t("common.coin")}
+                                </span>
+                                <div className="min-w-0 space-y-1">
                                 <div className="flex items-center gap-2">
                                     <span
                                         className={`inline-block h-1.5 w-1.5 rounded-full ${
@@ -105,6 +120,7 @@ export default function DataStreamPage() {
                                             {selectedSymbol}
                                         </>
                                     )}
+                                </div>
                                 </div>
                             </div>
 

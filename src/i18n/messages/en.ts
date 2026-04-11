@@ -763,7 +763,9 @@ export const enMessages = {
             highlights2m: "2m Highlights",
             stockStreamStatus: "Soon",
             stockStreamHint:
-                "Live stream is available in the Coin universe. Switch universe to use it.",
+                "Stock universe is selected. Binance tape below is for Coin only — use the Coin / Stock switch in the top bar to stream live trades.",
+            universeBadgeTitle:
+                "Active data universe (Coin vs Stock) — switch in the top bar",
         },
         filters: {
             smartFilters: "Smart Filters",

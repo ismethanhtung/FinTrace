@@ -310,6 +310,8 @@ export function useDataStream() {
             wsRef.current.tradesWs?.close();
             wsRef.current.fundingWs?.close();
             wsRef.current = {};
+            engineRef.current?.reset();
+            flushFromEngine();
             setConnectionStatus("connected");
             setError(null);
             return;
@@ -318,6 +320,8 @@ export function useDataStream() {
             wsRef.current.tradesWs?.close();
             wsRef.current.fundingWs?.close();
             wsRef.current = {};
+            engineRef.current?.reset();
+            flushFromEngine();
             setConnectionStatus("disconnected");
             setError("Invalid coin symbol for stream");
             return;
@@ -332,6 +336,9 @@ export function useDataStream() {
         wsRef.current.tradesWs?.close();
         wsRef.current.fundingWs?.close();
         wsRef.current = {};
+
+        engineRef.current?.reset();
+        flushFromEngine();
 
         setError(null);
         setConnectionStatus("connecting");

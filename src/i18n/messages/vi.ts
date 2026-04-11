@@ -761,7 +761,9 @@ export const viMessages: Messages = {
             highlights2m: "Highlight 2m",
             stockStreamStatus: "Sắp có",
             stockStreamHint:
-                "Luồng trực tiếp đang có ở vũ trụ Coin. Hãy chuyển vũ trụ để dùng.",
+                "Đang chọn vũ trụ Cổ phiếu. Băng Binance bên dưới chỉ dùng cho Coin — bấm chuyển Coin/Cổ phiếu trên thanh trên để stream giao dịch thật.",
+            universeBadgeTitle:
+                "Vũ trụ dữ liệu đang dùng (Coin / Cổ phiếu) — đổi ở thanh trên",
         },
         filters: {
             smartFilters: "Bộ lọc thông minh",

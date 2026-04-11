@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import SettingsLayout, {
@@ -701,7 +701,7 @@ const AddProviderForm = ({
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function SettingsPage() {
+function SettingsPageContent() {
     const { t } = useI18n();
     const {
         font,
@@ -1904,5 +1904,13 @@ export default function SettingsPage() {
                 </div>
             )}
         </SettingsLayout>
+    );
+}
+
+export default function SettingsPage() {
+    return (
+        <Suspense fallback={null}>
+            <SettingsPageContent />
+        </Suspense>
     );
 }
