@@ -1,4 +1,5 @@
 import type { Collection } from "mongodb";
+import { DEFAULT_APP_FONT } from "../../appTypography";
 import { getDb } from "../../db/database";
 import type {
     ProviderPreference,
@@ -32,7 +33,7 @@ export async function getUserPreferences(
     const doc = await (await collection()).findOne({ userId });
     if (!doc) return null;
     return {
-        font: (doc.font || "Plus Jakarta Sans") as UserPreferenceState["font"],
+        font: (doc.font || DEFAULT_APP_FONT) as UserPreferenceState["font"],
         theme: (doc.theme || "light") as UserPreferenceState["theme"],
         analyticsTelemetryEnabled: doc.analyticsTelemetryEnabled !== false,
         supportAccessEnabled: doc.supportAccessEnabled === true,

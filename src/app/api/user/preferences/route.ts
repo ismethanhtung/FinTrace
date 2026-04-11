@@ -6,6 +6,10 @@ import {
     upsertUserPreferences,
 } from "../../../../lib/server/repositories/userPreferencesRepo";
 import type { UserPreferenceState } from "../../../../lib/server/repositories/types";
+import {
+    DEFAULT_APP_FONT,
+    isAppFont,
+} from "../../../../lib/appTypography";
 
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -18,9 +22,9 @@ function validatePayload(body: unknown): Omit<UserPreferenceState, "updatedAt"> 
 
     return {
         font:
-            typeof body.font === "string" && body.font.length > 0
-                ? (body.font as UserPreferenceState["font"])
-                : "Plus Jakarta Sans",
+            typeof body.font === "string" && isAppFont(body.font)
+                ? body.font
+                : DEFAULT_APP_FONT,
         theme:
             typeof body.theme === "string" && body.theme.length > 0
                 ? (body.theme as UserPreferenceState["theme"])

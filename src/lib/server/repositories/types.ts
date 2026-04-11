@@ -1,4 +1,5 @@
-import type { AppFont, AppTheme } from "../../../context/AppSettingsContext";
+import type { AppTheme } from "../../../context/AppSettingsContext";
+import type { AppFont } from "../../appTypography";
 
 export type AssetUniverse = "coin" | "stock";
 

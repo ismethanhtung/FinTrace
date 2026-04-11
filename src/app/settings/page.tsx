@@ -8,7 +8,6 @@ import SettingsLayout, {
 } from "../../components/SettingsLayout";
 import {
     Globe,
-    Type,
     Palette,
     Check,
     Eye,
@@ -31,7 +30,6 @@ import {
     useAppSettings,
     AppFont,
     AppTheme,
-    FONT_STACKS,
     BUILT_IN_PROVIDERS,
     AIProviderConfig,
     AIProviderId,
@@ -43,6 +41,7 @@ import { aiProviderService, ModelInfo } from "../../services/aiProviderService";
 import { getFallbackModelsForProvider } from "../../lib/aiModelDefaults";
 import { TwoFactorSettingsPanel } from "../../components/settings/TwoFactorSettingsPanel";
 import { ConnectionTestPanel } from "../../components/settings/ConnectionTestPanel";
+import { FONT_PREVIEW_FAMILY } from "../../lib/appTypography";
 
 // ─── Font preview card ────────────────────────────────────────────────────────
 const FONT_OPTIONS: { value: AppFont; description: string }[] = [
@@ -1538,6 +1537,7 @@ function SettingsPageContent() {
                         return (
                             <button
                                 key={value}
+                                type="button"
                                 onClick={() => setFont(value)}
                                 className={cn(
                                     "w-full flex items-center gap-5 p-5 rounded-2xl border-2 transition-all text-left",
@@ -1546,10 +1546,11 @@ function SettingsPageContent() {
                                         : "border-main bg-secondary hover:border-accent/40",
                                 )}
                             >
-                                {/* Big preview */}
                                 <div
                                     className="text-[36px] font-semibold leading-none text-main w-12 shrink-0 text-center"
-                                    style={{ fontFamily: FONT_STACKS[value] }}
+                                    style={{
+                                        fontFamily: FONT_PREVIEW_FAMILY[value],
+                                    }}
                                 >
                                     Aa
                                 </div>
@@ -1557,7 +1558,8 @@ function SettingsPageContent() {
                                     <p
                                         className="text-[15px] font-semibold mb-0.5"
                                         style={{
-                                            fontFamily: FONT_STACKS[value],
+                                            fontFamily:
+                                                FONT_PREVIEW_FAMILY[value],
                                         }}
                                     >
                                         {value}
@@ -1565,7 +1567,8 @@ function SettingsPageContent() {
                                     <p
                                         className="text-[12px] text-muted"
                                         style={{
-                                            fontFamily: FONT_STACKS[value],
+                                            fontFamily:
+                                                FONT_PREVIEW_FAMILY[value],
                                         }}
                                     >
                                         {fontDescription}
@@ -1573,7 +1576,8 @@ function SettingsPageContent() {
                                     <p
                                         className="text-[11px] text-muted/70 mt-1 tracking-wide"
                                         style={{
-                                            fontFamily: FONT_STACKS[value],
+                                            fontFamily:
+                                                FONT_PREVIEW_FAMILY[value],
                                         }}
                                     >
                                         ABCDEFGHIJKLMNOPQRSTUVWXYZ · 0123456789

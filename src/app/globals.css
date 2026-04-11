@@ -1,11 +1,32 @@
-/* ─── Google Fonts ──────────────────────────────────────────────────────────── */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
+/**
+ * Sans UI: next/font trên `<html>` (layout.tsx) định nghĩa --font-app-*.
+ * Chọn font qua `data-app-font` — không dùng @import Google Fonts (tránh CSP / tải trùng).
+ */
 @theme {
-    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+    --font-sans: var(--font-app-plus-jakarta), ui-sans-serif, system-ui,
+        sans-serif;
+    --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
     --color-accent: #007aff;
+}
+
+html[data-app-font="inter"] {
+    --font-sans: var(--font-app-inter), ui-sans-serif, system-ui, sans-serif;
+}
+html[data-app-font="outfit"] {
+    --font-sans: var(--font-app-outfit), ui-sans-serif, system-ui, sans-serif;
+}
+html[data-app-font="plus-jakarta-sans"] {
+    --font-sans: var(--font-app-plus-jakarta), ui-sans-serif, system-ui,
+        sans-serif;
+}
+html[data-app-font="ibm-plex-sans"] {
+    --font-sans: var(--font-app-ibm-plex), ui-sans-serif, system-ui, sans-serif;
+}
+html[data-app-font="space-grotesk"] {
+    --font-sans: var(--font-app-space-grotesk), ui-sans-serif, system-ui,
+        sans-serif;
 }
 
 /* ─── Light Theme ──────────────────────────────────────────────────────────── */

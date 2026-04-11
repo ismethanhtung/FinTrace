@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import {
+    IBM_Plex_Sans,
+    Inter,
+    JetBrains_Mono,
+    Outfit,
+    Plus_Jakarta_Sans,
+    Space_Grotesk,
+} from "next/font/google";
 import { cookies } from "next/headers";
 import Script from "next/script";
 import "./globals.css";
@@ -24,15 +31,52 @@ import {
     verifyTwoFactorLoginCookieValue,
 } from "../lib/server/security/twoFactor";
 import { TwoFactorLoginGate } from "../components/auth/TwoFactorLoginGate";
+import {
+    DEFAULT_APP_FONT,
+    FONT_COOKIE_KEY,
+    appFontToDataAttr,
+    readAppFontFromCookieValue,
+} from "../lib/appTypography";
 
 const jetbrainsMono = JetBrains_Mono({
     subsets: ["latin"],
     variable: "--font-mono",
 });
+const inter = Inter({
+    subsets: ["latin"],
+    variable: "--font-app-inter",
+    display: "swap",
+});
+const outfit = Outfit({
+    subsets: ["latin"],
+    variable: "--font-app-outfit",
+    display: "swap",
+});
 const plusJakartaSans = Plus_Jakarta_Sans({
     subsets: ["latin"],
-    variable: "--font-sans",
+    variable: "--font-app-plus-jakarta",
+    display: "swap",
 });
+const ibmPlexSans = IBM_Plex_Sans({
+    weight: ["300", "400", "500", "600", "700"],
+    subsets: ["latin"],
+    variable: "--font-app-ibm-plex",
+    display: "swap",
+});
+const spaceGrotesk = Space_Grotesk({
+    subsets: ["latin"],
+    variable: "--font-app-space-grotesk",
+    display: "swap",
+});
+
+const appFontVariableClassName = [
+    inter.variable,
+    outfit.variable,
+    plusJakartaSans.variable,
+    ibmPlexSans.variable,
+    spaceGrotesk.variable,
+    jetbrainsMono.variable,
+].join(" ");
 
 const THEME_BOOTSTRAP_SCRIPT = `
 (() => {
@@ -48,6 +92,17 @@ const THEME_BOOTSTRAP_SCRIPT = `
     if (next) {
       document.documentElement.setAttribute("data-theme", next);
     }
+  } catch {}
+})();
+`;
+
+const FONT_BOOTSTRAP_SCRIPT = `
+(() => {
+  try {
+    const map = {"Inter":"inter","Outfit":"outfit","Plus Jakarta Sans":"plus-jakarta-sans","IBM Plex Sans":"ibm-plex-sans","Space Grotesk":"space-grotesk"};
+    const raw = localStorage.getItem("ft-font");
+    const slug = raw && map[raw];
+    if (slug) document.documentElement.setAttribute("data-app-font", slug);
   } catch {}
 })();
 `;
@@ -79,6 +134,10 @@ export default async function RootLayout({
     const initialLocale = normalizeLocale(
         cookieStore.get(LOCALE_COOKIE_KEY)?.value,
     );
+    const initialAppFont =
+        readAppFontFromCookieValue(
+            cookieStore.get(FONT_COOKIE_KEY)?.value,
+        ) ?? DEFAULT_APP_FONT;
     let requiresTwoFactorGate = false;
     if (userId) {
         await ensureUserDataIndexes();
@@ -98,6 +157,8 @@ export default async function RootLayout({
         <html
             lang={initialLocale}
             data-theme={initialTheme}
+            data-app-font={appFontToDataAttr(initialAppFont)}
+            className={appFontVariableClassName}
             style={{ colorScheme: getColorSchemeForTheme(initialTheme) }}
             suppressHydrationWarning
         >
@@ -107,13 +168,19 @@ export default async function RootLayout({
                     strategy="beforeInteractive"
                     dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}
                 />
+                <Script
+                    id="ft-font-bootstrap"
+                    strategy="beforeInteractive"
+                    dangerouslySetInnerHTML={{ __html: FONT_BOOTSTRAP_SCRIPT }}
+                />
             </head>
-            <body
-                className={`${plusJakartaSans.variable} ${jetbrainsMono.variable} antialiased`}
-            >
+            <body className="antialiased">
                 <AuthSessionProvider>
                     <I18nProvider initialLocale={initialLocale}>
-                        <AppSettingsProvider initialTheme={initialTheme}>
+                        <AppSettingsProvider
+                            initialTheme={initialTheme}
+                            initialFont={initialAppFont}
+                        >
                             <UniverseProvider initialUniverse={initialUniverse}>
                                 <MarketProvider>
                                     {requiresTwoFactorGate ? (

@@ -17,15 +17,19 @@ import {
     THEME_STORAGE_KEY,
 } from "../lib/preferences";
 import { applyThemeToDocument } from "../lib/themeDom";
+import {
+    type AppFont,
+    applyAppFontToDocument,
+    DEFAULT_APP_FONT,
+    FONT_STORAGE_KEY,
+    isAppFont,
+    normalizeAppFont,
+    persistAppFontClientCookie,
+} from "../lib/appTypography";
+
+export type { AppFont } from "../lib/appTypography";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-export type AppFont =
-    | "Inter"
-    | "Outfit"
-    | "Plus Jakarta Sans"
-    | "IBM Plex Sans"
-    | "Space Grotesk";
-
 export type AppTheme =
     | "light"
     | "dark1"
@@ -91,15 +95,6 @@ export const BUILT_IN_PROVIDERS: Omit<
             "Hugging Face Inference Providers (OpenAI-compatible router)",
     },
 ];
-
-export const FONT_STACKS: Record<AppFont, string> = {
-    Inter: '"Inter", ui-sans-serif, system-ui, sans-serif',
-    Outfit: '"Outfit", ui-sans-serif, system-ui, sans-serif',
-    "Plus Jakarta Sans":
-        '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif',
-    "IBM Plex Sans": '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif',
-    "Space Grotesk": '"Space Grotesk", ui-sans-serif, system-ui, sans-serif',
-};
 
 export const THEME_CYCLE: AppTheme[] = [
     "light",
@@ -301,13 +296,23 @@ const AppSettingsContext = createContext<AppSettingsValue | null>(null);
 export const AppSettingsProvider = ({
     children,
     initialTheme = "light",
+    initialFont = DEFAULT_APP_FONT,
 }: {
     children: React.ReactNode;
     initialTheme?: AppTheme;
+    initialFont?: AppFont;
 }) => {
     const { status: authStatus } = useSession();
     const isAuthenticated = authStatus === "authenticated";
-    const [font, setFontState] = useState<AppFont>("Plus Jakarta Sans");
+    const [font, setFontState] = useState<AppFont>(() => {
+        if (typeof window === "undefined") return normalizeAppFont(initialFont);
+        const raw = localStorage.getItem(FONT_STORAGE_KEY);
+        if (raw && isAppFont(raw)) {
+            persistAppFontClientCookie(raw);
+            return raw;
+        }
+        return normalizeAppFont(initialFont);
+    });
     const [theme, setThemeState] = useState<AppTheme>(initialTheme);
     const [analyticsTelemetryEnabled, setAnalyticsTelemetryEnabledState] =
         useState(true);
@@ -340,7 +345,6 @@ export const AppSettingsProvider = ({
 
     // Rehydrate from localStorage on mount
     useEffect(() => {
-        const savedFont = localStorage.getItem("ft-font") as AppFont | null;
         const savedThemeRaw = localStorage.getItem(THEME_STORAGE_KEY);
         const savedCPKey = localStorage.getItem("ft-cryptopanic-key");
         const savedAnalyticsTelemetry = localStorage.getItem(
@@ -368,7 +372,6 @@ export const AppSettingsProvider = ({
             }
         }
 
-        if (savedFont && FONT_STACKS[savedFont]) setFontState(savedFont);
         if (savedThemeRaw) {
             const savedTheme = normalizeTheme(savedThemeRaw);
             if (THEME_CYCLE.includes(savedTheme)) {
@@ -407,10 +410,9 @@ export const AppSettingsProvider = ({
         setHasHydratedLocalState(true);
     }, [initialTheme]);
 
-    // Apply font on <body>: next/font injects --font-sans via body class; inline
-    // on html was overridden, so UI never picked up the user's stack.
+    // Keep DOM font attribute in sync before paint (Tailwind `font-sans` → --font-sans).
     useLayoutEffect(() => {
-        document.body.style.setProperty("--font-sans", FONT_STACKS[font]);
+        applyAppFontToDocument(font);
     }, [font]);
 
     // Keep DOM theme attribute in sync before paint to prevent mixed frame.
@@ -544,8 +546,11 @@ export const AppSettingsProvider = ({
                     return;
                 }
                 const pref = json.preferences;
-                if (pref.font && FONT_STACKS[pref.font])
+                if (pref.font && isAppFont(pref.font)) {
                     setFontState(pref.font);
+                    applyAppFontToDocument(pref.font);
+                    persistAppFontClientCookie(pref.font);
+                }
                 if (pref.theme && THEME_CYCLE.includes(pref.theme)) {
                     setThemeState(pref.theme);
                     applyThemeToDocument(pref.theme);
@@ -655,6 +660,13 @@ export const AppSettingsProvider = ({
         theme,
     ]);
 
+    const setFont = useCallback((f: AppFont) => {
+        setFontState(f);
+        localStorage.setItem(FONT_STORAGE_KEY, f);
+        applyAppFontToDocument(f);
+        persistAppFontClientCookie(f);
+    }, []);
+
     const providerHasAvailableKey = useCallback(
         (providerId: AIProviderId) => {
             const provider = aiProviders.find((item) => item.id === providerId);
@@ -674,11 +686,6 @@ export const AppSettingsProvider = ({
         },
         [aiProviders, serverKeyStatus, userKeyStatus],
     );
-
-    const setFont = useCallback((f: AppFont) => {
-        setFontState(f);
-        localStorage.setItem("ft-font", f);
-    }, []);
 
     const setTheme = useCallback((t: AppTheme) => {
         applyThemeToDocument(t, { disableTransitions: true });
