@@ -797,6 +797,8 @@ export const viMessages: Messages = {
             stockSoonTitle: "Sắp có",
             stockSoonHint:
                 "Băng ghi trade trực tiếp chỉ có trên vũ trụ Coin. Chuyển sang Coin để xem luồng.",
+            waitingTrades: "Đã kết nối — đang chờ trade…",
+            filterHint: "Giá trị tối thiểu: {amount}. Hạ bộ lọc nếu không thấy giao dịch.",
         },
         speed: {
             title: "Tốc độ",

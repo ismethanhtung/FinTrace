@@ -800,6 +800,8 @@ export const enMessages = {
             stockSoonTitle: "Coming soon",
             stockSoonHint:
                 "Live tape is available in the Coin universe. Switch to Coin to stream trades.",
+            waitingTrades: "Connected — waiting for trades…",
+            filterHint: "Min trade size: {amount}. Lower the filter if nothing appears.",
         },
         speed: {
             title: "Speed",

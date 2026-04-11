@@ -198,6 +198,8 @@ export default function DataStreamPage() {
                                 snapshotTradeLimit={snapshotTradeLimit}
                                 maxRecords={maxRecords}
                                 universe={universe}
+                                connectionStatus={connectionStatus}
+                                minVolumeUsd={config.minVolumeUsd}
                             />
                         </div>
                     </div>

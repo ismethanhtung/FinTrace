@@ -6,6 +6,7 @@ import type { StreamRecord } from "../../lib/dataStream/types";
 import { Loader2 } from "lucide-react";
 import { useI18n } from "../../context/I18nContext";
 import type { AssetUniverse } from "../../lib/marketUniverse";
+import type { DataStreamConnectionStatus } from "../../hooks/useDataStream";
 
 const GRID = "grid grid-cols-6 gap-x-3 px-3 items-center min-w-0";
 
@@ -14,11 +15,15 @@ export function DataStreamTape({
     snapshotTradeLimit,
     maxRecords,
     universe,
+    connectionStatus,
+    minVolumeUsd,
 }: {
     records: StreamRecord[];
     snapshotTradeLimit: number;
     maxRecords: number;
     universe: AssetUniverse;
+    connectionStatus: DataStreamConnectionStatus;
+    minVolumeUsd: number;
 }) {
     const { t } = useI18n();
     return (
@@ -63,6 +68,24 @@ export function DataStreamTape({
                             </div>
                             <p className="text-[11px] text-muted leading-relaxed max-w-sm">
                                 {t("dataStream.tape.stockSoonHint")}
+                            </p>
+                        </div>
+                    ) : connectionStatus === "connected" ? (
+                        <div className="h-full flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+                            <Loader2 size={14} className="animate-spin text-muted" />
+                            <p className="text-[11px] text-muted leading-relaxed max-w-xs">
+                                {t("dataStream.tape.waitingTrades")}
+                                {minVolumeUsd > 0 && (
+                                    <span className="block mt-1 text-[10px] opacity-70">
+                                        {t("dataStream.tape.filterHint", {
+                                            amount: minVolumeUsd >= 1_000_000
+                                                ? `$${(minVolumeUsd / 1_000_000).toFixed(1)}M`
+                                                : minVolumeUsd >= 1_000
+                                                  ? `$${(minVolumeUsd / 1_000).toFixed(0)}K`
+                                                  : `$${minVolumeUsd}`,
+                                        })}
+                                    </span>
+                                )}
                             </p>
                         </div>
                     ) : (

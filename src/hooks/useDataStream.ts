@@ -10,18 +10,17 @@ import {
 import type {
     DataStreamConfig,
     DataStreamEvent,
+    DataStreamMarketType,
     DataStreamMetrics,
-    DataStreamWorkerClientMessage,
     DataStreamWorkerStateMessage,
 } from "../lib/dataStream/types";
-import type { DataStreamMarketType } from "../lib/dataStream/types";
 import {
     normalizeBinanceFuturesMarkPriceEvent,
     normalizeBinanceFuturesTradeEvent,
     normalizeBinanceSpotTradeEvent,
 } from "../services/dataStream/normalizeBinanceEvent";
 import { resolveUniverseSymbol } from "../lib/universeSymbol";
-import { createDataStreamWorker } from "../workers/createDataStreamWorker";
+import { DataStreamEngine } from "../lib/dataStream/dataStreamEngine";
 
 const DEFAULT_CONFIG: DataStreamConfig = {
     minVolumeUsd: 1_000,
@@ -33,6 +32,7 @@ const DEFAULT_CONFIG: DataStreamConfig = {
     maxRecords: 250,
 };
 const SNAPSHOT_TRADE_LIMIT = 1000;
+const FLUSH_MS = 150;
 
 function tokenFromPair(pair: string): string {
     const upper = pair.toUpperCase();
@@ -41,7 +41,6 @@ function tokenFromPair(pair: string): string {
 }
 
 function beepTing() {
-    // Short "ting" using WebAudio (no external asset).
     try {
         const AudioCtx =
             (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -82,6 +81,21 @@ type DataStreamWsController = {
     fundingWs?: WebSocket;
 };
 
+function applyStateMessage(
+    msg: DataStreamWorkerStateMessage,
+    setters: {
+        setRecords: (r: unknown[]) => void;
+        setMetrics: (m: DataStreamMetrics) => void;
+        setHighlightSeq: (n: number) => void;
+        setLastHighlightRecordId: (id: string | undefined) => void;
+    },
+) {
+    setters.setRecords(msg.records);
+    setters.setMetrics(msg.metrics);
+    setters.setHighlightSeq(msg.highlightSeq);
+    setters.setLastHighlightRecordId(msg.lastHighlightRecordId);
+}
+
 export function useDataStream() {
     const { selectedSymbol, marketType } = useMarket();
     const { universe, isHydrated = true } = useUniverse();
@@ -112,11 +126,10 @@ export function useDataStream() {
         useState<DataStreamConnectionStatus>("connecting");
     const [error, setError] = useState<string | null>(null);
 
-    const workerRef = useRef<Worker | null>(null);
+    const engineRef = useRef<DataStreamEngine | null>(null);
+    const flushIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const wsRef = useRef<DataStreamWsController>({});
     const backoffRef = useRef(1000);
-    // Prevent reconnect loops when we intentionally close sockets (or during
-    // React remount). Handlers from old WebSocket instances should be ignored.
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
         null,
     );
@@ -132,7 +145,6 @@ export function useDataStream() {
     const market: DataStreamMarketType = marketType;
 
     const soundToggle = useCallback(() => {
-        // First click arms sound (browser requires gesture).
         setSoundArmed(true);
         setSoundEnabled((prev) => {
             const next = !prev;
@@ -140,6 +152,19 @@ export function useDataStream() {
                 setTimeout(() => beepTing(), 0);
             }
             return next;
+        });
+    }, []);
+
+    const flushFromEngine = useCallback(() => {
+        const eng = engineRef.current;
+        if (!eng) return;
+        const msg = eng.flush();
+        if (!msg) return;
+        applyStateMessage(msg, {
+            setRecords,
+            setMetrics,
+            setHighlightSeq,
+            setLastHighlightRecordId,
         });
     }, []);
 
@@ -151,62 +176,55 @@ export function useDataStream() {
                 clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;
             }
+            if (flushIntervalRef.current) {
+                clearInterval(flushIntervalRef.current);
+                flushIntervalRef.current = null;
+            }
             wsRef.current.tradesWs?.close();
             wsRef.current.fundingWs?.close();
-            workerRef.current?.terminate();
-            // Strict Mode (dev) remounts after cleanup; ref must clear or init skips
-            // and we keep posting to a dead Worker → empty tape locally.
-            workerRef.current = null;
+            engineRef.current = null;
         };
     }, []);
 
-    // Worker lifecycle (init once).
+    // Engine + periodic flush (same cadence as former worker).
     useEffect(() => {
-        if (workerRef.current) return;
+        const eng = new DataStreamEngine();
+        eng.init(config);
+        engineRef.current = eng;
 
-        try {
-            const worker = createDataStreamWorker();
-            workerRef.current = worker;
-
-            worker.onmessage = (
-                event: MessageEvent<DataStreamWorkerStateMessage>,
-            ) => {
-                const msg = event.data;
-                if (!msg || msg.type !== "STATE") return;
-                setRecords(msg.records);
-                setMetrics(msg.metrics);
-                setHighlightSeq(msg.highlightSeq);
-                setLastHighlightRecordId(msg.lastHighlightRecordId);
-            };
-
-            const initMsg: DataStreamWorkerClientMessage = {
-                type: "INIT",
-                config,
-            };
-            worker.postMessage(initMsg);
-        } catch (err: unknown) {
-            console.error("[useDataStream] Failed to init worker:", err);
-            setConnectionStatus("error");
-            setError(
-                "Không khởi tạo được Web Worker. Hãy thử reload hoặc kiểm tra build config.",
-            );
+        const initial = eng.flush();
+        if (initial) {
+            applyStateMessage(initial, {
+                setRecords,
+                setMetrics,
+                setHighlightSeq,
+                setLastHighlightRecordId,
+            });
         }
+
+        flushIntervalRef.current = setInterval(() => {
+            flushFromEngine();
+        }, FLUSH_MS);
+
+        return () => {
+            if (flushIntervalRef.current) {
+                clearInterval(flushIntervalRef.current);
+                flushIntervalRef.current = null;
+            }
+            engineRef.current = null;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Push config updates to worker.
     useEffect(() => {
-        const w = workerRef.current;
-        if (!w) return;
-        const msg: DataStreamWorkerClientMessage = { type: "CONFIG", config };
-        w.postMessage(msg);
-    }, [config]);
+        const eng = engineRef.current;
+        if (!eng) return;
+        eng.setConfig(config);
+        flushFromEngine();
+    }, [config, flushFromEngine]);
 
-    const postEventToWorker = useCallback((event: DataStreamEvent) => {
-        const w = workerRef.current;
-        if (!w) return;
-        const msg: DataStreamWorkerClientMessage = { type: "EVENT", event };
-        w.postMessage(msg);
+    const postEventToEngine = useCallback((event: DataStreamEvent) => {
+        engineRef.current?.pushEvent(event);
     }, []);
 
     const pushSnapshotTrades = useCallback(
@@ -227,11 +245,9 @@ export function useDataStream() {
             if (!mountedRef.current) return;
             if (attemptId !== connectionAttemptIdRef.current) return;
 
-            // Reset stream state for the currently selected pair, then seed snapshot.
-            const w = workerRef.current;
-            if (!w) return;
-            const resetMsg: DataStreamWorkerClientMessage = { type: "RESET" };
-            w.postMessage(resetMsg);
+            const eng = engineRef.current;
+            if (!eng) return;
+            eng.reset();
 
             const ordered = [...raw].sort(
                 (a: BinanceRecentTrade, b: BinanceRecentTrade) =>
@@ -259,20 +275,20 @@ export function useDataStream() {
                             ? "Binance Futures"
                             : "Binance Spot",
                 };
-                postEventToWorker(event);
+                eng.pushEvent(event);
             }
+            flushFromEngine();
         },
         [
             hasValidSelectedSymbol,
             isHydrated,
             market,
-            postEventToWorker,
+            flushFromEngine,
             resolvedSelectedSymbol,
             universe,
         ],
     );
 
-    // Sound effect when highlight sequence changes.
     const prevHighlightSeqRef = useRef(0);
     useEffect(() => {
         if (!soundEnabled) return;
@@ -306,7 +322,6 @@ export function useDataStream() {
             setError("Invalid coin symbol for stream");
             return;
         }
-        // New connection attempt: clear any pending reconnect first.
         if (reconnectTimerRef.current) {
             clearTimeout(reconnectTimerRef.current);
             reconnectTimerRef.current = null;
@@ -314,7 +329,6 @@ export function useDataStream() {
         connectionAttemptIdRef.current += 1;
         const attemptId = connectionAttemptIdRef.current;
 
-        // Close any existing sockets.
         wsRef.current.tradesWs?.close();
         wsRef.current.fundingWs?.close();
         wsRef.current = {};
@@ -350,7 +364,6 @@ export function useDataStream() {
                 reconnectTimerRef.current = null;
             }
             setConnectionStatus("disconnected");
-            // Reconnect with backoff for better UX.
             const wait = backoffRef.current;
             backoffRef.current = Math.min(
                 15_000,
@@ -359,7 +372,6 @@ export function useDataStream() {
 
             reconnectTimerRef.current = setTimeout(() => {
                 if (!mountedRef.current) return;
-                // If a newer attempt started while we were waiting, ignore.
                 if (attemptId !== connectionAttemptIdRef.current) return;
                 connect();
             }, wait);
@@ -367,13 +379,11 @@ export function useDataStream() {
 
         const onTradesClose = () => scheduleReconnect();
         const onFundingClose = () => {
-            // Avoid reconnect loop if funding WS closes while trades WS is still alive.
             const tradesReadyState = wsRef.current.tradesWs?.readyState;
             if (tradesReadyState === WebSocket.OPEN) return;
             scheduleReconnect();
         };
 
-        // Trades WS.
         const tradesUrl =
             market === "spot"
                 ? `wss://stream.binance.com:9443/ws/${pairLower}@trade`
@@ -383,7 +393,7 @@ export function useDataStream() {
         wsRef.current.tradesWs = tradesWs;
 
         tradesWs.onopen = () => {
-            backoffRef.current = 1000; // reset
+            backoffRef.current = 1000;
             onOpen();
         };
 
@@ -398,28 +408,24 @@ export function useDataStream() {
 
                 if (market === "spot") {
                     const e = normalizeBinanceSpotTradeEvent(msg, pair);
-                    if (e) postEventToWorker(e);
+                    if (e) postEventToEngine(e);
                 } else {
                     const e = normalizeBinanceFuturesTradeEvent(msg, pair);
-                    if (e) postEventToWorker(e);
+                    if (e) postEventToEngine(e);
                 }
-            } catch (err) {
+            } catch {
                 // Ignore malformed payloads.
             }
         };
 
-        // Funding WS (futures only).
         if (market === "futures") {
-            // Mark price stream also carries funding rate.
             const fundingUrl = `wss://fstream.binance.com/market/ws/${pairLower}@markPrice@1s`;
             const fundingWs = new WebSocket(fundingUrl);
             wsRef.current.fundingWs = fundingWs;
 
             fundingWs.onerror = onError;
             fundingWs.onclose = onFundingClose;
-            fundingWs.onopen = () => {
-                // Keep status connected only when trades open already.
-            };
+            fundingWs.onopen = () => {};
 
             fundingWs.onmessage = (ev) => {
                 try {
@@ -428,7 +434,7 @@ export function useDataStream() {
                             ? JSON.parse(ev.data)
                             : ev.data;
                     const e = normalizeBinanceFuturesMarkPriceEvent(msg, pair);
-                    if (e) postEventToWorker(e);
+                    if (e) postEventToEngine(e);
                 } catch {
                     // ignore
                 }
@@ -440,13 +446,12 @@ export function useDataStream() {
         pair,
         pairLower,
         pushSnapshotTrades,
-        postEventToWorker,
+        postEventToEngine,
         resolvedSelectedSymbol,
         isHydrated,
         universe,
     ]);
 
-    // Reconnect when selected symbol or market type changes.
     useEffect(() => {
         connect();
         return () => {
@@ -456,14 +461,11 @@ export function useDataStream() {
     }, [connect]);
 
     const reset = useCallback(() => {
-        const w = workerRef.current;
-        if (!w) return;
-        const msg: DataStreamWorkerClientMessage = { type: "RESET" };
-        w.postMessage(msg);
-    }, []);
+        engineRef.current?.reset();
+        flushFromEngine();
+    }, [flushFromEngine]);
 
     const pause = useCallback(() => {
-        // For now we simply close sockets (keep worker).
         wsRef.current.tradesWs?.close();
         wsRef.current.fundingWs?.close();
     }, []);
