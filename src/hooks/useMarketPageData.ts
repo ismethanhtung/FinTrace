@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMarket } from "../context/MarketContext";
-import type { MarketType } from "../services/binanceService";
+import type { Asset, MarketType } from "../services/binanceService";
 import { fetchMarketRowMetrics } from "../api/market/marketPageApi";
 import { useUniverse } from "../context/UniverseContext";
 import { stockLambdaService } from "../services/stockLambdaService";
@@ -76,6 +76,62 @@ function pickTrend(d7: number): Trend {
     return "flat";
 }
 
+/** Khóa ổn định theo tập symbol: resort/reorder WS không kích hoạt lại pipeline enrich. */
+function stableAssetSetKey(assets: Asset[]): string {
+    if (!assets.length) return "";
+    const ids = [...new Set(assets.map((a) => a.id))].sort();
+    return `${ids.length}:${ids.join("|")}`;
+}
+
+function baseRowFromAsset(asset: Asset): MarketTableRow {
+    return {
+        id: asset.id,
+        name: asset.name,
+        symbol: asset.symbol,
+        price: asset.price,
+        h1: null,
+        h24: asset.changePercent,
+        d7: null,
+        marketCap: "-",
+        volume: formatCompactUsd(asset.quoteVolumeRaw),
+        volumeRaw: asset.quoteVolumeRaw || 0,
+        supply: "-",
+        sentiment: pickSentiment(asset.changePercent),
+        trend: pickTrend(asset.changePercent),
+        sparkline7d: [],
+        logoUrl: asset.logoUrl,
+        exchange: asset.stockProfile?.exchange || "-",
+        sector: asset.stockProfile?.sector || asset.stockProfile?.icbName || "-",
+        high: asset.high24h || 0,
+        low: asset.low24h || 0,
+        baseVolume: asset.baseVolume || 0,
+        indexMembership: asset.stockProfile?.indexMembership || [],
+        tags: asset.tags || [],
+    };
+}
+
+/** Cập nhật giá/volume realtime từ WS mà không xóa sparkline / 7d / 1h đã enrich. */
+function mergeRowsFromAssets(
+    prev: MarketTableRow[],
+    assets: Asset[],
+): MarketTableRow[] {
+    const prevById = new Map(prev.map((r) => [r.id, r] as const));
+    return assets.map((asset) => {
+        const p = prevById.get(asset.id);
+        const core = baseRowFromAsset(asset);
+        if (!p) return core;
+        const keepSpark =
+            p.sparkline7d.length >= 2 ? p.sparkline7d : core.sparkline7d;
+        return {
+            ...core,
+            h1: p.h1,
+            d7: p.d7,
+            sparkline7d: keepSpark,
+            trend: pickTrend(p.d7 ?? core.h24),
+        };
+    });
+}
+
 function applyMetricToRows(
     prevRows: MarketTableRow[],
     symbol: string,
@@ -122,6 +178,8 @@ export function useMarketPageData() {
     } = useMarket();
     const [rows, setRows] = useState<MarketTableRow[]>([]);
     const [refreshSeed, setRefreshSeed] = useState(0);
+    const assetsRef = useRef(assets);
+    assetsRef.current = assets;
 
     const currentLoading =
         marketType === "futures" ? isFuturesLoading : isLoading;
@@ -164,44 +222,26 @@ export function useMarketPageData() {
         setRefreshSeed((x) => x + 1);
     }, []);
 
+    const assetSetKey = useMemo(() => stableAssetSetKey(assets), [assets]);
+
+    // Mỗi frame WS: `assets` đổi tham chiếu — chỉ merge field realtime, giữ metric đã tải.
+    useEffect(() => {
+        if (!assets.length) {
+            setRows([]);
+            return;
+        }
+        setRows((prev) => mergeRowsFromAssets(prev, assets));
+    }, [assets]);
+
+    // Enrich / bulk snapshot chỉ khi tập symbol hoặc chế độ thị trường đổi (không phụ thuộc mỗi tick WS).
     useEffect(() => {
         let mounted = true;
 
         async function run() {
-            if (!assets.length) {
-                if (mounted) setRows([]);
-                return;
-            }
+            const liveAssets = assetsRef.current;
+            if (!liveAssets.length) return;
 
-            const baseRows: MarketTableRow[] = assets.map((asset) => ({
-                id: asset.id,
-                name: asset.name,
-                symbol: asset.symbol,
-                price: asset.price,
-                h1: null,
-                h24: asset.changePercent,
-                d7: null,
-                marketCap: "-",
-                volume: formatCompactUsd(asset.quoteVolumeRaw),
-                volumeRaw: asset.quoteVolumeRaw || 0,
-                supply: "-",
-                sentiment: pickSentiment(asset.changePercent),
-                trend: pickTrend(asset.changePercent),
-                sparkline7d: [],
-                logoUrl: asset.logoUrl,
-                exchange: asset.stockProfile?.exchange || "-",
-                sector: asset.stockProfile?.sector || asset.stockProfile?.icbName || "-",
-                high: asset.high24h || 0,
-                low: asset.low24h || 0,
-                baseVolume: asset.baseVolume || 0,
-                indexMembership: asset.stockProfile?.indexMembership || [],
-                tags: asset.tags || [],
-            }));
-
-            // Render ngay dữ liệu lõi (price/24h/volume) để bảng lên cực nhanh.
-            setRows(baseRows);
-
-            // Enrich metric nền: ưu tiên 20 coin đầu trước, sau đó mới đến phần còn lại.
+            const baseRows = liveAssets.map(baseRowFromAsset);
             const priority = baseRows.slice(0, 20).map((r) => r.id);
             const rest = baseRows.slice(20).map((r) => r.id);
             const symbols = [...priority, ...rest];
@@ -209,16 +249,16 @@ export function useMarketPageData() {
             let cursor = 0;
 
             if (universe === "stock") {
-                const symbols = baseRows.map((r) => r.id);
+                const stockSymbols = baseRows.map((r) => r.id);
                 const chunkSize = 80;
-                const concurrency = 3;
+                const stockConcurrency = 3;
                 let stockCursor = 0;
 
                 async function stockWorker() {
-                    while (stockCursor < symbols.length && mounted) {
+                    while (stockCursor < stockSymbols.length && mounted) {
                         const start = stockCursor;
                         stockCursor += chunkSize;
-                        const chunk = symbols.slice(start, start + chunkSize);
+                        const chunk = stockSymbols.slice(start, start + chunkSize);
                         if (!chunk.length) return;
 
                         try {
@@ -257,7 +297,9 @@ export function useMarketPageData() {
                 }
 
                 await Promise.all(
-                    Array.from({ length: concurrency }, () => stockWorker()),
+                    Array.from({ length: stockConcurrency }, () =>
+                        stockWorker(),
+                    ),
                 );
                 return;
             }
@@ -281,7 +323,7 @@ export function useMarketPageData() {
         return () => {
             mounted = false;
         };
-    }, [assets, marketType, refreshSeed, universe]);
+    }, [assetSetKey, marketType, refreshSeed, universe]);
 
     return {
         rows,

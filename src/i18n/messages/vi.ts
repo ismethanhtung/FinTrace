@@ -628,6 +628,7 @@ export const viMessages: Messages = {
         sector: "Ngành",
         sentiment: "Tâm lý",
         last7Days: "7 ngày gần nhất",
+        openChart: "Mở biểu đồ",
     },
     transactionsPage: {
         reloadTransactions: "Tải lại giao dịch",

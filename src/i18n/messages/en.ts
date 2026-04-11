@@ -629,6 +629,7 @@ export const enMessages = {
         sector: "Sector",
         sentiment: "Sentiment",
         last7Days: "Last 7 Days",
+        openChart: "Open chart",
     },
     transactionsPage: {
         reloadTransactions: "Reload transactions",

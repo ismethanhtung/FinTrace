@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import { useMarket } from "../../context/MarketContext";
 import { useMarketPageData } from "../../hooks/useMarketPageData";
+import { useUserFavorites } from "../../hooks/useUserFavorites";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { cn } from "../../lib/utils";
@@ -299,7 +300,12 @@ function AltcoinSeasonCard() {
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart
                                     data={chartData}
-                                    margin={{ top: 4, right: 4, left: 0, bottom: 4 }}
+                                    margin={{
+                                        top: 4,
+                                        right: 4,
+                                        left: 0,
+                                        bottom: 4,
+                                    }}
                                 >
                                     <XAxis dataKey="timestamp" hide />
                                     <YAxis hide domain={[0, 100]} />
@@ -309,21 +315,22 @@ function AltcoinSeasonCard() {
                                         labelFormatter={(value) => {
                                             const ts = Number(value);
                                             if (!Number.isFinite(ts)) return "";
-                                            return new Date(ts * 1000).toLocaleDateString(
-                                                "en-GB",
-                                                {
-                                                    day: "2-digit",
-                                                    month: "2-digit",
-                                                },
-                                            );
+                                            return new Date(
+                                                ts * 1000,
+                                            ).toLocaleDateString("en-GB", {
+                                                day: "2-digit",
+                                                month: "2-digit",
+                                            });
                                         }}
                                         formatter={(value, _label, item) => {
                                             const index = Number(value);
                                             const mcap = Number(
-                                                item?.payload?.altcoinMarketcap ??
-                                                    NaN,
+                                                item?.payload
+                                                    ?.altcoinMarketcap ?? NaN,
                                             );
-                                            const mcapText = Number.isFinite(mcap)
+                                            const mcapText = Number.isFinite(
+                                                mcap,
+                                            )
                                                 ? mcap.toLocaleString("en-US", {
                                                       maximumFractionDigits: 0,
                                                   })
@@ -334,7 +341,8 @@ function AltcoinSeasonCard() {
                                             ];
                                         }}
                                         contentStyle={{
-                                            backgroundColor: "var(--bg-secondary)",
+                                            backgroundColor:
+                                                "var(--bg-secondary)",
                                             border: "1px solid var(--border-color)",
                                             fontSize: "10px",
                                             color: "var(--text-main)",
@@ -472,7 +480,9 @@ function FearGreedCard() {
                 <div className="text-[10px] text-muted uppercase tracking-widest">
                     {t("marketPage.fearGreed")}
                 </div>
-                <div className="text-[9px] font-semibold text-muted">{sentiment}</div>
+                <div className="text-[9px] font-semibold text-muted">
+                    {sentiment}
+                </div>
             </div>
             <div className="flex items-end gap-2 min-h-[72px]">
                 <div className="w-[88px] shrink-0 text-center">
@@ -514,7 +524,12 @@ function FearGreedCard() {
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart
                                     data={chartData}
-                                    margin={{ top: 4, right: 4, left: 0, bottom: 4 }}
+                                    margin={{
+                                        top: 4,
+                                        right: 4,
+                                        left: 0,
+                                        bottom: 4,
+                                    }}
                                 >
                                     <XAxis dataKey="timestamp" hide />
                                     <YAxis hide domain={[0, 100]} />
@@ -524,13 +539,12 @@ function FearGreedCard() {
                                         labelFormatter={(value) => {
                                             const ts = Number(value);
                                             if (!Number.isFinite(ts)) return "";
-                                            return new Date(ts * 1000).toLocaleDateString(
-                                                "en-GB",
-                                                {
-                                                    day: "2-digit",
-                                                    month: "2-digit",
-                                                },
-                                            );
+                                            return new Date(
+                                                ts * 1000,
+                                            ).toLocaleDateString("en-GB", {
+                                                day: "2-digit",
+                                                month: "2-digit",
+                                            });
                                         }}
                                         formatter={(value, _label, item) => {
                                             const score = Number(value);
@@ -543,7 +557,8 @@ function FearGreedCard() {
                                             ];
                                         }}
                                         contentStyle={{
-                                            backgroundColor: "var(--bg-secondary)",
+                                            backgroundColor:
+                                                "var(--bg-secondary)",
                                             border: "1px solid var(--border-color)",
                                             fontSize: "10px",
                                             color: "var(--text-main)",
@@ -591,10 +606,10 @@ function SentimentBadge({ v }: { v: Sentiment }) {
             className={cn(
                 "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide",
                 v === "Positive"
-                    ? "bg-emerald-500/10 text-emerald-500"
+                    ? " text-emerald-500"
                     : v === "Neutral"
-                      ? "bg-yellow-500/10 text-yellow-500"
-                      : "bg-rose-500/10 text-rose-500",
+                      ? "text-yellow-500"
+                      : "text-rose-500",
             )}
         >
             {v}
@@ -712,13 +727,13 @@ function MarketTableSkeletonRows({ count = 12 }: { count?: number }) {
                     key={`market-sk-${i}`}
                     className="border-b border-main pointer-events-none"
                 >
-                    <td className="px-5 py-4">
+                    <td className="pl-5 pr-8 py-4">
                         <div className="flex items-center gap-2">
                             <div className="h-3.5 w-3.5 rounded bg-main/45 animate-pulse shrink-0" />
                             <div className="h-3.5 w-5 bg-main/45 animate-pulse rounded" />
                         </div>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="pl-2 pr-5 py-4">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-main/45 animate-pulse shrink-0" />
                             <div className="space-y-2 min-w-0 flex-1">
@@ -809,6 +824,7 @@ export default function MarketPage() {
     const { universe, marketType, setMarketType, setSelectedSymbol } =
         useMarket();
     const { rows, stats, isLoading, refetch } = useMarketPageData();
+    const { isFavorite, toggleFavorite } = useUserFavorites();
     const isStock = universe === "stock";
 
     useEffect(() => {
@@ -817,7 +833,7 @@ export default function MarketPage() {
         }
     }, [isStock, router]);
 
-    const handleRowClick = (symbol: string) => {
+    const openChartForSymbol = (symbol: string) => {
         setSelectedSymbol(symbol);
         router.push("/");
     };
@@ -1112,8 +1128,7 @@ export default function MarketPage() {
                                                             : "text-muted hover:text-main hover:bg-main",
                                                     )}
                                                 >
-                                                    {option ===
-                                                    "Highest Volume"
+                                                    {option === "Highest Volume"
                                                         ? t(
                                                               "marketPage.highestVolume",
                                                           )
@@ -1258,77 +1273,39 @@ export default function MarketPage() {
                 <div className="bg-secondary border border-main rounded-xl overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left min-w-[1240px] table-fixed">
-                            {!isStock && (
-                                <colgroup>
-                                    <col className="w-[72px]" />
-                                    <col className="w-[260px]" />
-                                    <col className="w-[140px]" />
-                                    <col className="w-[100px]" />
-                                    <col className="w-[100px]" />
-                                    <col className="w-[100px]" />
-                                    <col className="w-[150px]" />
-                                    <col className="w-[150px]" />
-                                    <col className="w-[120px]" />
-                                    <col className="w-[148px]" />
-                                </colgroup>
-                            )}
                             <thead>
                                 <tr className="border-b border-main text-[10px] text-muted uppercase tracking-[0.12em]">
-                                    <th className="px-5 py-3.5 font-semibold w-12">
+                                    <th className="pl-5 pr-8 py-3.5 font-semibold w-[4.5rem]">
                                         #
                                     </th>
-                                    <th className="px-5 py-3.5 font-semibold">
+                                    <th className="pl-2 pr-5 py-3.5 font-semibold">
                                         {t("marketPage.name")}
                                     </th>
                                     <th className="px-5 py-3.5 font-semibold text-right">
                                         {t("marketPage.price")}
                                     </th>
-                                    {isStock ? (
-                                        <>
-                                            <th className="px-5 py-3.5 font-semibold text-right">
-                                                {t("marketPage.dayPercent")}
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-right">
-                                                {t("marketPage.dayRange")}
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-right">
-                                                {t("marketPage.volume")}
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-right">
-                                                {t("marketPage.turnover")}
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-center">
-                                                {t("marketPage.exchange")}
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-center">
-                                                {t("marketPage.sector")}
-                                            </th>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <th className="px-5 py-3.5 font-semibold text-right">
-                                                1h %
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-right">
-                                                24h %
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-right">
-                                                7d %
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-right">
-                                                {t("marketPage.marketCap")}
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-right">
-                                                {t("marketPage.volume")}
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-center">
-                                                {t("marketPage.sentiment")}
-                                            </th>
-                                            <th className="px-5 py-3.5 font-semibold text-center">
-                                                {t("marketPage.last7Days")}
-                                            </th>
-                                        </>
-                                    )}
+
+                                    <th className="px-5 py-3.5 font-semibold text-right">
+                                        1h %
+                                    </th>
+                                    <th className="px-5 py-3.5 font-semibold text-right">
+                                        24h %
+                                    </th>
+                                    <th className="px-5 py-3.5 font-semibold text-right">
+                                        7d %
+                                    </th>
+                                    <th className="px-5 py-3.5 font-semibold text-right">
+                                        {t("marketPage.marketCap")}
+                                    </th>
+                                    <th className="px-5 py-3.5 font-semibold text-right">
+                                        {t("marketPage.volume")}
+                                    </th>
+                                    <th className="px-5 py-3.5 font-semibold text-center">
+                                        {t("marketPage.sentiment")}
+                                    </th>
+                                    <th className="px-5 py-3.5 font-semibold text-center">
+                                        {t("marketPage.last7Days")}
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-main">
@@ -1344,39 +1321,91 @@ export default function MarketPage() {
                                             return (
                                                 <tr
                                                     key={coin.id}
-                                                    onClick={() =>
-                                                        handleRowClick(coin.id)
-                                                    }
-                                                    className="hover:bg-main/60 transition-colors cursor-pointer group border-b border-main"
+                                                    className="hover:bg-main/60 transition-colors group border-b border-main"
                                                 >
                                                     {/* # + star */}
-                                                    <td className="px-5 py-4">
-                                                        <div className="flex items-center gap-2 text-muted text-[12px]">
-                                                            <Star
-                                                                size={13}
-                                                                className="hover:text-yellow-400 transition-colors cursor-pointer shrink-0"
-                                                            />
+                                                    <td className="pl-5 pr-8 py-2">
+                                                        <div className="flex items-center gap-2.5 text-muted text-[12px]">
+                                                            <button
+                                                                type="button"
+                                                                aria-label={t(
+                                                                    "ticker.toggleFavorite",
+                                                                )}
+                                                                title={t(
+                                                                    "ticker.toggleFavorite",
+                                                                )}
+                                                                aria-pressed={isFavorite(
+                                                                    coin.symbol,
+                                                                )}
+                                                                onClick={(
+                                                                    e,
+                                                                ) => {
+                                                                    e.stopPropagation();
+                                                                    void toggleFavorite(
+                                                                        coin.symbol,
+                                                                        universe,
+                                                                    );
+                                                                }}
+                                                                className={cn(
+                                                                    "inline-flex h-6 w-6 items-center justify-center rounded shrink-0 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
+                                                                    isFavorite(
+                                                                        coin.symbol,
+                                                                    )
+                                                                        ? "text-amber-500"
+                                                                        : "text-muted hover:text-main hover:bg-secondary",
+                                                                )}
+                                                            >
+                                                                <Star
+                                                                    size={13}
+                                                                    className={cn(
+                                                                        isFavorite(
+                                                                            coin.symbol,
+                                                                        ) &&
+                                                                            "fill-current",
+                                                                    )}
+                                                                />
+                                                            </button>
                                                             {(page - 1) * 20 +
                                                                 idx +
                                                                 1}
                                                         </div>
                                                     </td>
 
-                                                    {/* Name + symbol + buy button (hover) */}
-                                                    <td className="px-5 py-4">
+                                                    {/* Name + symbol: chỉ avatar / tên mở chart */}
+                                                    <td className="pl-2 pr-5 py-2">
                                                         <div className="flex items-center gap-3">
-                                                            <CoinAvatar
-                                                                symbol={
-                                                                    coin.symbol
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`${t("marketPage.openChart")}: ${coin.name}`}
+                                                                onClick={() =>
+                                                                    openChartForSymbol(
+                                                                        coin.id,
+                                                                    )
                                                                 }
-                                                                logoUrl={
-                                                                    coin.logoUrl
-                                                                }
-                                                            />
-                                                            <div>
-                                                                <div className="text-[13px] font-bold">
+                                                                className="shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                                                            >
+                                                                <CoinAvatar
+                                                                    symbol={
+                                                                        coin.symbol
+                                                                    }
+                                                                    logoUrl={
+                                                                        coin.logoUrl
+                                                                    }
+                                                                />
+                                                            </button>
+                                                            <div className="min-w-0 text-left">
+                                                                <button
+                                                                    type="button"
+                                                                    aria-label={`${t("marketPage.openChart")}: ${coin.name}`}
+                                                                    onClick={() =>
+                                                                        openChartForSymbol(
+                                                                            coin.id,
+                                                                        )
+                                                                    }
+                                                                    className="text-[13px] font-bold hover:text-accent transition-colors max-w-full truncate block w-full text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40 rounded"
+                                                                >
                                                                     {coin.name}
-                                                                </div>
+                                                                </button>
                                                                 <div className="text-[10px] text-muted">
                                                                     {
                                                                         coin.symbol
@@ -1387,86 +1416,43 @@ export default function MarketPage() {
                                                     </td>
 
                                                     {/* Price */}
-                                                    <td className="px-5 py-4 text-right text-[13px] font-mono font-semibold tabular-nums whitespace-nowrap">
+                                                    <td className="px-5 py-2 text-right text-[13px] font-mono font-semibold tabular-nums whitespace-nowrap">
                                                         ${priceFmt(coin.price)}
                                                     </td>
 
-                                                    {isStock ? (
-                                                        <>
-                                                            <PctCell
-                                                                v={coin.h24}
-                                                            />
-                                                            <td className="px-5 py-4 text-right text-[12px] text-muted font-mono">
-                                                                {coin.low > 0
-                                                                    ? `${priceFmt(coin.low)} - ${priceFmt(coin.high)}`
-                                                                    : "--"}
-                                                            </td>
-                                                            <td className="px-5 py-4 text-right text-[13px] text-muted">
-                                                                {coin.baseVolume.toLocaleString(
-                                                                    "en-US",
-                                                                )}
-                                                            </td>
-                                                            <td className="px-5 py-4 text-right text-[13px] text-muted">
-                                                                {coin.volume}
-                                                            </td>
-                                                            <td className="px-5 py-4 text-center text-[12px] text-muted">
-                                                                {coin.exchange}
-                                                            </td>
-                                                            <td className="px-5 py-4 text-center text-[12px] text-muted max-w-[180px]">
-                                                                <span className="line-clamp-1">
-                                                                    {
-                                                                        coin.sector
-                                                                    }
-                                                                </span>
-                                                            </td>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            {/* % columns */}
-                                                            <PctCell
-                                                                v={coin.h1}
-                                                            />
-                                                            <PctCell
-                                                                v={coin.h24}
-                                                            />
-                                                            <PctCell
-                                                                v={coin.d7}
-                                                            />
+                                                    {/* % columns */}
+                                                    <PctCell v={coin.h1} />
+                                                    <PctCell v={coin.h24} />
+                                                    <PctCell v={coin.d7} />
 
-                                                            {/* Market Cap */}
-                                                            <td className="px-5 py-4 text-right text-[13px] text-muted tabular-nums whitespace-nowrap">
-                                                                {coin.marketCap}
-                                                            </td>
+                                                    {/* Market Cap */}
+                                                    <td className="px-5 py-2 text-right text-[13px] text-muted tabular-nums whitespace-nowrap">
+                                                        {coin.marketCap}
+                                                    </td>
 
-                                                            {/* Volume */}
-                                                            <td className="px-5 py-4 text-right text-[13px] text-muted tabular-nums whitespace-nowrap">
-                                                                {coin.volume}
-                                                            </td>
+                                                    {/* Volume */}
+                                                    <td className="px-5 py-2 text-right text-[13px] text-muted tabular-nums whitespace-nowrap">
+                                                        {coin.volume}
+                                                    </td>
 
-                                                            {/* Sentiment */}
-                                                            <td className="px-5 py-4 text-center">
-                                                                <SentimentBadge
-                                                                    v={
-                                                                        coin.sentiment
-                                                                    }
-                                                                />
-                                                            </td>
+                                                    {/* Sentiment */}
+                                                    <td className="px-5 py-2 text-center">
+                                                        <SentimentBadge
+                                                            v={coin.sentiment}
+                                                        />
+                                                    </td>
 
-                                                            {/* 7-day sparkline */}
-                                                            <td className="px-5 py-4">
-                                                                <div className="flex justify-center">
-                                                                    <MiniSparkline
-                                                                        data={
-                                                                            sparkData
-                                                                        }
-                                                                        positive={
-                                                                            sparkPositive
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                            </td>
-                                                        </>
-                                                    )}
+                                                    {/* 7-day sparkline */}
+                                                    <td className="px-5 py-2">
+                                                        <div className="flex justify-center">
+                                                            <MiniSparkline
+                                                                data={sparkData}
+                                                                positive={
+                                                                    sparkPositive
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             );
                                         })}
@@ -1487,7 +1473,7 @@ export default function MarketPage() {
                     </div>
 
                     {/* Pagination */}
-                    <div className="flex items-center justify-center gap-1.5 py-5 border-t border-main">
+                    <div className="flex items-center justify-center gap-1.5 py-3 border-t border-main">
                         <button
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
                             className="w-8 h-8 flex items-center justify-center text-muted hover:text-main hover:bg-main rounded-md transition-colors"
@@ -1512,7 +1498,7 @@ export default function MarketPage() {
             </main>
 
             {/* ── Footer ─────────────────────────────────────────────────────── */}
-            <footer className="border-t border-main mt-6 px-6 py-8">
+            <footer className="border-t border-main mt-6 px-6 py-4">
                 <div className="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-2.5">
                         <Image
