@@ -779,7 +779,14 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
     useEffect(() => {
         if (universe !== "stock") return;
         setStockVisibleCount(STOCK_PAGE_SIZE);
-    }, [favoriteOnly, search, sortMode, selectedExchanges, selectedIndexes, universe]);
+    }, [
+        favoriteOnly,
+        search,
+        sortMode,
+        selectedExchanges,
+        selectedIndexes,
+        universe,
+    ]);
 
     useEffect(() => {
         if (universe !== "stock") return;
@@ -1423,7 +1430,10 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                         title={t("ticker.favorite")}
                         aria-label={t("ticker.favorite")}
                     >
-                        <Star size={9} className={cn(favoriteOnly && "fill-current")} />
+                        <Star
+                            size={9}
+                            className={cn(favoriteOnly && "fill-current")}
+                        />
                     </button>
                     <button
                         onClick={() => setSortMode(nextSortMode(sortMode))}

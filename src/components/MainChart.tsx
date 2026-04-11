@@ -1817,7 +1817,9 @@ export const MainChart = () => {
             ) : activeTab === "flow" ? (
                 <FlowPanel />
             ) : activeTab === "liquidation" ? (
-                <FuturesLiquidationPanel />
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                    <FuturesLiquidationPanel />
+                </div>
             ) : (
                 <div className="flex-1 min-h-[260px] relative">
                     {isLoading && data.length === 0 && (

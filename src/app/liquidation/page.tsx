@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { AlertTriangle } from "lucide-react";
 import { LeftSidebar } from "../../components/LeftSidebar";
 import { FuturesLiquidationPanel } from "../../components/FuturesLiquidationPanel";
 import { AppTopBar } from "../../components/shell/AppTopBar";
@@ -29,20 +28,11 @@ export default function LiquidationPage() {
                 <div className="flex min-h-0 flex-1 w-full overflow-hidden bg-main">
                     <LeftSidebar embedded />
 
-                    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-main">
-                        <div className="px-4 py-3 border-b border-main bg-secondary/10 shrink-0">
-                            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-amber-500 font-bold">
-                                <AlertTriangle size={14} />
-                                Dedicated Liquidation Stream
-                            </div>
-                            <div className="mt-1 text-[12px] text-muted">
-                                Follow liquidation futures.
-                            </div>
-                        </div>
-
-                        <div className="flex-1 min-h-0">
-                            <FuturesLiquidationPanel key={panelKey} />
-                        </div>
+                    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-main">
+                        <FuturesLiquidationPanel
+                            key={panelKey}
+                            standalone
+                        />
                     </div>
                 </div>
             </main>

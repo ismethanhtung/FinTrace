@@ -67,60 +67,60 @@ export default function DataStreamPage() {
                     <div className="px-3 border-b border-main bg-secondary/10 shrink-0 h-[56px] flex items-center">
                         <div className="w-full flex items-center justify-between gap-3">
                             <div className="flex min-w-0 items-start gap-2.5">
-                                <span
-                                    className={cn(
-                                        "mt-0.5 shrink-0 rounded border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider",
-                                        universe === "stock"
-                                            ? "border-amber-400/45 bg-amber-400/12 text-amber-600"
-                                            : "border-emerald-500/45 bg-emerald-500/12 text-emerald-600",
-                                    )}
-                                    title={t("dataStream.page.universeBadgeTitle")}
-                                >
-                                    {universe === "stock"
-                                        ? t("common.stock")
-                                        : t("common.coin")}
-                                </span>
                                 <div className="min-w-0 space-y-1">
-                                <div className="flex items-center gap-2">
-                                    <span
-                                        className={`inline-block h-1.5 w-1.5 rounded-full ${
-                                            universe === "stock"
-                                                ? "bg-muted"
+                                    <div className="flex items-center gap-2">
+                                        <span
+                                            className={`inline-block h-1.5 w-1.5 rounded-full ${
+                                                universe === "stock"
+                                                    ? "bg-muted"
+                                                    : connectionStatus ===
+                                                        "connected"
+                                                      ? "bg-emerald-500 animate-pulse"
+                                                      : connectionStatus ===
+                                                          "error"
+                                                        ? "bg-rose-500"
+                                                        : "bg-amber-400 animate-pulse"
+                                            }`}
+                                        />
+                                        <div className="text-[10px] text-muted uppercase tracking-widest font-bold">
+                                            {universe === "stock"
+                                                ? t(
+                                                      "dataStream.page.stockStreamStatus",
+                                                  )
                                                 : connectionStatus ===
                                                     "connected"
-                                                  ? "bg-emerald-500 animate-pulse"
-                                                  : connectionStatus === "error"
-                                                    ? "bg-rose-500"
-                                                    : "bg-amber-400 animate-pulse"
-                                        }`}
-                                    />
-                                    <div className="text-[10px] text-muted uppercase tracking-widest font-bold">
-                                        {universe === "stock"
-                                            ? t("dataStream.page.stockStreamStatus")
-                                            : connectionStatus === "connected"
-                                              ? t("dataStream.page.streamingLive")
-                                              : connectionStatus ===
-                                                  "connecting"
-                                                ? t("dataStream.page.connecting")
-                                                : connectionStatus === "error"
-                                                  ? t("dataStream.page.wsError")
-                                                  : t(
-                                                        "dataStream.page.disconnected",
-                                                    )}
+                                                  ? t(
+                                                        "dataStream.page.streamingLive",
+                                                    )
+                                                  : connectionStatus ===
+                                                      "connecting"
+                                                    ? t(
+                                                          "dataStream.page.connecting",
+                                                      )
+                                                    : connectionStatus ===
+                                                        "error"
+                                                      ? t(
+                                                            "dataStream.page.wsError",
+                                                        )
+                                                      : t(
+                                                            "dataStream.page.disconnected",
+                                                        )}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="text-[12px] text-muted font-mono">
-                                    {universe === "stock" ? (
-                                        <span className="text-[11px] font-sans font-normal normal-case tracking-normal">
-                                            {t("dataStream.page.stockStreamHint")}
-                                        </span>
-                                    ) : (
-                                        <>
-                                            {marketType.toUpperCase()} ·{" "}
-                                            {selectedSymbol}
-                                        </>
-                                    )}
-                                </div>
+                                    <div className="text-[12px] text-muted font-mono">
+                                        {universe === "stock" ? (
+                                            <span className="text-[11px] font-sans font-normal normal-case tracking-normal">
+                                                {t(
+                                                    "dataStream.page.stockStreamHint",
+                                                )}
+                                            </span>
+                                        ) : (
+                                            <>
+                                                {marketType.toUpperCase()} ·{" "}
+                                                {selectedSymbol}
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
