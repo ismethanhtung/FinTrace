@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 /**
- * Minimal SSE endpoint for /connection-test — verifies the app can stream
+ * Minimal SSE endpoint for connection diagnostics (Settings → Connection) — verifies the app can stream
  * `text/event-stream` through Next.js in the current environment.
  */
 export async function GET() {

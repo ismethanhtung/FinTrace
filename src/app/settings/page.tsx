@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
-import SettingsLayout from "../../components/SettingsLayout";
+import { useRouter, useSearchParams } from "next/navigation";
+import SettingsLayout, {
+    SETTINGS_SECTION_IDS,
+} from "../../components/SettingsLayout";
 import {
     Globe,
     Type,
@@ -39,6 +42,7 @@ import { cn } from "../../lib/utils";
 import { aiProviderService, ModelInfo } from "../../services/aiProviderService";
 import { getFallbackModelsForProvider } from "../../lib/aiModelDefaults";
 import { TwoFactorSettingsPanel } from "../../components/settings/TwoFactorSettingsPanel";
+import { ConnectionTestPanel } from "../../components/settings/ConnectionTestPanel";
 
 // ─── Font preview card ────────────────────────────────────────────────────────
 const FONT_OPTIONS: { value: AppFont; description: string }[] = [
@@ -294,7 +298,10 @@ const ActiveSessionsPanel = ({
                             >
                                 <div className="flex items-start gap-3 min-w-0">
                                     <div className="w-9 h-9 rounded-lg bg-main border border-main flex items-center justify-center shrink-0">
-                                        <Icon size={16} className="text-muted" />
+                                        <Icon
+                                            size={16}
+                                            className="text-muted"
+                                        />
                                     </div>
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2 min-w-0">
@@ -325,13 +332,17 @@ const ActiveSessionsPanel = ({
                                 <div className="shrink-0 flex flex-col items-end gap-2">
                                     <p className="text-[10px] text-muted">
                                         Expires{" "}
-                                        {new Date(s.expires).toLocaleDateString()}
+                                        {new Date(
+                                            s.expires,
+                                        ).toLocaleDateString()}
                                     </p>
                                     {!s.isCurrent && (
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                onRevokeSession(s.sessionTokenHash)
+                                                onRevokeSession(
+                                                    s.sessionTokenHash,
+                                                )
                                             }
                                             className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors"
                                         >
@@ -718,8 +729,27 @@ export default function SettingsPage() {
         setSystemPrompt,
     } = useAppSettings();
     const { data: session } = useSession();
+    const router = useRouter();
+    const searchParams = useSearchParams();
 
     const [activeSection, setActiveSection] = useState("profile");
+
+    const selectSection = useCallback(
+        (id: string) => {
+            setActiveSection(id);
+            router.replace(`/settings?section=${encodeURIComponent(id)}`, {
+                scroll: false,
+            });
+        },
+        [router],
+    );
+
+    useEffect(() => {
+        const raw = searchParams.get("section");
+        if (raw && SETTINGS_SECTION_IDS.includes(raw)) {
+            setActiveSection(raw);
+        }
+    }, [searchParams]);
     const [modelProviderId, setModelProviderId] =
         useState<AIProviderId>(activeProviderId);
     const [models, setModels] = useState<ModelInfo[]>([]);
@@ -913,7 +943,9 @@ export default function SettingsPage() {
             URL.revokeObjectURL(url);
         } catch (error) {
             window.alert(
-                error instanceof Error ? error.message : "Failed to export data",
+                error instanceof Error
+                    ? error.message
+                    : "Failed to export data",
             );
         } finally {
             setIsExportingData(false);
@@ -930,7 +962,9 @@ export default function SettingsPage() {
             'Type "DELETE_DATA" to confirm deleting all data:',
         );
         if (typed !== "DELETE_DATA") {
-            window.alert("Data deletion cancelled: confirmation did not match.");
+            window.alert(
+                "Data deletion cancelled: confirmation did not match.",
+            );
             return;
         }
         setIsDeletingData(true);
@@ -1043,6 +1077,18 @@ export default function SettingsPage() {
                 title: t("settingsPage.sectionSupportTitle"),
                 description: t("settingsPage.sectionSupportDesc"),
             },
+            connectionTest: {
+                title: t("settingsPage.sectionConnectionTestTitle"),
+                description: t("settingsPage.sectionConnectionTestDesc"),
+            },
+            connectionStreams: {
+                title: t("settingsPage.sectionConnectionStreamsTitle"),
+                description: t("settingsPage.sectionConnectionStreamsDesc"),
+            },
+            connectionProviders: {
+                title: t("settingsPage.sectionConnectionProvidersTitle"),
+                description: t("settingsPage.sectionConnectionProvidersDesc"),
+            },
         };
 
     const current = sectionMeta[activeSection] ?? {
@@ -1053,7 +1099,7 @@ export default function SettingsPage() {
     return (
         <SettingsLayout
             activeSection={activeSection}
-            onSelect={setActiveSection}
+            onSelect={selectSection}
             pageTitle={current.title}
             pageDescription={current.description}
         >
@@ -1186,7 +1232,7 @@ export default function SettingsPage() {
                     >
                         <button
                             type="button"
-                            onClick={() => setActiveSection("security")}
+                            onClick={() => selectSection("security")}
                             className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors whitespace-nowrap"
                         >
                             {t("settingsPage.manageTwoFactor")}
@@ -1831,6 +1877,30 @@ export default function SettingsPage() {
                             {t("settingsPage.sendEmail")}
                         </a>
                     </SettingsRow>
+                </div>
+            )}
+
+            {activeSection === "connectionTest" && <ConnectionTestPanel />}
+
+            {activeSection === "connectionStreams" && (
+                <div className="rounded-xl border border-dashed border-main bg-secondary/20 p-8">
+                    <p className="mb-2 inline-flex rounded-full border border-main bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                        {t("settingsLayout.badgeSoon")}
+                    </p>
+                    <p className="max-w-2xl text-[13px] leading-relaxed text-muted">
+                        {t("settingsPage.connectionStreamsPlaceholderBody")}
+                    </p>
+                </div>
+            )}
+
+            {activeSection === "connectionProviders" && (
+                <div className="rounded-xl border border-dashed border-main bg-secondary/20 p-8">
+                    <p className="mb-2 inline-flex rounded-full border border-main bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                        {t("settingsLayout.badgeSoon")}
+                    </p>
+                    <p className="max-w-2xl text-[13px] leading-relaxed text-muted">
+                        {t("settingsPage.connectionProvidersPlaceholderBody")}
+                    </p>
                 </div>
             )}
         </SettingsLayout>

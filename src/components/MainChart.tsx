@@ -1349,11 +1349,30 @@ export const MainChart = () => {
         }
         return out.slice(0, 12);
     }, [currentAsset?.tags, universe]);
+    const currentIndices = useMemo(() => {
+        if (universe !== "stock") return [];
+        const list = currentAsset?.stockProfile?.indexMembership;
+        if (!list?.length) return [];
+        const out: string[] = [];
+        const seen = new Set<string>();
+        for (const raw of list) {
+            const value = String(raw ?? "").trim();
+            if (!value) continue;
+            const key = value.toUpperCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(value);
+        }
+        return out.slice(0, 12);
+    }, [currentAsset?.stockProfile?.indexMembership, universe]);
     const hasHeaderAssetData = Boolean(currentAsset);
     const shouldRenderSessionSkeleton = !displayedLastPoint;
     const shouldRender24hRow = marketStats.length > 0 || !hasHeaderAssetData;
     const shouldRenderTagsRow =
         universe === "coin" && (currentTags.length > 0 || !hasHeaderAssetData);
+    const shouldRenderIndicesRow =
+        universe === "stock" &&
+        (currentIndices.length > 0 || !hasHeaderAssetData);
     const navigateToMarketTag = useCallback(
         (tag: string) => {
             const clean = String(tag ?? "").trim();
@@ -1506,7 +1525,34 @@ export const MainChart = () => {
                                     : Array.from({ length: 4 }).map(
                                           (_, idx) => (
                                               <span
-                                                  key={`mkt-stat-skeleton-desktop-${idx}`}
+                                                  key={`tag-skeleton-desktop-${idx}`}
+                                                  className="inline-flex items-center gap-1"
+                                              >
+                                                  <span className="h-2 w-12 rounded bg-secondary/80 animate-pulse" />
+                                                  <span className="h-2.5 w-14 rounded bg-secondary animate-pulse" />
+                                              </span>
+                                          ),
+                                      )}
+                            </div>
+                        )}
+                        {shouldRenderIndicesRow && (
+                            <div className="flex items-center gap-2 whitespace-nowrap text-[10px] overflow-x-auto thin-scrollbar">
+                                <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
+                                    {t("mainChart.indices")}
+                                </span>
+                                {currentIndices.length > 0
+                                    ? currentIndices.map((idxName) => (
+                                          <span
+                                              key={idxName}
+                                              className="inline-flex items-center  px-1 py-0.5 text-[9px] font-semibold text-blue-500"
+                                          >
+                                              {idxName}
+                                          </span>
+                                      ))
+                                    : Array.from({ length: 4 }).map(
+                                          (_, idx) => (
+                                              <span
+                                                  key={`idx-skeleton-desktop-${idx}`}
                                                   className="inline-flex items-center gap-1"
                                               >
                                                   <span className="h-2 w-12 rounded bg-secondary/80 animate-pulse" />
@@ -1617,6 +1663,28 @@ export const MainChart = () => {
                                 : Array.from({ length: 4 }).map((_, idx) => (
                                       <span
                                           key={`tag-skeleton-mobile-${idx}`}
+                                          className="inline-flex h-4 w-16 rounded border border-main bg-secondary/70 animate-pulse"
+                                      />
+                                  ))}
+                        </div>
+                    )}
+                    {shouldRenderIndicesRow && (
+                        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap thin-scrollbar text-[10px] pb-0.5">
+                            <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">
+                                {t("mainChart.indices")}
+                            </span>
+                            {currentIndices.length > 0
+                                ? currentIndices.map((idxName) => (
+                                      <span
+                                          key={idxName}
+                                          className="inline-flex items-center rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-sky-300"
+                                      >
+                                          {idxName}
+                                      </span>
+                                  ))
+                                : Array.from({ length: 4 }).map((_, idx) => (
+                                      <span
+                                          key={`idx-skeleton-mobile-${idx}`}
                                           className="inline-flex h-4 w-16 rounded border border-main bg-secondary/70 animate-pulse"
                                       />
                                   ))}

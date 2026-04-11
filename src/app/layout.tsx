@@ -84,7 +84,9 @@ export default async function RootLayout({
         await ensureUserDataIndexes();
         const twoFactor = await getUserTwoFactor(userId);
         if (twoFactor?.enabled) {
-            const cookieValue = cookieStore.get(getTwoFactorLoginCookieName())?.value;
+            const cookieValue = cookieStore.get(
+                getTwoFactorLoginCookieName(),
+            )?.value;
             requiresTwoFactorGate = !verifyTwoFactorLoginCookieValue(
                 cookieValue,
                 userId,

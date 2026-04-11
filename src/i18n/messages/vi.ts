@@ -74,6 +74,13 @@ export const viMessages: Messages = {
         security: "Bảo mật",
         dataPrivacy: "Dữ liệu & quyền riêng tư",
         supportAccess: "Hỗ trợ truy cập",
+        navSearchPlaceholder: "Tìm mục cài đặt…",
+        navSearchEmpty: "Không có mục khớp.",
+        connection: "Kết nối",
+        connectionTest: "Kiểm tra kết nối",
+        connectionStreams: "Stream realtime",
+        connectionProviders: "Nhà cung cấp dữ liệu",
+        badgeSoon: "Sắp có",
         footer: "FinTrace v1.2 · Cài đặt",
     },
     settingsPage: {
@@ -100,6 +107,42 @@ export const viMessages: Messages = {
         sectionDataDesc: "Kiểm soát cách dữ liệu của bạn được lưu và sử dụng.",
         sectionSupportTitle: "Quyền hỗ trợ",
         sectionSupportDesc: "Quản lý quyền truy cập của đội ngũ hỗ trợ.",
+        sectionConnectionTestTitle: "Kiểm tra kết nối",
+        sectionConnectionTestDesc:
+            "MongoDB, Redis, API nội bộ, WebSocket ra ngoài và SSE nội bộ.",
+        sectionConnectionStreamsTitle: "Stream thời gian thực",
+        sectionConnectionStreamsDesc:
+            "Theo dõi WebSocket/SSE theo từng nguồn — đang phát triển.",
+        sectionConnectionProvidersTitle: "Nhà cung cấp dữ liệu",
+        sectionConnectionProvidersDesc:
+            "Kiểm tra nhanh API key, quota và latency — đang phát triển.",
+        connectionTestPanelIntro:
+            "Chạy từng thẻ để xác minh môi trường triển khai và mạng.",
+        connectionTestNotRun: "Chưa chạy",
+        connectionTestRun: "Chạy test",
+        connectionStatusIdle: "idle",
+        connectionStatusRunning: "running",
+        connectionStatusOk: "ok",
+        connectionStatusError: "error",
+        connectionTestRunning: "Đang kiểm tra…",
+        connectionTestOkMongo: "OK · {ms}ms · {at}",
+        connectionTestOkRedis: "OK · db {db} · {ms}ms · {at}",
+        connectionTestOkApi: "OK · {ms}ms",
+        connectionTestWsOpening: "Đang mở kết nối…",
+        connectionTestWsTimeout: "Timeout: không nhận dữ liệu trong 6s",
+        connectionTestOkWs: "OK · {ms}ms",
+        connectionTestWsError:
+            "WebSocket error (mạng/firewall/chặn domain)",
+        connectionTestSseOpening: "Đang mở EventSource…",
+        connectionTestSseTimeout: "Timeout: không nhận đủ sự kiện SSE trong 8s",
+        connectionTestOkSse:
+            "OK · {n} sự kiện · {ms}ms · cuối: {sample}",
+        connectionTestSseDropped: "SSE đứt giữa chừng (proxy/buffering?)",
+        connectionTestSseError: "EventSource error (route không stream được)",
+        connectionStreamsPlaceholderBody:
+            "Ở đây sẽ có bảng trạng thái stream (Binance, DNSE, SSE nội bộ), thời điểm ngắt kết nối và gợi ý xử lý.",
+        connectionProvidersPlaceholderBody:
+            "Ở đây sẽ có health check tới các API bên thứ ba (CryptoPanic, v.v.), log latency và cảnh báo khi quota gần hết.",
         profilePhoto: "Ảnh đại diện",
         profilePhotoDesc: "Ảnh đại diện hiển thị trong ứng dụng.",
         changePhoto: "Đổi ảnh",

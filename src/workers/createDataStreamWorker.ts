@@ -4,8 +4,7 @@
  */
 export function createDataStreamWorker(): Worker {
     const WorkerCtor = globalThis.Worker;
-    return new WorkerCtor(
-        new URL("./dataStreamWorker.ts", import.meta.url),
-        { type: "module" },
-    );
+    return new WorkerCtor(new URL("./dataStreamWorker.ts", import.meta.url), {
+        type: "module",
+    });
 }

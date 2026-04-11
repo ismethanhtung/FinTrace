@@ -1,9 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
     User,
@@ -18,7 +17,16 @@ import {
     LifeBuoy,
     ArrowLeft,
     ChevronRight,
+    ChevronDown,
+    Search,
+    LayoutGrid,
+    Layers,
+    Network,
+    Cable,
+    Radio,
+    Box,
 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../lib/utils";
 import { useI18n } from "../context/I18nContext";
 import { type TranslationKey } from "../i18n/translate";
@@ -28,15 +36,21 @@ export type SettingsNavItem = {
     id: string;
     icon: React.ElementType;
     labelKey: TranslationKey;
+    /** Nhãn phụ (ví dụ “Sắp có”) */
+    badgeKey?: TranslationKey;
 };
 
 export type SettingsNavGroup = {
+    sectionId: string;
+    sectionIcon: React.ElementType;
     groupKey: TranslationKey;
     items: SettingsNavItem[];
 };
 
 export const SETTINGS_NAV: SettingsNavGroup[] = [
     {
+        sectionId: "general",
+        sectionIcon: LayoutGrid,
         groupKey: "settingsLayout.generalSettings",
         items: [
             { id: "profile", icon: User, labelKey: "settingsLayout.account" },
@@ -55,6 +69,8 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
         ],
     },
     {
+        sectionId: "workspace",
+        sectionIcon: Layers,
         groupKey: "settingsLayout.workspaceSettings",
         items: [
             {
@@ -79,7 +95,68 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
             },
         ],
     },
+    {
+        sectionId: "connection",
+        sectionIcon: Network,
+        groupKey: "settingsLayout.connection",
+        items: [
+            {
+                id: "connectionTest",
+                icon: Cable,
+                labelKey: "settingsLayout.connectionTest",
+            },
+            {
+                id: "connectionStreams",
+                icon: Radio,
+                labelKey: "settingsLayout.connectionStreams",
+                badgeKey: "settingsLayout.badgeSoon",
+            },
+            {
+                id: "connectionProviders",
+                icon: Box,
+                labelKey: "settingsLayout.connectionProviders",
+                badgeKey: "settingsLayout.badgeSoon",
+            },
+        ],
+    },
 ];
+
+/** Mọi `id` mục trong sidebar Cài đặt (dùng cho `?section=`). */
+export const SETTINGS_SECTION_IDS: string[] = SETTINGS_NAV.flatMap((g) =>
+    g.items.map((i) => i.id),
+);
+
+function SettingsSectionHeader({
+    label,
+    icon: Icon,
+    isOpen,
+    onToggle,
+}: {
+    label: string;
+    icon: React.ElementType;
+    isOpen: boolean;
+    onToggle: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onToggle}
+            className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors group rounded-md hover:bg-secondary/80"
+        >
+            <div className="flex min-w-0 items-center gap-2.5">
+                <Icon className="h-3.5 w-3.5 shrink-0 text-muted group-hover:text-main" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted group-hover:text-main">
+                    {label}
+                </span>
+            </div>
+            {isOpen ? (
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted group-hover:text-main" />
+            ) : (
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted group-hover:text-main" />
+            )}
+        </button>
+    );
+}
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 function SettingsSidebar({
@@ -91,100 +168,188 @@ function SettingsSidebar({
 }) {
     const { t } = useI18n();
     const { data: session } = useSession();
+    const [navQuery, setNavQuery] = useState("");
+    const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+        general: true,
+        workspace: true,
+        connection: true,
+    });
+
+    const toggleSection = (id: string) => {
+        setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
+    };
+
+    const filteredGroups = useMemo(() => {
+        const q = navQuery.trim().toLowerCase();
+        if (!q) return SETTINGS_NAV;
+        return SETTINGS_NAV.map((group) => ({
+            ...group,
+            items: group.items.filter((item) =>
+                t(item.labelKey).toLowerCase().includes(q),
+            ),
+        })).filter((g) => g.items.length > 0);
+    }, [navQuery, t]);
 
     return (
-        <aside className="w-[260px] shrink-0 border-r border-main bg-secondary/60 flex h-full min-h-0 flex-col">
+        <aside className="flex h-full min-h-0 w-[264px] shrink-0 flex-col overflow-hidden border-r border-main bg-secondary/40 select-none">
             {/* Logo row */}
-            <div className="h-14 flex items-center justify-between px-5 border-b border-main">
-                <div className="flex items-center gap-2.5">
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-main px-4">
+                <div className="flex min-w-0 items-center gap-2.5">
                     <Image
                         src="/logo.gif"
                         alt={t("topbar.logoAlt")}
-                        width={36}
-                        height={36}
+                        width={32}
+                        height={32}
                         unoptimized
                         className="rounded-sm"
                         priority
                     />
-                    <span className="font-bold text-[15px] tracking-tight">
+                    <span className="truncate text-[14px] font-bold tracking-tight">
                         FinTrace
                     </span>
                 </div>
                 <Link
                     href="/"
-                    className="p-1.5 rounded-lg hover:bg-main border border-transparent hover:border-main transition-colors text-muted hover:text-main"
+                    className="shrink-0 rounded-lg border border-transparent p-1.5 text-muted transition-colors hover:border-main hover:bg-main hover:text-main"
                     title={t("common.backToApp")}
                 >
                     <ArrowLeft size={14} />
                 </Link>
             </div>
 
-            {/* User card */}
-            <div className=" border-b border-main">
-                <div className="flex items-center gap-3 p-3 bg-main">
-                    <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0 overflow-hidden">
+            {/* User row — compact header */}
+            <div className="shrink-0 border-b border-main px-3 py-3">
+                <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-main bg-main">
                         {session?.user?.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={session.user.image}
                                 alt={session.user.name || "User"}
-                                className="w-full h-full object-cover"
+                                className="h-full w-full object-cover"
                                 referrerPolicy="no-referrer"
                             />
                         ) : (
-                            <User size={16} className="text-accent" />
+                            <User size={15} className="text-accent" />
                         )}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-semibold truncate">
+                        <p className="truncate text-[12px] font-semibold text-main">
                             {session?.user?.name || t("auth.signIn")}
                         </p>
-                        <p className="text-[11px] text-muted truncate">
-                            {session?.user?.email || ""}
+                        <p className="truncate text-[10px] text-muted">
+                            {session?.user?.email || "—"}
                         </p>
                     </div>
-                    <ChevronRight size={13} className="text-muted shrink-0" />
                 </div>
             </div>
 
-            {/* Nav */}
-            <nav className="flex-1 overflow-y-auto thin-scrollbar px-3 py-3 space-y-5">
-                {SETTINGS_NAV.map((group) => (
-                    <div key={group.groupKey} className="space-y-0.5">
-                        <p className="px-3 pb-1.5 text-[10px] uppercase tracking-[0.14em] text-muted font-semibold">
-                            {t(group.groupKey)}
-                        </p>
-                        {group.items.map((item) => {
-                            const isActive = activeSection === item.id;
-                            return (
-                                <button
-                                    key={item.id}
-                                    onClick={() => onSelect(item.id)}
-                                    className={cn(
-                                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all",
-                                        isActive
-                                            ? "bg-accent/10 text-accent"
-                                            : "text-muted hover:bg-main hover:text-main",
-                                    )}
-                                >
-                                    <item.icon
-                                        size={15}
-                                        strokeWidth={isActive ? 2.2 : 1.8}
-                                    />
-                                    <span>{t(item.labelKey)}</span>
-                                    {isActive && (
-                                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
-                ))}
+            {/* Quick search */}
+            <div className="shrink-0 px-3 py-2.5">
+                <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+                    <input
+                        type="search"
+                        value={navQuery}
+                        onChange={(e) => setNavQuery(e.target.value)}
+                        placeholder={t("settingsLayout.navSearchPlaceholder")}
+                        className="w-full rounded-md border border-main bg-main py-1.5 pl-8 pr-3 text-[12px] text-main placeholder:text-muted/60 focus:border-accent/40 focus:outline-none focus:ring-1 focus:ring-accent/25"
+                    />
+                </div>
+                {navQuery.trim() && filteredGroups.length === 0 ? (
+                    <p className="mt-1.5 px-0.5 text-[10px] text-muted">
+                        {t("settingsLayout.navSearchEmpty")}
+                    </p>
+                ) : null}
+            </div>
+
+            {/* Nav — collapsible sections */}
+            <nav className="thin-scrollbar flex-1 min-h-0 overflow-y-auto px-2 pb-6 pt-1">
+                {filteredGroups.map((group) => {
+                    const isOpen = openSections[group.sectionId] ?? true;
+                    return (
+                        <div key={group.sectionId} className="mt-1 first:mt-0">
+                            <SettingsSectionHeader
+                                label={t(group.groupKey)}
+                                icon={group.sectionIcon}
+                                isOpen={isOpen}
+                                onToggle={() => toggleSection(group.sectionId)}
+                            />
+                            <AnimatePresence initial={false}>
+                                {isOpen && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{
+                                            duration: 0.2,
+                                            ease: "easeInOut",
+                                        }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="space-y-0.5 py-1">
+                                            {group.items.map((item) => {
+                                                const active =
+                                                    activeSection === item.id;
+                                                const Icon = item.icon;
+                                                return (
+                                                    <button
+                                                        key={item.id}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            onSelect(item.id)
+                                                        }
+                                                        className={cn(
+                                                            "group flex w-full items-center gap-2.5 border-l-2 py-1.5 pl-2.5 pr-2 text-left transition-all duration-150",
+                                                            active
+                                                                ? "border-l-accent bg-accent/10"
+                                                                : "border-l-transparent hover:bg-secondary/90",
+                                                        )}
+                                                    >
+                                                        <Icon
+                                                            className={cn(
+                                                                "h-3.5 w-3.5 shrink-0",
+                                                                active
+                                                                    ? "text-accent"
+                                                                    : "text-muted group-hover:text-main",
+                                                            )}
+                                                            strokeWidth={
+                                                                active ? 2.2 : 1.8
+                                                            }
+                                                        />
+                                                        <span
+                                                            className={cn(
+                                                                "min-w-0 flex-1 truncate text-[12px]",
+                                                                active
+                                                                    ? "font-semibold text-main"
+                                                                    : "text-muted group-hover:text-main",
+                                                            )}
+                                                        >
+                                                            {t(item.labelKey)}
+                                                        </span>
+                                                        {item.badgeKey ? (
+                                                            <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted ring-1 ring-main bg-secondary/80">
+                                                                {t(item.badgeKey)}
+                                                            </span>
+                                                        ) : null}
+                                                        {active ? (
+                                                            <span className="h-1 w-1 shrink-0 rounded-full bg-accent" />
+                                                        ) : null}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    );
+                })}
             </nav>
 
             {/* Footer */}
-            <div className="px-4 py-4 border-t border-main">
-                <p className="text-[10px] text-muted text-center">
+            <div className="shrink-0 border-t border-main bg-secondary/30 px-3 py-3">
+                <p className="text-center text-[10px] text-muted">
                     {t("settingsLayout.footer")}
                 </p>
             </div>
@@ -208,23 +373,23 @@ export default function SettingsLayout({
 }) {
     const { data: session } = useSession();
     return (
-        <div className="h-screen overflow-hidden flex bg-main text-main">
+        <div className="flex h-screen overflow-hidden bg-main text-main">
             <SettingsSidebar
                 activeSection={activeSection}
                 onSelect={onSelect}
             />
 
-            <div className="flex-1 flex flex-col h-full min-h-0 min-w-0">
+            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
                 {/* Top bar */}
-                <header className="h-14 border-b border-main flex items-center justify-between px-8 bg-main/80 backdrop-blur-sm sticky top-0 z-10">
+                <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between border-b border-main bg-main/80 px-8 backdrop-blur-sm">
                     <div>
                         {pageTitle && (
-                            <h1 className="text-[17px] font-semibold tracking-tight leading-none">
+                            <h1 className="text-[17px] font-semibold leading-none tracking-tight">
                                 {pageTitle}
                             </h1>
                         )}
                         {pageDescription && (
-                            <p className="text-[12px] text-muted mt-0.5 leading-none">
+                            <p className="mt-0.5 text-[12px] leading-none text-muted">
                                 {pageDescription}
                             </p>
                         )}
@@ -243,10 +408,8 @@ export default function SettingsLayout({
                 </header>
 
                 {/* Content */}
-                <main className="flex-1 overflow-y-auto thin-scrollbar">
-                    <div className="max-w-4xl mx-auto px-8 py-8">
-                        {children}
-                    </div>
+                <main className="thin-scrollbar min-h-0 flex-1 overflow-y-auto">
+                    <div className="mx-auto max-w-4xl px-8 py-8">{children}</div>
                 </main>
             </div>
         </div>

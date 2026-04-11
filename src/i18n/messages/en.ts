@@ -72,6 +72,13 @@ export const enMessages = {
         security: "Security",
         dataPrivacy: "Data & Privacy",
         supportAccess: "Support Access",
+        navSearchPlaceholder: "Search settings…",
+        navSearchEmpty: "No matching items.",
+        connection: "Connection",
+        connectionTest: "Connection test",
+        connectionStreams: "Real-time streams",
+        connectionProviders: "Data providers",
+        badgeSoon: "Soon",
         footer: "FinTrace v1.2 · Settings",
     },
     settingsPage: {
@@ -97,6 +104,42 @@ export const enMessages = {
         sectionDataDesc: "Control how your data is stored and used.",
         sectionSupportTitle: "Support Access",
         sectionSupportDesc: "Manage support team access to your account.",
+        sectionConnectionTestTitle: "Connection test",
+        sectionConnectionTestDesc:
+            "MongoDB, Redis, internal API, outbound WebSocket, and internal SSE.",
+        sectionConnectionStreamsTitle: "Real-time streams",
+        sectionConnectionStreamsDesc:
+            "WebSocket/SSE status by source — in development.",
+        sectionConnectionProvidersTitle: "Data providers",
+        sectionConnectionProvidersDesc:
+            "API keys, quotas, and latency checks — in development.",
+        connectionTestPanelIntro:
+            "Run each card to verify deployment and network paths.",
+        connectionTestNotRun: "Not run yet",
+        connectionTestRun: "Run test",
+        connectionStatusIdle: "idle",
+        connectionStatusRunning: "running",
+        connectionStatusOk: "ok",
+        connectionStatusError: "error",
+        connectionTestRunning: "Checking…",
+        connectionTestOkMongo: "OK · {ms}ms · {at}",
+        connectionTestOkRedis: "OK · db {db} · {ms}ms · {at}",
+        connectionTestOkApi: "OK · {ms}ms",
+        connectionTestWsOpening: "Opening connection…",
+        connectionTestWsTimeout: "Timeout: no message within 6s",
+        connectionTestOkWs: "OK · {ms}ms",
+        connectionTestWsError:
+            "WebSocket error (network/firewall/domain blocked)",
+        connectionTestSseOpening: "Opening EventSource…",
+        connectionTestSseTimeout:
+            "Timeout: not enough SSE events within 8s",
+        connectionTestOkSse: "OK · {n} events · {ms}ms · last: {sample}",
+        connectionTestSseDropped: "SSE dropped mid-stream (proxy/buffering?)",
+        connectionTestSseError: "EventSource error (route may not stream)",
+        connectionStreamsPlaceholderBody:
+            "This area will show stream status (Binance, DNSE, internal SSE), disconnect times, and troubleshooting hints.",
+        connectionProvidersPlaceholderBody:
+            "This area will add health checks for third-party APIs (CryptoPanic, etc.), latency logs, and quota warnings.",
         profilePhoto: "Profile photo",
         profilePhotoDesc: "Your avatar shown across the app.",
         changePhoto: "Change photo",
