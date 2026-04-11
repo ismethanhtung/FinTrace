@@ -222,8 +222,8 @@ export default function TransactionsPage() {
                 </div>
 
                 <section className="min-h-0 min-w-0 flex flex-col border-r border-main bg-main">
-                    <div className="px-4 border-b border-main bg-gradient-to-r from-secondary/25 via-secondary/10 to-transparent shrink-0 h-[56px] flex items-center justify-between gap-3">
-                        <div className="space-y-1">
+                    <div className="px-4 border-b border-main bg-gradient-to-r from-secondary/25 via-secondary/10 to-transparent shrink-0 min-h-[52px] py-2 flex items-center justify-between gap-3">
+                        <div className="space-y-1 min-w-0">
                             <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-main">
                                     {isStock
@@ -252,35 +252,45 @@ export default function TransactionsPage() {
                             </div>
                         </div>
 
-                        <div className="flex items-center shrink-0 rounded-md bg-secondary/20 p-0.5">
-                            {(["all", "buy", "sell"] as const).map((kind) => (
-                                <button
-                                    key={kind}
-                                    type="button"
-                                    onClick={() => setFilter(kind)}
-                                    aria-pressed={filter === kind}
-                                    className={cn(
-                                        "inline-flex min-w-[54px] items-center justify-center rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] border transition-colors",
-                                        filter !== kind &&
-                                            "border-transparent text-muted hover:text-main hover:bg-secondary/70",
-                                        filter === kind &&
-                                            kind === "all" &&
-                                            "border-main bg-main text-main shadow-sm",
-                                        filter === kind &&
-                                            kind === "buy" &&
-                                            "border-emerald-500/35 bg-emerald-500/15 text-emerald-400 shadow-sm",
-                                        filter === kind &&
-                                            kind === "sell" &&
-                                            "border-rose-500/35 bg-rose-500/15 text-rose-400 shadow-sm",
-                                    )}
-                                >
-                                    {kind === "all"
-                                        ? t("transactionsPage.filterAll")
-                                        : kind === "buy"
-                                          ? t("transactionsPage.filterBuy")
-                                          : t("transactionsPage.filterSell")}
-                                </button>
-                            ))}
+                        <div className="shrink-0 space-y-1.5 text-right">
+                            <div className="inline-flex flex-wrap justify-end rounded-md border border-main bg-main p-0.5">
+                                {(["all", "buy", "sell"] as const).map(
+                                    (kind) => (
+                                        <button
+                                            key={kind}
+                                            type="button"
+                                            onClick={() => setFilter(kind)}
+                                            aria-pressed={filter === kind}
+                                            className={cn(
+                                                "rounded px-2 py-1 text-[10px] font-medium transition-colors",
+                                                filter === kind &&
+                                                    kind === "all" &&
+                                                    "bg-accent/15 text-accent",
+                                                filter === kind &&
+                                                    kind === "buy" &&
+                                                    "bg-emerald-500/15 text-emerald-400",
+                                                filter === kind &&
+                                                    kind === "sell" &&
+                                                    "bg-rose-500/15 text-rose-400",
+                                                filter !== kind &&
+                                                    "text-muted hover:text-main",
+                                            )}
+                                        >
+                                            {kind === "all"
+                                                ? t(
+                                                      "transactionsPage.filterAll",
+                                                  )
+                                                : kind === "buy"
+                                                  ? t(
+                                                        "transactionsPage.filterBuy",
+                                                    )
+                                                  : t(
+                                                        "transactionsPage.filterSell",
+                                                    )}
+                                        </button>
+                                    ),
+                                )}
+                            </div>
                         </div>
                     </div>
 

@@ -33,6 +33,24 @@ export const enMessages = {
     topbar: {
         logoAlt: "FinTrace logo",
     },
+    feedback: {
+        topbarButton: "feedback?",
+        topbarTitle: "Send feedback or suggestions",
+        modalTitle: "Feedback",
+        hint: "I read every message.",
+        placeholder:
+            "Bugs, ideas, confusing UI—anything that helps me improve FinTrace…",
+        submit: "Send",
+        sending: "Sending…",
+        cancel: "Cancel",
+        close: "Close",
+        successBody: "Thank you. Your message was saved.",
+        errorGeneric: "Could not send right now. Please try again in a moment.",
+        validationTooLong: "Please keep your message under {max} characters.",
+        validationTooShort: "Please write at least {min} characters.",
+        charHintMin: "At least {min} characters ({current}/{min})",
+        charHintOk: "{current} / {max} characters",
+    },
     localeSwitch: {
         title: "Current language: {locale} - click to switch",
     },
@@ -675,6 +693,7 @@ export const enMessages = {
         filterAll: "All",
         filterBuy: "Buy",
         filterSell: "Sell",
+        tradeDirectionLabel: "Direction",
         type: "Type",
         id: "ID",
         price: "Price",

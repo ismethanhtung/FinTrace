@@ -35,6 +35,24 @@ export const viMessages: Messages = {
     topbar: {
         logoAlt: "Logo FinTrace",
     },
+    feedback: {
+        topbarButton: "góp ý?",
+        topbarTitle: "Gửi góp ý hoặc đề xuất",
+        modalTitle: "Góp ý cho FinTrace",
+        hint: "Tôi đọc từng tin nhắn.",
+        placeholder:
+            "Lỗi, ý tưởng, chỗ khó dùng—bất cứ điều gì giúp tôi cải thiện…",
+        submit: "Gửi",
+        sending: "Đang gửi…",
+        cancel: "Hủy",
+        close: "Đóng",
+        successBody: "Cảm ơn bạn. Tin nhắn đã được lưu.",
+        errorGeneric: "Chưa gửi được. Vui lòng thử lại sau giây lát.",
+        validationTooLong: "Vui lòng gửi dưới {max} ký tự.",
+        validationTooShort: "Vui lòng viết ít nhất {min} ký tự.",
+        charHintMin: "Tối thiểu {min} ký tự ({current}/{min})",
+        charHintOk: "{current} / {max} ký tự",
+    },
     localeSwitch: {
         title: "Ngôn ngữ hiện tại: {locale} - bấm để chuyển",
     },
@@ -580,8 +598,7 @@ export const viMessages: Messages = {
         receivedShown: "received: {received} · shown: {shown}",
         filtersHeading: "Bộ lọc",
         filterMatchShort: "{shown} / {received} dòng",
-        filterMatchTitle:
-            "Dòng khớp bộ lọc so với số event đã nhận từ stream",
+        filterMatchTitle: "Dòng khớp bộ lọc so với số event đã nhận từ stream",
         filterScope: "Phạm vi",
         exportJson: "JSON",
         exportCsv: "CSV",
@@ -673,6 +690,7 @@ export const viMessages: Messages = {
         filterAll: "Tất cả",
         filterBuy: "Mua",
         filterSell: "Bán",
+        tradeDirectionLabel: "Chiều",
         type: "Loại",
         id: "ID",
         price: "Giá",

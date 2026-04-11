@@ -26,10 +26,8 @@ import {
     Activity,
     ChevronsRight,
     Loader2,
-    Waves,
     Zap,
     Clock,
-    AlertTriangle,
 } from "lucide-react";
 import { FlowPanel } from "./FlowPanel";
 import { TokenAvatar } from "./TokenAvatar";
@@ -782,44 +780,12 @@ export const MainChart = () => {
                 : (["chart", "flow", "info"] as const)) as readonly ChartTab[],
         [isFutures],
     );
-    const tabMeta: Record<
-        ChartTab,
-        {
-            label: string;
-            icon: React.ReactNode;
-            activeClass: string;
-            iconClass: string;
-        }
-    > = useMemo(
+    const tabMeta: Record<ChartTab, { label: string }> = useMemo(
         () => ({
-            chart: {
-                label: t("navigation.chart").toUpperCase(),
-                icon: <BarChart2 size={11} />,
-                activeClass:
-                    "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
-                iconClass: "text-blue-400",
-            },
-            info: {
-                label: t("mainChart.infoTab").toUpperCase(),
-                icon: <Info size={11} />,
-                activeClass:
-                    "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
-                iconClass: "text-blue-400",
-            },
-            flow: {
-                label: t("mainChart.flowTab").toUpperCase(),
-                icon: <Waves size={11} />,
-                activeClass:
-                    "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
-                iconClass: "text-blue-400",
-            },
-            liquidation: {
-                label: t("navigation.liquidation").toUpperCase(),
-                icon: <AlertTriangle size={11} />,
-                activeClass:
-                    "border-blue-500/30 bg-blue-500/10 text-blue-400 border",
-                iconClass: "text-blue-400",
-            },
+            chart: { label: t("navigation.chart") },
+            info: { label: t("mainChart.infoTab") },
+            flow: { label: t("mainChart.flowTab") },
+            liquidation: { label: t("navigation.liquidation") },
         }),
         [t],
     );
@@ -1792,21 +1758,25 @@ export const MainChart = () => {
                     </div>
 
                     {/* View switcher (right) */}
-                    <div className="flex items-center justify-end gap-1">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={cn(
-                                    "inline-flex h-6 items-center gap-1 rounded border px-3 text-[9px] font-semibold tracking-wide transition-colors",
-                                    activeTab === tab
-                                        ? tabMeta[tab].activeClass
-                                        : "border-main text-muted hover:text-main hover:bg-secondary",
-                                )}
-                            >
-                                <span>{tabMeta[tab].label}</span>
-                            </button>
-                        ))}
+                    <div className="flex items-center justify-end">
+                        <div className="inline-flex flex-wrap justify-end rounded-md border border-main bg-main p-0.5">
+                            {tabs.map((tab) => (
+                                <button
+                                    key={tab}
+                                    type="button"
+                                    onClick={() => setActiveTab(tab)}
+                                    aria-pressed={activeTab === tab}
+                                    className={cn(
+                                        "rounded px-2 py-1 text-[10px] font-medium transition-colors",
+                                        activeTab === tab
+                                            ? "bg-accent/15 text-accent"
+                                            : "text-muted hover:text-main",
+                                    )}
+                                >
+                                    {tabMeta[tab].label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>

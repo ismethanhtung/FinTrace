@@ -9,6 +9,7 @@ import { QuickSearchDropdown } from "../AssetList";
 import { UserMenu } from "../UserMenu";
 import { WorldSwitch } from "./WorldSwitch";
 import { LocaleSwitch } from "./LocaleSwitch";
+import { TopbarFeedback } from "./TopbarFeedback";
 import {
     useAppSettings,
     type AppTheme,
@@ -138,8 +139,10 @@ export function AppTopBar({
                 </nav>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-2.5">
+                <TopbarFeedback />
                 <button
+                    type="button"
                     onClick={toggleTheme}
                     className="flex items-center space-x-1.5 px-2.5 py-1.5 text-muted hover:text-main transition-colors rounded-md hover:bg-secondary border border-transparent hover:border-main"
                     title={t("common.currentTheme", { theme: themeLabel })}

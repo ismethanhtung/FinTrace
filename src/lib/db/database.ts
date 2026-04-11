@@ -80,6 +80,16 @@ async function ensureUserDataIndexesInternal(): Promise<void> {
     { updatedAt: -1 },
     { name: "idx_user_two_factor_updated" },
   );
+
+  await db.collection("public_feedback").createIndex(
+    { createdAt: -1 },
+    { name: "idx_public_feedback_created" },
+  );
+
+  await db.collection("public_feedback").createIndex(
+    { clientIp: 1, createdAt: -1 },
+    { name: "idx_public_feedback_ip_created" },
+  );
 }
 
 export async function ensureUserDataIndexes(): Promise<void> {
