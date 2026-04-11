@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
     User,
     Settings,
@@ -17,15 +18,32 @@ import {
     AlertTriangle,
     Waves,
     LogIn,
+    type LucideIcon,
 } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../context/I18nContext";
+import { useUniverse } from "../context/UniverseContext";
 import { type TranslationKey } from "../i18n/translate";
+
+type UserMenuLinkItem = {
+    icon: LucideIcon;
+    labelKey: TranslationKey;
+    href: string;
+    /** Mở trong vũ trụ cổ phiếu khi đang ở coin (bảng giá, heatmap, …). */
+    switchToStockWhenCoin?: boolean;
+};
+
+type UserMenuGroup = {
+    groupKey: TranslationKey;
+    items: UserMenuLinkItem[];
+};
 
 export const UserMenu = () => {
     const [isOpen, setIsOpen] = useState(false);
+    const router = useRouter();
+    const { universe, setUniverse } = useUniverse();
     const { t } = useI18n();
     const { status, data } = useSession();
     const isAuthenticated = status === "authenticated";
@@ -33,7 +51,7 @@ export const UserMenu = () => {
     const displayEmail = data?.user?.email?.trim() || "";
     const avatarUrl = data?.user?.image?.trim() || "";
 
-    const menuItems = [
+    const menuItems: UserMenuGroup[] = [
         {
             groupKey: "userMenu.overview" as TranslationKey,
             items: [
@@ -41,32 +59,36 @@ export const UserMenu = () => {
                     icon: LayoutDashboard,
                     labelKey: "userMenu.dashboardSoon" as TranslationKey,
                     href: "/dashboard",
+                    switchToStockWhenCoin: true,
                 },
                 {
                     icon: Activity,
-                    labelKey: "userMenu.marketExplorerSoon" as TranslationKey,
-                    href: "/explorer",
+                    labelKey: "userMenu.board" as TranslationKey,
+                    href: "/board",
+                    switchToStockWhenCoin: true,
                 },
                 {
                     icon: Wallet,
                     labelKey: "userMenu.portfolioSoon" as TranslationKey,
                     href: "/portfolio",
+                    switchToStockWhenCoin: true,
                 },
                 {
                     icon: LayoutGrid,
                     labelKey: "navigation.heatmap" as TranslationKey,
                     href: "/heatmap",
+                    switchToStockWhenCoin: true,
                 },
             ],
         },
         {
             groupKey: "userMenu.analysis" as TranslationKey,
             items: [
-                {
-                    icon: Database,
-                    labelKey: "navigation.dataStreams" as TranslationKey,
-                    href: "/data-stream",
-                },
+                // {
+                //     icon: Database,
+                //     labelKey: "navigation.dataStreams" as TranslationKey,
+                //     href: "/data-stream",
+                // },
                 {
                     icon: Terminal,
                     labelKey: "navigation.queryEngine" as TranslationKey,
@@ -92,11 +114,11 @@ export const UserMenu = () => {
         {
             groupKey: "userMenu.account" as TranslationKey,
             items: [
-                {
-                    icon: History,
-                    labelKey: "navigation.transactions" as TranslationKey,
-                    href: "/transactions",
-                },
+                // {
+                //     icon: History,
+                //     labelKey: "navigation.transactions" as TranslationKey,
+                //     href: "/transactions",
+                // },
                 {
                     icon: Bell,
                     labelKey: "userMenu.alertsSoon" as TranslationKey,
@@ -206,7 +228,17 @@ export const UserMenu = () => {
                                             <Link
                                                 key={i}
                                                 href={item.href}
-                                                onClick={() => setIsOpen(false)}
+                                                onClick={(e) => {
+                                                    if (
+                                                        item.switchToStockWhenCoin &&
+                                                        universe === "coin"
+                                                    ) {
+                                                        e.preventDefault();
+                                                        setUniverse("stock");
+                                                        router.push(item.href);
+                                                    }
+                                                    setIsOpen(false);
+                                                }}
                                                 className="w-full flex items-center px-3 py-1.5 text-[12px] text-main hover:bg-secondary transition-colors"
                                             >
                                                 <item.icon

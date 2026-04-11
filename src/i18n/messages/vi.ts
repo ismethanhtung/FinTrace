@@ -58,6 +58,7 @@ export const viMessages: Messages = {
         account: "Tài khoản",
         dashboardSoon: "Dashboard (Sắp có)",
         marketExplorerSoon: "Khám phá thị trường (Sắp có)",
+        board: "Bảng giá",
         portfolioSoon: "Danh mục (Sắp có)",
         aiInsightsSoon: "Phân tích AI (Sắp có)",
         alertsSoon: "Cảnh báo (Sắp có)",
@@ -131,12 +132,10 @@ export const viMessages: Messages = {
         connectionTestWsOpening: "Đang mở kết nối…",
         connectionTestWsTimeout: "Timeout: không nhận dữ liệu trong 6s",
         connectionTestOkWs: "OK · {ms}ms",
-        connectionTestWsError:
-            "WebSocket error (mạng/firewall/chặn domain)",
+        connectionTestWsError: "WebSocket error (mạng/firewall/chặn domain)",
         connectionTestSseOpening: "Đang mở EventSource…",
         connectionTestSseTimeout: "Timeout: không nhận đủ sự kiện SSE trong 8s",
-        connectionTestOkSse:
-            "OK · {n} sự kiện · {ms}ms · cuối: {sample}",
+        connectionTestOkSse: "OK · {n} sự kiện · {ms}ms · cuối: {sample}",
         connectionTestSseDropped: "SSE đứt giữa chừng (proxy/buffering?)",
         connectionTestSseError: "EventSource error (route không stream được)",
         connectionStreamsPlaceholderBody:
@@ -801,7 +800,8 @@ export const viMessages: Messages = {
             stockSoonHint:
                 "Băng ghi trade trực tiếp chỉ có trên vũ trụ Coin. Chuyển sang Coin để xem luồng.",
             waitingTrades: "Đã kết nối — đang chờ trade…",
-            filterHint: "Giá trị tối thiểu: {amount}. Hạ bộ lọc nếu không thấy giao dịch.",
+            filterHint:
+                "Giá trị tối thiểu: {amount}. Hạ bộ lọc nếu không thấy giao dịch.",
         },
         speed: {
             title: "Tốc độ",

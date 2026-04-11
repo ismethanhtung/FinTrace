@@ -1062,7 +1062,8 @@ export default function BoardPage() {
         const restInTab = filtered.filter((s) => !stockFavoriteRank.has(s));
         starredInTab.sort(
             (a, b) =>
-                (stockFavoriteRank.get(a) ?? 0) - (stockFavoriteRank.get(b) ?? 0),
+                (stockFavoriteRank.get(a) ?? 0) -
+                (stockFavoriteRank.get(b) ?? 0),
         );
         return [...starredInTab, ...restInTab];
     }, [favorites, normalizedTab, symbols, vietcapGroupsBySymbol]);
@@ -1471,12 +1472,7 @@ export default function BoardPage() {
             if (c === 0) c = (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0);
             return boardSort.dir === "asc" ? c : -c;
         });
-    }, [
-        boardRows,
-        boardSort,
-        normalizedTab,
-        tabFilteredSymbols.length,
-    ]);
+    }, [boardRows, boardSort, normalizedTab, tabFilteredSymbols.length]);
 
     useEffect(() => {
         const key = normalizedTab.trim().toUpperCase();
@@ -1484,7 +1480,8 @@ export default function BoardPage() {
 
         if (key === "MY_LIST") {
             if ("MY_LIST" in cachedRowsByTabRef.current) {
-                const { MY_LIST: _removed, ...rest } = cachedRowsByTabRef.current;
+                const { MY_LIST: _removed, ...rest } =
+                    cachedRowsByTabRef.current;
                 cachedRowsByTabRef.current = rest;
                 if (saveCacheTimerRef.current !== null) {
                     window.clearTimeout(saveCacheTimerRef.current);
@@ -2507,16 +2504,6 @@ export default function BoardPage() {
                         </div>
 
                         <div className="ml-auto flex items-center gap-2">
-                            <div className="hidden lg:flex items-center gap-2">
-                                <span
-                                    className={cn(
-                                        "rounded-sm border px-2 py-0.5 text-[10px] font-semibold",
-                                        streamStatusClass,
-                                    )}
-                                >
-                                    {streamStatusLabel}
-                                </span>
-                            </div>
                             <button
                                 onClick={toggleTheme}
                                 className="rounded-md p-1.5 text-muted hover:bg-main hover:text-main"
@@ -3077,10 +3064,15 @@ export default function BoardPage() {
                                         >
                                             {normalizedTab === "MY_LIST" &&
                                             tabFilteredSymbols.length === 0
-                                                ? t("boardPage.myWatchlistEmpty")
-                                                : t("boardPage.noDataForGroup", {
-                                                      group: activeTabLabel,
-                                                  })}
+                                                ? t(
+                                                      "boardPage.myWatchlistEmpty",
+                                                  )
+                                                : t(
+                                                      "boardPage.noDataForGroup",
+                                                      {
+                                                          group: activeTabLabel,
+                                                      },
+                                                  )}
                                         </td>
                                     </tr>
                                 ) : (

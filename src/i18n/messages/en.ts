@@ -56,6 +56,7 @@ export const enMessages = {
         account: "Account",
         dashboardSoon: "Dashboard (Soon)",
         marketExplorerSoon: "Market Explorer (Soon)",
+        board: "Board",
         portfolioSoon: "Portfolio (Soon)",
         aiInsightsSoon: "AI Insights (Soon)",
         alertsSoon: "Alerts (Soon)",
@@ -131,8 +132,7 @@ export const enMessages = {
         connectionTestWsError:
             "WebSocket error (network/firewall/domain blocked)",
         connectionTestSseOpening: "Opening EventSource…",
-        connectionTestSseTimeout:
-            "Timeout: not enough SSE events within 8s",
+        connectionTestSseTimeout: "Timeout: not enough SSE events within 8s",
         connectionTestOkSse: "OK · {n} events · {ms}ms · last: {sample}",
         connectionTestSseDropped: "SSE dropped mid-stream (proxy/buffering?)",
         connectionTestSseError: "EventSource error (route may not stream)",
@@ -804,7 +804,8 @@ export const enMessages = {
             stockSoonHint:
                 "Live tape is available in the Coin universe. Switch to Coin to stream trades.",
             waitingTrades: "Connected — waiting for trades…",
-            filterHint: "Min trade size: {amount}. Lower the filter if nothing appears.",
+            filterHint:
+                "Min trade size: {amount}. Lower the filter if nothing appears.",
         },
         speed: {
             title: "Speed",

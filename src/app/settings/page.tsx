@@ -144,10 +144,12 @@ const SettingsRow = ({
     <div
         className={cn(
             "py-5",
-            vertical ? "space-y-3" : "flex items-start justify-between gap-8",
+            vertical
+                ? "space-y-3"
+                : "grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,280px)] sm:gap-x-8 sm:items-start",
         )}
     >
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
             <p
                 className={cn(
                     "text-[14px] font-medium",
@@ -165,7 +167,9 @@ const SettingsRow = ({
         {vertical ? (
             <div>{children}</div>
         ) : (
-            <div className="shrink-0 w-[280px]">{children}</div>
+            <div className="min-w-0 w-full max-w-[280px] sm:max-w-none">
+                {children}
+            </div>
         )}
     </div>
 );
@@ -1213,14 +1217,17 @@ function SettingsPageContent() {
                         label={t("settingsPage.password")}
                         description={t("settingsPage.passwordDesc")}
                     >
-                        <div className="flex gap-2">
+                        <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-stretch">
                             <input
                                 type="password"
                                 value="••••••••••"
                                 readOnly
-                                className="flex-1 bg-secondary border border-main rounded-lg py-2.5 px-4 text-[14px] focus:outline-none opacity-60 cursor-default"
+                                className="min-h-[42px] min-w-0 w-full flex-1 bg-secondary border border-main rounded-lg py-2.5 px-4 text-[14px] focus:outline-none opacity-60 cursor-default"
                             />
-                            <button className="px-4 py-2.5 text-[13px] font-medium rounded-lg border border-main text-muted hover:text-main hover:bg-secondary transition-colors whitespace-nowrap">
+                            <button
+                                type="button"
+                                className="min-h-[42px] w-full shrink-0 rounded-lg border border-main px-4 py-2.5 text-[13px] font-medium text-muted transition-colors hover:bg-secondary hover:text-main sm:w-auto sm:self-stretch"
+                            >
                                 {t("settingsPage.changePassword")}
                             </button>
                         </div>
