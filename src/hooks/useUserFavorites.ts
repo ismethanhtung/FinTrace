@@ -193,6 +193,9 @@ export function useUserFavorites() {
     return {
         favorites,
         isLoading,
+        isAuthenticated: status === "authenticated",
+        /** For “sign in to …” tooltips; avoids flashing while session is loading. */
+        isUnauthenticated: status === "unauthenticated",
         isFavorite,
         addFavorite,
         removeFavorite,

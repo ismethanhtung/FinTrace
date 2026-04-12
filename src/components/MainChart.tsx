@@ -33,6 +33,56 @@ import { FlowPanel } from "./FlowPanel";
 import { TokenAvatar } from "./TokenAvatar";
 import { FuturesLiquidationPanel } from "./FuturesLiquidationPanel";
 import { useI18n } from "../context/I18nContext";
+import { useAppSettings, type AppTheme } from "../context/AppSettingsContext";
+
+/** Axis / grid / crosshair colors for lightweight-charts (library does not read CSS). */
+function lightweightChartsAppearanceForTheme(theme: AppTheme) {
+    const dash = 3;
+    if (theme === "light") {
+        return {
+            layout: { textColor: "rgba(15, 23, 42, 0.58)" },
+            grid: {
+                vertLines: { color: "rgba(15, 23, 42, 0.11)" },
+                horzLines: { color: "rgba(15, 23, 42, 0.11)" },
+            },
+            crosshair: {
+                vertLine: {
+                    color: "rgba(15, 23, 42, 0.28)",
+                    width: 1,
+                    style: dash,
+                    labelBackgroundColor: "rgba(0, 122, 255, 0.92)",
+                },
+                horzLine: {
+                    color: "rgba(15, 23, 42, 0.28)",
+                    width: 1,
+                    style: dash,
+                    labelBackgroundColor: "rgba(0, 122, 255, 0.92)",
+                },
+            },
+        };
+    }
+    return {
+        layout: { textColor: "rgba(255, 255, 255, 0.4)" },
+        grid: {
+            vertLines: { color: "rgba(255, 255, 255, 0.03)" },
+            horzLines: { color: "rgba(255, 255, 255, 0.03)" },
+        },
+        crosshair: {
+            vertLine: {
+                color: "rgba(255, 255, 255, 0.12)",
+                width: 1,
+                style: dash,
+                labelBackgroundColor: "rgba(0, 122, 255, 0.85)",
+            },
+            horzLine: {
+                color: "rgba(255, 255, 255, 0.12)",
+                width: 1,
+                style: dash,
+                labelBackgroundColor: "rgba(0, 122, 255, 0.85)",
+            },
+        },
+    };
+}
 
 // ─── Price formatter ─────────────────────────────────────────────────────────
 const priceFmt = (v: number) => {
@@ -742,6 +792,9 @@ const CoinInfoPanel = () => {
 // ─── Main Chart ───────────────────────────────────────────────────────────────
 export const MainChart = () => {
     const { t } = useI18n();
+    const { theme } = useAppSettings();
+    const themeRef = useRef(theme);
+    themeRef.current = theme;
     const router = useRouter();
     const { selectedSymbol, assets, marketType, universe } = useMarket();
     const {
@@ -845,35 +898,25 @@ export const MainChart = () => {
         if (!lc || activeTab !== "chart" || !chartContainerRef.current) return;
 
         const container = chartContainerRef.current;
+        const appearance = lightweightChartsAppearanceForTheme(
+            themeRef.current,
+        );
         const chart: IChartApi = lc.createChart(container, {
             width: container.clientWidth,
             height: container.clientHeight,
             layout: {
                 background: { type: lc.ColorType.Solid, color: "transparent" },
-                textColor: "rgba(255, 255, 255, 0.4)",
+                textColor: appearance.layout.textColor,
                 fontFamily:
                     "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace",
                 fontSize: 10,
                 attributionLogo: false,
             },
-            grid: {
-                vertLines: { color: "rgba(255, 255, 255, 0.03)" },
-                horzLines: { color: "rgba(255, 255, 255, 0.03)" },
-            },
+            grid: appearance.grid,
             crosshair: {
                 mode: lc.CrosshairMode.Normal,
-                vertLine: {
-                    color: "rgba(255, 255, 255, 0.12)",
-                    width: 1,
-                    style: 3,
-                    labelBackgroundColor: "rgba(0, 122, 255, 0.85)",
-                },
-                horzLine: {
-                    color: "rgba(255, 255, 255, 0.12)",
-                    width: 1,
-                    style: 3,
-                    labelBackgroundColor: "rgba(0, 122, 255, 0.85)",
-                },
+                vertLine: appearance.crosshair.vertLine,
+                horzLine: appearance.crosshair.horzLine,
             },
             rightPriceScale: {
                 borderVisible: false,
@@ -1010,6 +1053,29 @@ export const MainChart = () => {
             ema99SeriesRef.current = null;
         };
     }, [lcLoaded, activeTab]);
+
+    // ── Re-apply chart colors when app theme changes (no grid logic changes) ──
+    useEffect(() => {
+        const chart = chartRef.current;
+        if (!chart || activeTab !== "chart") return;
+        const a = lightweightChartsAppearanceForTheme(theme);
+        chart.applyOptions({
+            layout: { textColor: a.layout.textColor },
+            grid: a.grid,
+            crosshair: {
+                vertLine: {
+                    color: a.crosshair.vertLine.color,
+                    labelBackgroundColor:
+                        a.crosshair.vertLine.labelBackgroundColor,
+                },
+                horzLine: {
+                    color: a.crosshair.horzLine.color,
+                    labelBackgroundColor:
+                        a.crosshair.horzLine.labelBackgroundColor,
+                },
+            },
+        });
+    }, [theme, chartReady, activeTab]);
 
     // ── Effect 2: Main series + Volume ──
     useEffect(() => {

@@ -38,6 +38,7 @@ import {
 import { AppTopBar } from "../../components/shell/AppTopBar";
 import { TickerBar } from "../../components/TickerBar";
 import { TokenAvatar } from "../../components/TokenAvatar";
+import { PortalHoverTooltip } from "../../components/PortalHoverTooltip";
 import { cn } from "../../lib/utils";
 import { useUniverse } from "../../context/UniverseContext";
 import { useAppSettings } from "../../context/AppSettingsContext";
@@ -859,7 +860,13 @@ export default function BoardPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { assets, setSelectedSymbol } = useMarket();
-    const { favorites, isFavorite, toggleFavorite } = useUserFavorites();
+    const {
+        favorites,
+        isFavorite,
+        toggleFavorite,
+        isAuthenticated,
+        isUnauthenticated,
+    } = useUserFavorites();
     const [activeTab, setActiveTab] = useState(
         () => loadBoardActiveTab() ?? "VN30",
     );
@@ -3151,42 +3158,55 @@ export default function BoardPage() {
                                                                 {stock.ticker}
                                                             </div>
                                                         </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={(
-                                                                event,
-                                                            ) => {
-                                                                event.stopPropagation();
-                                                                void toggleFavorite(
-                                                                    stock.ticker,
-                                                                    "stock",
-                                                                );
-                                                            }}
-                                                            className={cn(
-                                                                "ml-auto inline-flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors",
-                                                                isFavorite(
-                                                                    stock.ticker,
-                                                                )
-                                                                    ? "text-amber-500"
-                                                                    : "text-muted hover:bg-secondary hover:text-main",
+                                                        <PortalHoverTooltip
+                                                            text={t(
+                                                                "ticker.signInToPin",
                                                             )}
-                                                            aria-label={t(
-                                                                "ticker.toggleFavorite",
-                                                            )}
-                                                            title={t(
-                                                                "ticker.toggleFavorite",
-                                                            )}
+                                                            enabled={
+                                                                isUnauthenticated
+                                                            }
                                                         >
-                                                            <Pin
-                                                                size={10}
+                                                            <button
+                                                                type="button"
+                                                                onClick={(
+                                                                    event,
+                                                                ) => {
+                                                                    event.stopPropagation();
+                                                                    void toggleFavorite(
+                                                                        stock.ticker,
+                                                                        "stock",
+                                                                    );
+                                                                }}
                                                                 className={cn(
+                                                                    "ml-auto inline-flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors",
                                                                     isFavorite(
                                                                         stock.ticker,
-                                                                    ) &&
-                                                                        "fill-current",
+                                                                    )
+                                                                        ? "text-amber-500"
+                                                                        : "text-muted hover:bg-secondary hover:text-main",
                                                                 )}
-                                                            />
-                                                        </button>
+                                                                aria-label={t(
+                                                                    "ticker.toggleFavorite",
+                                                                )}
+                                                                title={
+                                                                    isAuthenticated
+                                                                        ? t(
+                                                                              "ticker.toggleFavorite",
+                                                                          )
+                                                                        : undefined
+                                                                }
+                                                            >
+                                                                <Pin
+                                                                    size={10}
+                                                                    className={cn(
+                                                                        isFavorite(
+                                                                            stock.ticker,
+                                                                        ) &&
+                                                                            "fill-current",
+                                                                    )}
+                                                                />
+                                                            </button>
+                                                        </PortalHoverTooltip>
                                                     </div>
                                                 </td>
                                                 <td

@@ -7,7 +7,6 @@ import React, {
     useCallback,
     useMemo,
 } from "react";
-import { createPortal } from "react-dom";
 import { cn } from "../lib/utils";
 import { useMarket } from "../context/MarketContext";
 import { Asset } from "../services/binanceService";
@@ -29,6 +28,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useI18n } from "../context/I18nContext";
 import { resolveStockTone, toneClassForStock } from "../lib/stockTone";
 import { useUserFavorites } from "../hooks/useUserFavorites";
+import { PortalHoverTooltip } from "./PortalHoverTooltip";
 
 const STOCK_DNSE_PRICE_SCALE = 1000;
 
@@ -159,99 +159,17 @@ const AssetInfoTooltip = ({
 }: {
     text: string;
     ariaLabel: string;
-}) => {
-    const [open, setOpen] = useState(false);
-    const [mounted, setMounted] = useState(false);
-    const [tooltipPos, setTooltipPos] = useState<{
-        top: number;
-        left: number;
-    } | null>(null);
-    const triggerRef = useRef<HTMLButtonElement | null>(null);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    const computePos = useCallback(() => {
-        const trigger = triggerRef.current;
-        if (!trigger) return null;
-
-        const rect = trigger.getBoundingClientRect();
-        const width = 240;
-        const viewportPadding = 10;
-
-        let left = rect.right + 10;
-        if (left + width > window.innerWidth - viewportPadding) {
-            left = Math.max(viewportPadding, rect.left - width - 10);
-        }
-
-        const top = Math.min(
-            Math.max(viewportPadding, rect.top + rect.height / 2),
-            window.innerHeight - viewportPadding,
-        );
-
-        return { top, left };
-    }, []);
-
-    const openTooltip = useCallback(() => {
-        const nextPos = computePos();
-        if (nextPos) setTooltipPos(nextPos);
-        setOpen(true);
-    }, [computePos]);
-
-    const closeTooltip = useCallback(() => {
-        setOpen(false);
-        setTooltipPos(null);
-    }, []);
-
-    useEffect(() => {
-        if (!open) return;
-        const syncPos = () => {
-            const nextPos = computePos();
-            if (nextPos) setTooltipPos(nextPos);
-        };
-
-        syncPos();
-        window.addEventListener("resize", syncPos);
-        window.addEventListener("scroll", syncPos, true);
-        return () => {
-            window.removeEventListener("resize", syncPos);
-            window.removeEventListener("scroll", syncPos, true);
-        };
-    }, [computePos, open]);
-
-    return (
-        <>
-            <button
-                ref={triggerRef}
-                type="button"
-                aria-label={ariaLabel}
-                onMouseEnter={openTooltip}
-                onMouseLeave={closeTooltip}
-                onFocus={openTooltip}
-                onBlur={closeTooltip}
-                className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-muted hover:text-main transition-colors"
-            >
-                <Info size={11} />
-            </button>
-            {mounted &&
-                open &&
-                tooltipPos &&
-                createPortal(
-                    <div
-                        className="pointer-events-none fixed z-[9999] w-60 -translate-y-1/2 whitespace-pre-line rounded-md border border-main bg-main p-2 text-[9px] leading-relaxed text-muted shadow-2xl"
-                        style={{
-                            top: tooltipPos.top,
-                            left: tooltipPos.left,
-                        }}
-                    >
-                        {text}
-                    </div>,
-                    document.body,
-                )}
-        </>
-    );
-};
+}) => (
+    <PortalHoverTooltip text={text} enabled>
+        <button
+            type="button"
+            aria-label={ariaLabel}
+            className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-muted hover:text-main transition-colors"
+        >
+            <Info size={11} />
+        </button>
+    </PortalHoverTooltip>
+);
 
 // ─── Coin Row ─────────────────────────────────────────────────────────────────
 const CoinRow = ({
@@ -261,6 +179,7 @@ const CoinRow = ({
     stockToneClass,
     isFavorite,
     onToggleFavorite,
+    favoriteGuestHint,
 }: {
     asset: Asset;
     isSelected: boolean;
@@ -268,6 +187,8 @@ const CoinRow = ({
     stockToneClass?: string;
     isFavorite: boolean;
     onToggleFavorite: () => void;
+    /** When set (guest), show sign-in tooltip on the star control. */
+    favoriteGuestHint: string | null;
 }) => {
     const { t } = useI18n();
     const isFutures = asset.marketType === "futures";
@@ -316,27 +237,36 @@ const CoinRow = ({
                                 PERP
                             </span>
                         )}
-                        <button
-                            type="button"
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                onToggleFavorite();
-                            }}
-                            className={cn(
-                                "ml-1 inline-flex h-5 w-5 items-center justify-center transition-colors",
-                                isFavorite
-                                    ? "text-amber-500"
-                                    : "text-muted hover:text-main hover:bg-secondary",
-                            )}
-                            aria-label={t("ticker.toggleFavorite")}
-                            title={t("ticker.toggleFavorite")}
-                            tabIndex={-1}
+                        <PortalHoverTooltip
+                            text={favoriteGuestHint ?? ""}
+                            enabled={Boolean(favoriteGuestHint)}
                         >
-                            <Star
-                                size={10}
-                                className={cn(isFavorite && "fill-current")}
-                            />
-                        </button>
+                            <button
+                                type="button"
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    onToggleFavorite();
+                                }}
+                                className={cn(
+                                    "ml-1 inline-flex h-5 w-5 items-center justify-center transition-colors",
+                                    isFavorite
+                                        ? "text-amber-500"
+                                        : "text-muted hover:text-main hover:bg-secondary",
+                                )}
+                                aria-label={t("ticker.toggleFavorite")}
+                                title={
+                                    favoriteGuestHint
+                                        ? undefined
+                                        : t("ticker.toggleFavorite")
+                                }
+                                tabIndex={-1}
+                            >
+                                <Star
+                                    size={10}
+                                    className={cn(isFavorite && "fill-current")}
+                                />
+                            </button>
+                        </PortalHoverTooltip>
                     </div>
                     <div className="text-[9px] text-muted truncate">
                         {isFutures && typeof fundingRate === "number" ? (
@@ -555,7 +485,11 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
         isLoading,
         isFuturesLoading,
     } = useMarket();
-    const { isFavorite, toggleFavorite } = useUserFavorites();
+    const { isFavorite, toggleFavorite, isAuthenticated, isUnauthenticated } =
+        useUserFavorites();
+    const favoriteGuestHintText = isUnauthenticated
+        ? t("ticker.signInToStar")
+        : null;
     const streamSymbols = useMemo(
         () =>
             universe === "stock"
@@ -1418,23 +1352,32 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
             <div className="px-3 py-1.5 grid grid-cols-2 text-[9px] font-semibold text-muted uppercase tracking-wider border-b border-main bg-secondary/30 shrink-0">
                 <span>{t("leftSidebar.symbol")}</span>
                 <div className="flex items-center justify-end gap-1.5">
-                    <button
-                        type="button"
-                        onClick={() => setFavoriteOnly((prev) => !prev)}
-                        className={cn(
-                            "inline-flex h-4.5 w-4.5 items-center justify-center rounded border transition-colors",
-                            favoriteOnly
-                                ? "border-amber-400/60 bg-amber-400/10 text-amber-500"
-                                : "border-main text-muted hover:text-main hover:bg-secondary",
-                        )}
-                        title={t("ticker.favorite")}
-                        aria-label={t("ticker.favorite")}
+                    <PortalHoverTooltip
+                        text={t("ticker.signInForFavoriteFilter")}
+                        enabled={isUnauthenticated}
                     >
-                        <Star
-                            size={9}
-                            className={cn(favoriteOnly && "fill-current")}
-                        />
-                    </button>
+                        <button
+                            type="button"
+                            onClick={() => setFavoriteOnly((prev) => !prev)}
+                            className={cn(
+                                "inline-flex h-4.5 w-4.5 items-center justify-center rounded border transition-colors",
+                                favoriteOnly
+                                    ? "border-amber-400/60 bg-amber-400/10 text-amber-500"
+                                    : "border-main text-muted hover:text-main hover:bg-secondary",
+                            )}
+                            title={
+                                isAuthenticated
+                                    ? t("ticker.favorite")
+                                    : undefined
+                            }
+                            aria-label={t("ticker.favorite")}
+                        >
+                            <Star
+                                size={9}
+                                className={cn(favoriteOnly && "fill-current")}
+                            />
+                        </button>
+                    </PortalHoverTooltip>
                     <button
                         onClick={() => setSortMode(nextSortMode(sortMode))}
                         className="flex items-center justify-end gap-1 hover:text-main transition-colors"
@@ -1472,6 +1415,7 @@ export const LeftSidebar = ({ embedded = false }: LeftSidebarProps = {}) => {
                             isSelected={selectedSymbol === asset.id}
                             onClick={() => setSelectedSymbol(asset.id)}
                             isFavorite={isFavorite(asset.symbol)}
+                            favoriteGuestHint={favoriteGuestHintText}
                             onToggleFavorite={() =>
                                 void toggleFavorite(asset.symbol, universe)
                             }

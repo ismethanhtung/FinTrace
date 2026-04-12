@@ -39,6 +39,7 @@ import {
     type MarketSubTabKey,
 } from "../../lib/marketSort";
 import { MarketNewsInsights } from "../../components/MarketNewsInsights";
+import { PortalHoverTooltip } from "../../components/PortalHoverTooltip";
 
 const statCardSparks = [
     [
@@ -824,7 +825,12 @@ export default function MarketPage() {
     const { universe, marketType, setMarketType, setSelectedSymbol } =
         useMarket();
     const { rows, stats, isLoading, refetch } = useMarketPageData();
-    const { isFavorite, toggleFavorite } = useUserFavorites();
+    const {
+        isFavorite,
+        toggleFavorite,
+        isAuthenticated,
+        isUnauthenticated,
+    } = useUserFavorites();
     const isStock = universe === "stock";
 
     useEffect(() => {
@@ -1326,45 +1332,58 @@ export default function MarketPage() {
                                                     {/* # + star */}
                                                     <td className="pl-5 pr-8 py-2">
                                                         <div className="flex items-center gap-2.5 text-muted text-[12px]">
-                                                            <button
-                                                                type="button"
-                                                                aria-label={t(
-                                                                    "ticker.toggleFavorite",
+                                                            <PortalHoverTooltip
+                                                                text={t(
+                                                                    "ticker.signInToStar",
                                                                 )}
-                                                                title={t(
-                                                                    "ticker.toggleFavorite",
-                                                                )}
-                                                                aria-pressed={isFavorite(
-                                                                    coin.symbol,
-                                                                )}
-                                                                onClick={(
-                                                                    e,
-                                                                ) => {
-                                                                    e.stopPropagation();
-                                                                    void toggleFavorite(
-                                                                        coin.symbol,
-                                                                        universe,
-                                                                    );
-                                                                }}
-                                                                className={cn(
-                                                                    "inline-flex h-6 w-6 items-center justify-center rounded shrink-0 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
-                                                                    isFavorite(
-                                                                        coin.symbol,
-                                                                    )
-                                                                        ? "text-amber-500"
-                                                                        : "text-muted hover:text-main hover:bg-secondary",
-                                                                )}
+                                                                enabled={
+                                                                    isUnauthenticated
+                                                                }
                                                             >
-                                                                <Star
-                                                                    size={13}
+                                                                <button
+                                                                    type="button"
+                                                                    aria-label={t(
+                                                                        "ticker.toggleFavorite",
+                                                                    )}
+                                                                    title={
+                                                                        isAuthenticated
+                                                                            ? t(
+                                                                                  "ticker.toggleFavorite",
+                                                                              )
+                                                                            : undefined
+                                                                    }
+                                                                    aria-pressed={isFavorite(
+                                                                        coin.symbol,
+                                                                    )}
+                                                                    onClick={(
+                                                                        e,
+                                                                    ) => {
+                                                                        e.stopPropagation();
+                                                                        void toggleFavorite(
+                                                                            coin.symbol,
+                                                                            universe,
+                                                                        );
+                                                                    }}
                                                                     className={cn(
+                                                                        "inline-flex h-6 w-6 items-center justify-center rounded shrink-0 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
                                                                         isFavorite(
                                                                             coin.symbol,
-                                                                        ) &&
-                                                                            "fill-current",
+                                                                        )
+                                                                            ? "text-amber-500"
+                                                                            : "text-muted hover:text-main hover:bg-secondary",
                                                                     )}
-                                                                />
-                                                            </button>
+                                                                >
+                                                                    <Star
+                                                                        size={13}
+                                                                        className={cn(
+                                                                            isFavorite(
+                                                                                coin.symbol,
+                                                                            ) &&
+                                                                                "fill-current",
+                                                                        )}
+                                                                    />
+                                                                </button>
+                                                            </PortalHoverTooltip>
                                                             {(page - 1) * 20 +
                                                                 idx +
                                                                 1}
