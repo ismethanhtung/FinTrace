@@ -117,8 +117,8 @@ Your role:
 
 You do NOT give financial advice or buy/sell recommendations. Always state that decisions are the user's own.`;
 
-export const DEFAULT_MODEL = getDefaultModelForProvider("openrouter");
-export const DEFAULT_PROVIDER: AIProviderId = "openrouter";
+export const DEFAULT_MODEL = getDefaultModelForProvider("groq");
+export const DEFAULT_PROVIDER: AIProviderId = "groq";
 
 const PROVIDERS_STORAGE_KEY = "ft-ai-providers";
 const SELECTED_PROVIDER_KEY = "ft-selected-provider";

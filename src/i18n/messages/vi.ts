@@ -318,6 +318,7 @@ export const viMessages: Messages = {
         promptOverbought: "Đang quá mua không?",
         promptSupportResistance: "Các mức hỗ trợ/kháng cự?",
         promptExplainVolume: "Giải thích khối lượng gần đây",
+        modelOtherConfigureSettings: "Khác? Cấu hình trong Cài đặt.",
     },
     assetSearch: {
         market: "Market",

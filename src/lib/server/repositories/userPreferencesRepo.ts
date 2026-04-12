@@ -37,7 +37,7 @@ export async function getUserPreferences(
         theme: (doc.theme || "light") as UserPreferenceState["theme"],
         analyticsTelemetryEnabled: doc.analyticsTelemetryEnabled !== false,
         supportAccessEnabled: doc.supportAccessEnabled === true,
-        activeProviderId: doc.activeProviderId || "openrouter",
+        activeProviderId: doc.activeProviderId || "groq",
         providerModels: doc.providerModels || {},
         systemPrompt: doc.systemPrompt || "",
         cryptoPanicApiKey: doc.cryptoPanicApiKey || "",

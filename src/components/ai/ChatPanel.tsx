@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useAIChat } from "../../hooks/useAIChat";
 import { useMarket } from "../../context/MarketContext";
 import { useAppSettings } from "../../context/AppSettingsContext";
@@ -40,6 +41,7 @@ interface ModelSelectorProps {
     }[];
     onProviderChange: (id: string) => void;
     onModelChange: (model: string) => void;
+    configureInSettingsHint: string;
 }
 
 const ModelSelector = ({
@@ -51,6 +53,7 @@ const ModelSelector = ({
     providers,
     onProviderChange,
     onModelChange,
+    configureInSettingsHint,
 }: ModelSelectorProps) => {
     const [showProviderMenu, setShowProviderMenu] = useState(false);
     const [showModelMenu, setShowModelMenu] = useState(false);
@@ -161,6 +164,15 @@ const ModelSelector = ({
                                 </button>
                             ))}
                         </div>
+                        <div className="border-t border-main px-2 py-1.5 bg-secondary/40">
+                            <Link
+                                href="/settings"
+                                onClick={() => setShowProviderMenu(false)}
+                                className="block text-[9px] leading-snug text-muted hover:text-accent transition-colors underline-offset-2 hover:underline"
+                            >
+                                {configureInSettingsHint}
+                            </Link>
+                        </div>
                     </div>
                 )}
             </div>
@@ -220,7 +232,7 @@ const ModelSelector = ({
                     </span>
                     <ChevronDown size={8} />
                 </button>
-                {showModelMenu && models.length > 0 && (
+                {showModelMenu && (
                     <div className="absolute bottom-full left-0 mb-1.5 z-50 w-[200px] bg-main border border-main rounded-xl shadow-xl overflow-hidden">
                         <div className="p-2 border-b border-main">
                             <input
@@ -232,33 +244,50 @@ const ModelSelector = ({
                             />
                         </div>
                         <div className="max-h-[200px] overflow-y-auto thin-scrollbar py-1">
-                            {filteredModels.length === 0 && (
+                            {models.length === 0 ? (
+                                <div className="px-3 py-2 text-[10px] text-muted">
+                                    No models loaded.
+                                </div>
+                            ) : filteredModels.length === 0 ? (
                                 <div className="px-3 py-2 text-[10px] text-muted">
                                     No model matched.
                                 </div>
+                            ) : (
+                                filteredModels.map((m) => {
+                                    const label = m.name ?? m.id;
+                                    return (
+                                        <button
+                                            key={m.id}
+                                            onClick={() => {
+                                                onModelChange(m.id);
+                                                setShowModelMenu(false);
+                                                setModelQuery("");
+                                            }}
+                                            className={cn(
+                                                "w-full text-left px-3 py-2 text-[11px] transition-colors truncate",
+                                                m.id === model
+                                                    ? "bg-accent/10 text-accent font-medium"
+                                                    : "text-main hover:bg-secondary",
+                                            )}
+                                            title={m.id}
+                                        >
+                                            {label}
+                                        </button>
+                                    );
+                                })
                             )}
-                            {filteredModels.map((m) => {
-                                const label = m.name ?? m.id;
-                                return (
-                                    <button
-                                        key={m.id}
-                                        onClick={() => {
-                                            onModelChange(m.id);
-                                            setShowModelMenu(false);
-                                            setModelQuery("");
-                                        }}
-                                        className={cn(
-                                            "w-full text-left px-3 py-2 text-[11px] transition-colors truncate",
-                                            m.id === model
-                                                ? "bg-accent/10 text-accent font-medium"
-                                                : "text-main hover:bg-secondary",
-                                        )}
-                                        title={m.id}
-                                    >
-                                        {label}
-                                    </button>
-                                );
-                            })}
+                        </div>
+                        <div className="border-t border-main px-2 py-1.5 bg-secondary/40">
+                            <Link
+                                href="/settings"
+                                onClick={() => {
+                                    setShowModelMenu(false);
+                                    setModelQuery("");
+                                }}
+                                className="block text-[9px] leading-snug text-muted hover:text-accent transition-colors underline-offset-2 hover:underline"
+                            >
+                                {configureInSettingsHint}
+                            </Link>
                         </div>
                     </div>
                 )}
@@ -716,6 +745,9 @@ ${
                     providers={providerOptions}
                     onProviderChange={handleProviderChange}
                     onModelChange={setSelectedModel}
+                    configureInSettingsHint={t(
+                        "rightPanel.modelOtherConfigureSettings",
+                    )}
                 />
 
                 {/* Textarea + send button */}

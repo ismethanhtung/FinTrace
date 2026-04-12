@@ -34,7 +34,7 @@ function validatePayload(body: unknown): Omit<UserPreferenceState, "updatedAt"> 
         activeProviderId:
             typeof body.activeProviderId === "string" && body.activeProviderId.trim().length > 0
                 ? body.activeProviderId.trim()
-                : "openrouter",
+                : "groq",
         providerModels: isRecord(body.providerModels)
             ? Object.entries(body.providerModels).reduce<Record<string, string>>(
                   (acc, [key, value]) => {

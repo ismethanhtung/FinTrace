@@ -319,6 +319,7 @@ export const enMessages = {
         promptOverbought: "Is it overbought?",
         promptSupportResistance: "Support/Resistance levels?",
         promptExplainVolume: "Explain recent volume",
+        modelOtherConfigureSettings: "Other? Configure in Settings.",
     },
     assetSearch: {
         market: "Market",
