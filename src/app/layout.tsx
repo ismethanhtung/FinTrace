@@ -109,12 +109,66 @@ const FONT_BOOTSTRAP_SCRIPT = `
 
 export const metadata: Metadata = {
     title: "FinTrace - Real-time Financial Analysis",
-    description: "Advanced financial tracking and AI-driven analysis",
+    description:
+        "Unifying crypto and stocks through realtime metrics and live streams. Integrated AI assistant for instant asset analysis and market insights.",
+    metadataBase: new URL("https://thanhtung.xyz"),
+    alternates: {
+        canonical: "/",
+    },
+    openGraph: {
+        title: "FinTrace - Real-time Financial Analysis",
+        description:
+            "Unifying crypto and stocks through realtime metrics and live streams. Integrated AI assistant for instant asset analysis and market insights.",
+        url: "https://thanhtung.xyz",
+        siteName: "FinTrace",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "FinTrace - Real-time Financial Analysis",
+        description:
+            "Unifying crypto and stocks through realtime metrics and live streams. Integrated AI assistant for instant asset analysis and market insights.",
+    },
+    robots: {
+        index: true,
+        follow: true,
+        googleBot: {
+            index: true,
+            follow: true,
+            "max-image-preview": "large",
+            "max-snippet": -1,
+            "max-video-preview": -1,
+        },
+    },
     icons: {
         icon: "/favicon.svg",
         shortcut: "/favicon.svg",
         apple: "/favicon.svg",
     },
+};
+
+const WEBSITE_STRUCTURED_DATA = {
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "WebSite",
+            name: "FinTrace",
+            url: "https://thanhtung.xyz/",
+            description:
+                "Unifying crypto and stocks through realtime metrics and live streams. Integrated AI assistant for instant asset analysis and market insights.",
+        },
+        {
+            "@type": "ItemList",
+            itemListElement: [
+                { "@type": "SiteNavigationElement", name: "Chart", url: "https://thanhtung.xyz/chart" },
+                { "@type": "SiteNavigationElement", name: "Market", url: "https://thanhtung.xyz/market" },
+                { "@type": "SiteNavigationElement", name: "Board", url: "https://thanhtung.xyz/board" },
+                { "@type": "SiteNavigationElement", name: "Data Streams", url: "https://thanhtung.xyz/data-stream" },
+                { "@type": "SiteNavigationElement", name: "Transactions", url: "https://thanhtung.xyz/transactions" },
+                { "@type": "SiteNavigationElement", name: "News", url: "https://thanhtung.xyz/news" },
+            ],
+        },
+    ],
 };
 
 export default async function RootLayout({
@@ -172,6 +226,14 @@ export default async function RootLayout({
                     id="ft-font-bootstrap"
                     strategy="beforeInteractive"
                     dangerouslySetInnerHTML={{ __html: FONT_BOOTSTRAP_SCRIPT }}
+                />
+                <Script
+                    id="ft-website-structured-data"
+                    type="application/ld+json"
+                    strategy="beforeInteractive"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify(WEBSITE_STRUCTURED_DATA),
+                    }}
                 />
             </head>
             <body className="antialiased">
